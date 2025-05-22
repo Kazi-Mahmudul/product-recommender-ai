@@ -1,0 +1,69 @@
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from app.crud import phone as phone_crud
+from app.schemas.phone import Phone, PhoneList
+from app.core.database import get_db
+
+router = APIRouter()
+
+@router.get("/", response_model=PhoneList)
+def read_phones(
+    skip: int = 0,
+    limit: int = 100,
+    brand: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    min_ram: Optional[int] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all phones with filtering and pagination
+    """
+    phones, total = phone_crud.get_phones(
+        db, 
+        skip=skip, 
+        limit=limit,
+        brand=brand,
+        min_price=min_price,
+        max_price=max_price,
+        min_ram=min_ram,
+        search=search
+    )
+    return {"items": phones, "total": total}
+
+@router.get("/brands", response_model=List[str])
+def read_brands(db: Session = Depends(get_db)):
+    """
+    Get all unique phone brands
+    """
+    return phone_crud.get_brands(db)
+
+@router.get("/price-range")
+def read_price_range(db: Session = Depends(get_db)):
+    """
+    Get the minimum and maximum phone price
+    """
+    return phone_crud.get_price_range(db)
+
+@router.get("/{phone_id}", response_model=Phone)
+def read_phone(phone_id: int, db: Session = Depends(get_db)):
+    """
+    Get a specific phone by ID
+    """
+    db_phone = phone_crud.get_phone(db, phone_id=phone_id)
+    if db_phone is None:
+        raise HTTPException(status_code=404, detail=f"Phone with ID {phone_id} not found")
+    return db_phone
+
+@router.get("/name/{phone_name}", response_model=Phone)
+def read_phone_by_name(phone_name: str, db: Session = Depends(get_db)):
+    """
+    Get a specific phone by name
+    """
+    db_phone = phone_crud.get_phone_by_name(db, name=phone_name)
+    if db_phone is None:
+        raise HTTPException(status_code=404, detail=f"Phone with name '{phone_name}' not found")
+    return db_phone

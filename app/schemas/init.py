@@ -1,0 +1,1 @@
+from app.schemas.phone import Phone, PhoneCreate, PhoneInDB, PhoneList
