@@ -26,8 +26,7 @@ engine = create_engine(
     pool_size=5,
     max_overflow=10,
     pool_recycle=3600,
-    pool_pre_ping=True,  # Enable connection health checks
-    connect_args={"charset": "utf8mb4"}  # Specify charset
+    pool_pre_ping=True  # Enable connection health checks
 )
 
 # Create SessionLocal class
@@ -63,8 +62,8 @@ try:
     with engine.connect() as conn:
         logger.info("Successfully connected to database")
         # First check if the table exists
-        result = conn.execute(text("SHOW TABLES LIKE 'phones'"))
-        if result.rowcount > 0:
+        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'phones')"))
+        if result.scalar():
             # If table exists, count rows
             result = conn.execute(text("SELECT COUNT(*) FROM phones"))
             count = result.scalar()

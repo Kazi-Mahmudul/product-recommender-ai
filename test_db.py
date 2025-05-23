@@ -8,8 +8,8 @@ def test_database():
     # Test connection and data
     with engine.connect() as conn:
         # Check if table exists
-        result = conn.execute(text("SHOW TABLES LIKE 'phones'"))
-        if result.rowcount > 0:
+        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'phones')"))
+        if result.scalar():
             print("✅ phones table exists")
             
             # Count rows

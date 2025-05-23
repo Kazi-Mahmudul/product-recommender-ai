@@ -2,37 +2,19 @@ services:
   - type: web
     name: pickbd-ai
     env: python
-    buildCommand: |
-      pip install -r requirements.production.txt
+    buildCommand: pip install -r requirements.production.txt
+    startCommand: |
       alembic upgrade head
-    startCommand: gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT
+      gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        value: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}
-      - key: MYSQL_USER
         fromDatabase:
           name: pickbd-db
-          property: user
-      - key: MYSQL_PASSWORD
-        fromDatabase:
-          name: pickbd-db
-          property: password
-      - key: MYSQL_HOST
-        fromDatabase:
-          name: pickbd-db
-          property: host
-      - key: MYSQL_PORT
-        fromDatabase:
-          name: pickbd-db
-          property: port
-      - key: MYSQL_DATABASE
-        fromDatabase:
-          name: pickbd-db
-          property: database
+          property: connectionString
       - key: API_PREFIX
         value: /api/v1
       - key: CORS_ORIGINS
@@ -47,4 +29,11 @@ databases:
     databaseName: product_recommender
     user: product_user
     plan: free
-    ipAllowList: [] 
+
+# We don't define the database here as it's external
+# databases:
+#   - name: pickbd-db
+#     databaseName: product_recommender
+#     user: product_user
+#     plan: free
+#     ipAllowList: [] 

@@ -6,9 +6,8 @@ from dotenv import load_dotenv
 from app.api.api import api_router
 from app.core.config import settings
 
-# Load environment variables based on environment
-env_file = ".env.production" if os.getenv("ENVIRONMENT") == "production" else ".env"
-load_dotenv(dotenv_path=env_file)
+# Load environment variables from .env file
+load_dotenv(dotenv_path=".env")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
