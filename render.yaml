@@ -12,9 +12,27 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
+        value: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}
+      - key: MYSQL_USER
         fromDatabase:
           name: pickbd-db
-          property: connectionString
+          property: user
+      - key: MYSQL_PASSWORD
+        fromDatabase:
+          name: pickbd-db
+          property: password
+      - key: MYSQL_HOST
+        fromDatabase:
+          name: pickbd-db
+          property: host
+      - key: MYSQL_PORT
+        fromDatabase:
+          name: pickbd-db
+          property: port
+      - key: MYSQL_DATABASE
+        fromDatabase:
+          name: pickbd-db
+          property: database
       - key: API_PREFIX
         value: /api/v1
       - key: CORS_ORIGINS
@@ -28,4 +46,5 @@ databases:
   - name: pickbd-db
     databaseName: product_recommender
     user: product_user
-    plan: free 
+    plan: free
+    ipAllowList: [] 
