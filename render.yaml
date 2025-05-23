@@ -2,27 +2,23 @@ services:
   - type: web
     name: pickbd-ai
     env: python
-    buildCommand: pip install -r requirements.production.txt
-    startCommand: |
-      alembic upgrade head
-      gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.0
-      - key: ENVIRONMENT
-        value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: pickbd-db
+          name: product-recommender-db
           property: connectionString
-      - key: API_PREFIX
+      - key: API_V1_STR
         value: /api/v1
-      - key: CORS_ORIGINS
-        value: '["https://pickbd.ai", "http://localhost:3000"]'
+      - key: PROJECT_NAME
+        value: Product Recommender API
+      - key: BACKEND_CORS_ORIGINS
+        value: '["http://localhost:3000","http://localhost:8000","http://localhost:8080"]'
       - key: SECRET_KEY
         generateValue: true
-      - key: DEBUG
-        value: "false"
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
 
 databases:
   - name: pickbd-db
