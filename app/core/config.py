@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from typing import List
+import json
 
 # Load environment variables from .env file
 env_path = Path('.') / '.env'
@@ -18,5 +20,11 @@ class Settings:
     
     # Debug mode
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    
+    # CORS
+    CORS_ORIGINS: List[str] = json.loads(os.getenv("CORS_ORIGINS", '["*"]'))
+    
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
 
 settings = Settings()

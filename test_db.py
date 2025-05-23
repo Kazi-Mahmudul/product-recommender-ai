@@ -1,29 +1,29 @@
-from sqlalchemy import text
-from app.core.database import engine, SessionLocal
-import logging
+from sqlalchemy import create_engine, text
+from app.core.config import settings
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def test_database_connection():
-    try:
-        # Test connection
-        with engine.connect() as connection:
-            result = connection.execute(text("SELECT 1")).fetchone()
-            logger.info(f"Database connection test successful: {result}")
+def test_database():
+    # Create engine
+    engine = create_engine(settings.DATABASE_URL)
+    
+    # Test connection and data
+    with engine.connect() as conn:
+        # Check if table exists
+        result = conn.execute(text("SHOW TABLES LIKE 'phones'"))
+        if result.rowcount > 0:
+            print("✅ phones table exists")
             
-            # Check if phones table exists
-            result = connection.execute(text("SHOW TABLES LIKE 'phones'")).fetchone()
-            logger.info(f"Phones table exists: {result is not None}")
+            # Count rows
+            result = conn.execute(text("SELECT COUNT(*) FROM phones"))
+            count = result.scalar()
+            print(f"✅ Found {count} rows in phones table")
             
-            # Describe the phones table
-            result = connection.execute(text("DESCRIBE phones")).fetchall()
-            logger.info("Phone table columns:")
+            # Get sample data
+            result = conn.execute(text("SELECT id, name, brand, price FROM phones LIMIT 5"))
+            print("\nSample data:")
             for row in result:
-                logger.info(f"{row[0]}: {row[1]}")
-                
-    except Exception as e:
-        logger.error(f"Database connection test failed: {e}")
+                print(f"ID: {row[0]}, Name: {row[1]}, Brand: {row[2]}, Price: {row[3]}")
+        else:
+            print("❌ phones table does not exist")
 
-if __name__ == '__main__':
-    test_database_connection()
+if __name__ == "__main__":
+    test_database()

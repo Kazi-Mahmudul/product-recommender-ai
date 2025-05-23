@@ -1,22 +1,22 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime
 
 class PhoneBase(BaseModel):
     name: str
     brand: str
     model: str
-    price: Optional[float] = None
-    url: Optional[str] = None
+    price: float
+    url: str
 
     # Display
     display_type: Optional[str] = None
     screen_size_inches: Optional[float] = None
     display_resolution: Optional[str] = None
-    pixel_density_ppi: Optional[float] = None
-    refresh_rate_hz: Optional[float] = None
+    pixel_density_ppi: Optional[int] = None
+    refresh_rate_hz: Optional[int] = None
     screen_protection: Optional[str] = None
     display_brightness: Optional[str] = None
-    screen_to_body_ratio: Optional[str] = None
     aspect_ratio: Optional[str] = None
     hdr_support: Optional[str] = None
 
@@ -44,17 +44,20 @@ class PhoneBase(BaseModel):
     autofocus: Optional[str] = None
     flash: Optional[str] = None
     settings: Optional[str] = None
+    zoom: Optional[str] = None
+    shooting_modes: Optional[str] = None
+    video_fps: Optional[str] = None
 
     # Battery
     battery_type: Optional[str] = None
-    capacity: Optional[int] = None
+    capacity: Optional[str] = None
     quick_charging: Optional[str] = None
     wireless_charging: Optional[str] = None
     reverse_charging: Optional[str] = None
 
     # Design
     build: Optional[str] = None
-    weight: Optional[float] = None
+    weight: Optional[str] = None
     thickness: Optional[str] = None
     colors: Optional[str] = None
     waterproof: Optional[str] = None
@@ -93,15 +96,22 @@ class PhoneBase(BaseModel):
     status: Optional[str] = None
     made_by: Optional[str] = None
 
+    # Derived Columns
+    price_per_gb_ram: Optional[float] = None
+    price_per_gb_storage: Optional[float] = None
+    performance_score: Optional[float] = None
+    display_score: Optional[float] = None
+    camera_score: Optional[float] = None
+    storage_score: Optional[float] = None
+    battery_efficiency: Optional[float] = None
+    price_to_display: Optional[float] = None
+
 class PhoneCreate(PhoneBase):
     pass
 
 class PhoneInDB(PhoneBase):
     id: int
-
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Phone(PhoneInDB):
     """Phone model returned to clients"""

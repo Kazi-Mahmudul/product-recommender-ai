@@ -48,15 +48,29 @@ def read_price_range(db: Session = Depends(get_db)):
     """
     return phone_crud.get_price_range(db)
 
-@router.get("/{phone_id}", response_model=Phone)
-def read_phone(phone_id: int, db: Session = Depends(get_db)):
+@router.get("/recommendations", response_model=List[Phone])
+def get_smart_recommendations(
+    min_performance_score: Optional[float] = None,
+    min_display_score: Optional[float] = None,
+    min_camera_score: Optional[float] = None,
+    min_storage_score: Optional[float] = None,
+    min_battery_efficiency: Optional[float] = None,
+    max_price: Optional[float] = None,
+    db: Session = Depends(get_db)
+):
     """
-    Get a specific phone by ID
+    Get smart phone recommendations based on derived scores and price.
     """
-    db_phone = phone_crud.get_phone(db, phone_id=phone_id)
-    if db_phone is None:
-        raise HTTPException(status_code=404, detail=f"Phone with ID {phone_id} not found")
-    return db_phone
+    recommendations = phone_crud.get_smart_recommendations(
+        db,
+        min_performance_score=min_performance_score,
+        min_display_score=min_display_score,
+        min_camera_score=min_camera_score,
+        min_storage_score=min_storage_score,
+        min_battery_efficiency=min_battery_efficiency,
+        max_price=max_price
+    )
+    return recommendations
 
 @router.get("/name/{phone_name}", response_model=Phone)
 def read_phone_by_name(phone_name: str, db: Session = Depends(get_db)):
@@ -66,4 +80,14 @@ def read_phone_by_name(phone_name: str, db: Session = Depends(get_db)):
     db_phone = phone_crud.get_phone_by_name(db, name=phone_name)
     if db_phone is None:
         raise HTTPException(status_code=404, detail=f"Phone with name '{phone_name}' not found")
+    return db_phone
+
+@router.get("/{phone_id}", response_model=Phone)
+def read_phone(phone_id: int, db: Session = Depends(get_db)):
+    """
+    Get a specific phone by ID
+    """
+    db_phone = phone_crud.get_phone(db, phone_id=phone_id)
+    if db_phone is None:
+        raise HTTPException(status_code=404, detail=f"Phone with ID {phone_id} not found")
     return db_phone

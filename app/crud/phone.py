@@ -1,9 +1,12 @@
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import logging
 
 from app.models.phone import Phone
 from app.schemas.phone import PhoneCreate
+
+logger = logging.getLogger(__name__)
 
 def get_phones(
     db: Session, 
@@ -57,37 +60,134 @@ def get_phone_by_name(db: Session, name: str) -> Optional[Phone]:
     """
     return db.query(Phone).filter(Phone.name == name).first()
 
+def get_phone_by_name_and_brand(db: Session, name: str, brand: str) -> Optional[Phone]:
+    """
+    Get a single phone by name and brand
+    """
+    return db.query(Phone).filter(
+        Phone.name == name,
+        Phone.brand == brand
+    ).first()
+
 def get_brands(db: Session) -> List[str]:
     """
     Get all unique brands in the database
     """
-    return [brand[0] for brand in db.query(Phone.brand).distinct().all()]
+    try:
+        return [brand[0] for brand in db.query(Phone.brand).distinct().all()]
+    except Exception as e:
+        logger.error(f"Error fetching brands: {str(e)}")
+        return []
 
 def get_price_range(db: Session) -> Dict[str, float]:
     """
     Get the minimum and maximum price in the database
     """
-    min_price = db.query(func.min(Phone.price)).scalar()
-    max_price = db.query(func.max(Phone.price)).scalar()
-    return {"min": min_price, "max": max_price}
+    try:
+        min_price = db.query(func.min(Phone.price)).scalar()
+        max_price = db.query(func.max(Phone.price)).scalar()
+        return {"min": min_price, "max": max_price}
+    except Exception as e:
+        logger.error(f"Error fetching price range: {str(e)}")
+        return {"min": None, "max": None}
 
 def create_phone(db: Session, phone: PhoneCreate) -> Phone:
     """
     Create a new phone
     """
-    db_phone = Phone(**phone.model_dump())
-    db.add(db_phone)
-    db.commit()
-    db.refresh(db_phone)
-    return db_phone
+    try:
+        db_phone = Phone(**phone.model_dump())
+        db.add(db_phone)
+        db.commit()
+        db.refresh(db_phone)
+        logger.info(f"Created phone: {db_phone.name} with ID {db_phone.id}")
+        return db_phone
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating phone: {str(e)}")
+        raise
 
 def create_phones_batch(db: Session, phones: List[Dict[str, Any]]) -> List[Phone]:
     """
     Create multiple phones at once
     """
-    db_phones = [Phone(**phone) for phone in phones]
-    db.add_all(db_phones)
-    db.commit()
-    for phone in db_phones:
-        db.refresh(phone)
-    return db_phones
+    try:
+        db_phones = []
+        for phone_data in phones:
+            try:
+                db_phone = Phone(**phone_data)
+                db.add(db_phone)
+                db_phones.append(db_phone)
+            except Exception as e:
+                logger.error(f"Error creating phone {phone_data.get('name', 'Unknown')}: {str(e)}")
+                continue
+        
+        db.commit()
+        for phone in db_phones:
+            db.refresh(phone)
+            logger.info(f"Created phone: {phone.name} with ID {phone.id}")
+        
+        return db_phones
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in batch creation: {str(e)}")
+        raise
+
+def get_smart_recommendations(
+    db: Session,
+    min_performance_score: Optional[float] = None,
+    min_display_score: Optional[float] = None,
+    min_camera_score: Optional[float] = None,
+    min_storage_score: Optional[float] = None,
+    min_battery_efficiency: Optional[float] = None,
+    max_price: Optional[float] = None
+):
+    """
+    Get smart phone recommendations based on derived scores and price.
+    """
+    query = db.query(Phone)
+    if min_performance_score is not None:
+        query = query.filter(Phone.performance_score >= min_performance_score)
+    if min_display_score is not None:
+        query = query.filter(Phone.display_score >= min_display_score)
+    if min_camera_score is not None:
+        query = query.filter(Phone.camera_score >= min_camera_score)
+    if min_storage_score is not None:
+        query = query.filter(Phone.storage_score >= min_storage_score)
+    if min_battery_efficiency is not None:
+        query = query.filter(Phone.battery_efficiency >= min_battery_efficiency)
+    if max_price is not None:
+        query = query.filter(Phone.price <= max_price)
+    return query.all()
+
+# Placeholder functions
+def get_price_history(db: Session, phone_id: int):
+    """
+    Get price history for a specific phone.
+    """
+    # Placeholder for price history logic
+    return {"message": "Price history not implemented yet."}
+
+def get_reviews(db: Session, phone_id: int):
+    """
+    Get user reviews for a specific phone.
+    """
+    # Placeholder for reviews logic
+    return {"message": "Reviews not implemented yet."}
+
+def get_similar_phones(db: Session, phone_id: int) -> List[Phone]:
+    """
+    Get phones similar to a given phone.
+    """
+    phone = get_phone(db, phone_id)
+    if not phone:
+        return []
+    # Placeholder for similar phones logic
+    return []
+
+def get_stats(db: Session):
+    """
+    Get aggregate statistics about the phones in the database.
+    """
+    # Placeholder for stats logic
+    return {"message": "Statistics not implemented yet."}

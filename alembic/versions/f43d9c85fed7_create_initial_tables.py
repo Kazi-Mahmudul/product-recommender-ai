@@ -32,7 +32,7 @@ def upgrade() -> None:
     sa.Column('refresh_rate_hz', sa.Float(), nullable=True),
     sa.Column('screen_protection', sa.String(length=100), nullable=True),
     sa.Column('display_brightness', sa.String(length=100), nullable=True),
-    sa.Column('screen_to_body_ratio', sa.String(length=50), nullable=True),
+    # sa.Column('screen_to_body_ratio', sa.String(length=50), nullable=True),
     sa.Column('aspect_ratio', sa.String(length=50), nullable=True),
     sa.Column('hdr_support', sa.String(length=50), nullable=True),
     sa.Column('chipset', sa.String(length=255), nullable=True),
