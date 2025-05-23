@@ -3,7 +3,7 @@ services:
     name: pickbd-ai
     env: python
     buildCommand: pip install -r requirements.production.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -14,11 +14,17 @@ services:
       - key: PROJECT_NAME
         value: Product Recommender API
       - key: BACKEND_CORS_ORIGINS
-        value: '["http://localhost:3000","http://localhost:8000","http://localhost:8080"]'
+        value: '["http://localhost:3000","http://localhost:8000","http://localhost:8080","https://pickbd-ai.onrender.com"]'
       - key: SECRET_KEY
         generateValue: true
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 30
+      - key: DEBUG
+        value: "true"
+      - key: API_PREFIX
+        value: /api/v1
+      - key: CORS_ORIGINS
+        value: '["*"]'
 
 databases:
   - name: pickbd-db
