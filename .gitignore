@@ -19,6 +19,10 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Environments
 .venv
@@ -33,6 +37,7 @@ venv.bak/
 .vscode/
 *.swp
 *.swo
+*.sublime-*
 
 # Logs
 logs/
@@ -40,3 +45,46 @@ logs/
 
 # Local development
 .DS_Store
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Database
+*.sqlite3
+*.db
+
+# Local development
+local_settings.py
+
+# Secrets
+secrets.yaml
+secrets.yml
+*.pem
+*.key
+*.p12
+*.crt
+*.cert
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+media/
+staticfiles/
+
+# Alembic
+/alembic/versions/*
+!alembic/README
+!alembic/script.py.mako
+!alembic/env.py

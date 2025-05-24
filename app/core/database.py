@@ -12,21 +12,25 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables based on environment
-env_file = ".env.production" if os.getenv("ENVIRONMENT") == "production" else ".env"
-load_dotenv(dotenv_path=env_file)
+# Load environment variables
+load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+# Get database URL from settings
+if not settings.DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+# Handle postgres:// to postgresql:// URL scheme issue for SQLAlchemy
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1) if settings.DATABASE_URL.startswith("postgres://") else settings.DATABASE_URL
 
 # Create SQLAlchemy engine with explicit echo
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    echo=True,  # Enable SQL logging
-    echo_pool=True,  # Enable pool logging
+    echo=settings.DEBUG,  # Only enable SQL logging in debug mode
     pool_size=5,
     max_overflow=10,
-    pool_recycle=3600,
-    pool_pre_ping=True  # Enable connection health checks
+    pool_recycle=300,  # Recycle connections after 5 minutes
+    pool_pre_ping=True,  # Enable connection health checks
+    connect_args={"sslmode": "require"}  # Force SSL for production
 )
 
 # Create SessionLocal class

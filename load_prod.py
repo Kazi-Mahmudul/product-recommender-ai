@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 
 # Database URL
 DATABASE_URL = "postgresql://product_user1:8oZhXwwMrEZ0RK3uzHYIlqbzC0O8IPKV@dpg-d0o91hodl3ps73ac3j80-a.singapore-postgres.render.com/product_recommender"
@@ -13,27 +13,42 @@ def load_data():
         print("Reading CSV file...")
         df = pd.read_csv('mobiledokan_data.csv')
         
+        # Print column names from CSV
+        print("\nCSV Columns:", df.columns.tolist())
+        
         # Load data into the database
-        print("Loading data into production database...")
+        print("\nLoading data into production database...")
         df.to_sql('phones', engine, if_exists='replace', index=False)
+        
+        # Check table structure
+        inspector = inspect(engine)
+        columns = inspector.get_columns('phones')
+        print("\nTable Structure:")
+        for column in columns:
+            print(f"Column: {column['name']}, Type: {column['type']}")
         
         # Verify the data
         with engine.connect() as connection:
-            result = connection.execute(text("SELECT COUNT(*) FROM phones"))
-            count = result.scalar()
-            print(f"\nSuccessfully loaded {count} phones into the production database!")
+            # Check if table exists
+            result = connection.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'phones')"))
+            table_exists = result.scalar()
+            print(f"\nTable exists: {table_exists}")
             
-            # Show sample data
-            result = connection.execute(text("SELECT name, brand, price FROM phones LIMIT 5"))
-            phones = result.fetchall()
-            
-            print("\nSample phones:")
-            print("-" * 50)
-            for phone in phones:
-                print(f"Name: {phone[0]}")
-                print(f"Brand: {phone[1]}")
-                print(f"Price: ${phone[2]:,.2f}")
+            if table_exists:
+                # Count records
+                result = connection.execute(text("SELECT COUNT(*) FROM phones"))
+                count = result.scalar()
+                print(f"\nTotal records in database: {count}")
+                
+                # Show sample data
+                result = connection.execute(text("SELECT * FROM phones LIMIT 5"))
+                phones = result.fetchall()
+                
+                print("\nSample phones:")
                 print("-" * 50)
+                for phone in phones:
+                    print(f"Phone data: {phone}")
+                    print("-" * 50)
                 
     except Exception as e:
         print(f"Error loading data: {str(e)}")
