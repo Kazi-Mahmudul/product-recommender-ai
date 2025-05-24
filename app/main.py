@@ -1,10 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.api.api import api_router
 from app.core.config import settings
+from app.core.database import get_db
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path=".env")
@@ -41,6 +44,42 @@ def root():
         "version": settings.PROJECT_VERSION,
         "docs": f"{settings.API_PREFIX}/docs"
     }
+
+@app.get(f"{settings.API_PREFIX}/test-db")
+async def test_db_connection(db: Session = Depends(get_db)):
+    """
+    Test database connection and table structure
+    """
+    try:
+        # Test connection
+        db.execute(text("SELECT 1"))
+        
+        # Check if phones table exists and has data
+        result = db.execute(text("SELECT COUNT(*) FROM phones"))
+        count = result.scalar()
+        
+        # Get column names
+        result = db.execute(text("""
+            SELECT column_name, data_type, is_nullable 
+            FROM information_schema.columns 
+            WHERE table_name = 'phones'
+        """))
+        columns = [dict(row) for row in result.mappings()]
+        
+        return {
+            "status": "success",
+            "table_exists": True,
+            "row_count": count,
+            "columns": columns[:5],  # Show first 5 columns to avoid huge response
+            "total_columns": len(columns)
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "table_exists": False
+        }
 
 if __name__ == "__main__":
     import uvicorn

@@ -25,6 +25,7 @@ class Percentage(TypeDecorator):
 class Phone(Base):
     __tablename__ = "phones"
 
+    # Core fields
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(512), index=True)
     brand = Column(String(255), index=True)
@@ -41,7 +42,7 @@ class Phone(Base):
     screen_protection = Column(String(255))
     display_brightness = Column(String(255))
     aspect_ratio = Column(String(255))
-    hdr_support = Column(String(255)) 
+    hdr_support = Column(String(255))
 
     # Performance
     chipset = Column(String(512))
@@ -52,7 +53,7 @@ class Phone(Base):
     internal_storage = Column(String(255))
     storage_type = Column(String(255))
     virtual_ram = Column(String(255))
-
+    
     # Camera
     camera_setup = Column(String(512))
     primary_camera_resolution = Column(String(512))
@@ -98,20 +99,29 @@ class Phone(Base):
     nfc = Column(String(255))
     usb_type_c = Column(String(255))
     usb_otg = Column(String(255))
-
-    # Security
     fingerprint_sensor = Column(String(255))
     finger_sensor_type = Column(String(255))
     finger_sensor_position = Column(String(255))
     face_unlock = Column(String(255))
-
-    # Sensors
+    light_sensor = Column(String(255))
+    sensor = Column(String(255))
+    infrared = Column(String(255))
+    fm_radio = Column(String(255))
+    operating_system = Column(String(255))
+    os_version = Column(String(255))
+    user_interface = Column(String(255))
+    status = Column(String(255))
+    made_by = Column(String(255))
+    release_date = Column(String(255))
+    
+    # Derived metrics
+    price_per_gb_ram = Column(Float)
+    price_per_gb_storage = Column(Float)
+    performance_score = Column(Float)
     light_sensor = Column(String(1024))
     sensor = Column(String(1024))
     infrared = Column(String(255))
     fm_radio = Column(String(255))
-
-    # OS
     operating_system = Column(String(255))
     os_version = Column(String(255))
     user_interface = Column(String(255))
