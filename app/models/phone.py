@@ -4,24 +4,6 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base
 
-class Percentage(TypeDecorator):
-    """Custom type for handling percentage values."""
-    impl = Float
-    
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        if isinstance(value, str):
-            # Remove % sign and convert to decimal
-            value = value.replace('%', '').strip()
-        try:
-            return float(value) / 100
-        except (ValueError, TypeError):
-            return None
-    
-    def process_result_value(self, value, dialect):
-        return value
-
 class Phone(Base):
     __tablename__ = "phones"
 
@@ -115,21 +97,6 @@ class Phone(Base):
     release_date = Column(String(255))
     
     # Derived metrics
-    price_per_gb_ram = Column(Float)
-    price_per_gb_storage = Column(Float)
-    performance_score = Column(Float)
-    light_sensor = Column(String(1024))
-    sensor = Column(String(1024))
-    infrared = Column(String(255))
-    fm_radio = Column(String(255))
-    operating_system = Column(String(255))
-    os_version = Column(String(255))
-    user_interface = Column(String(255))
-    release_date = Column(String(255))
-    status = Column(String(255))
-    made_by = Column(String(255))
-
-    # Derived Columns
     price_per_gb_ram = Column(Float, nullable=True)
     price_per_gb_storage = Column(Float, nullable=True)
     performance_score = Column(Float, nullable=True)
