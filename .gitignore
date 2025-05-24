@@ -24,6 +24,9 @@ var/
 .coverage
 htmlcov/
 
+# Alembic
+alembic/versions/*.py
+
 # Environments
 .venv
 env/
@@ -49,7 +52,6 @@ logs/
 # Environment variables
 .env
 .env.*
-!.env.example
 
 # Jupyter Notebook
 .ipynb_checkpoints
