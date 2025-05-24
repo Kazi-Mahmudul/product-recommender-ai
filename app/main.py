@@ -58,19 +58,25 @@ async def test_db_connection(db: Session = Depends(get_db)):
         result = db.execute(text("SELECT COUNT(*) FROM phones"))
         count = result.scalar()
         
-        # Get column names
+        # Get all column names with their details
         result = db.execute(text("""
-            SELECT column_name, data_type, is_nullable 
+            SELECT column_name, data_type, is_nullable, 
+                   character_maximum_length, column_default
             FROM information_schema.columns 
             WHERE table_name = 'phones'
+            ORDER BY ordinal_position
         """))
         columns = [dict(row) for row in result.mappings()]
+        
+        # Get the actual column names for verification
+        column_names = [col['column_name'] for col in columns]
         
         return {
             "status": "success",
             "table_exists": True,
             "row_count": count,
-            "columns": columns[:5],  # Show first 5 columns to avoid huge response
+            "columns": columns,  # Show all columns
+            "column_names": column_names,  # Just the names for easy checking
             "total_columns": len(columns)
         }
         
