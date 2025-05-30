@@ -20,10 +20,10 @@ async def process_natural_language_query(
     Process a natural language query and return relevant phone recommendations
     """
     try:
-        # Call Grok-3 service to parse the query
+        # Call Gemini service to parse the query
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.GROK_SERVICE_URL}/parse-query",
+                f"{settings.GEMINI_SERVICE_URL}/parse-query",
                 json={"query": query}
             )
             response.raise_for_status()
@@ -45,7 +45,7 @@ async def process_natural_language_query(
     except httpx.HTTPError as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error communicating with Grok-3 service: {str(e)}"
+            detail=f"Error communicating with Gemini service: {str(e)}"
         )
     except Exception as e:
         raise HTTPException(

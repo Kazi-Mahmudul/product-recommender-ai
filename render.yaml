@@ -10,12 +10,12 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: GEMINI_SERVICE_URL
-        value: https://pickbd-gemini.onrender.com
+        value: https://gemini-api-wm3b.onrender.com
     healthCheckPath: /api/v1/health
     autoDeploy: true
 
   - type: web
-    name: pickbd-gemini
+    name: gemini-api
     env: node
     buildCommand: cd backend/grok_service && npm install
     startCommand: cd backend/grok_service && npm start
