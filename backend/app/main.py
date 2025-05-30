@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
 
 app = FastAPI(title="PickBD API")
@@ -48,17 +48,26 @@ async def natural_language_query(request: QueryRequest):
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{GEMINI_SERVICE_URL}/parse-query",
-                json={"query": request.query}
+                json={"query": request.query},
+                timeout=30.0  # Add timeout
             )
             
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail="Error from Gemini service"
+                    detail=f"Error from Gemini service: {response.text}"
                 )
             
             # Get the parsed filters from Gemini service
-            filters = response.json()
+            response_data = response.json()
+            
+            if "filters" not in response_data:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Invalid response format from Gemini service"
+                )
+            
+            filters = response_data["filters"]
             
             # TODO: Use these filters to query your database
             # For now, return mock data
