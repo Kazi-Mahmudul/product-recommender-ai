@@ -171,7 +171,7 @@ function App() {
           <div className="flex-grow flex flex-col items-center justify-center text-center">
             <div className="text-center mb-8">
               <h2 className={`text-2xl font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Find Your Perfect Phone
+                Find Your Perfect Phone in Bangladesh
               </h2>
               <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Ask me about phones and I'll recommend the best options for you
