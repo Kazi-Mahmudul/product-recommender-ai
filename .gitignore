@@ -24,6 +24,10 @@ var/
 .coverage
 htmlcov/
 
+# Data files
+data/
+*.csv
+
 # Alembic
 alembic/versions/*.py
 

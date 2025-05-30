@@ -57,11 +57,12 @@ function App() {
 
     try {
       // Send the user's query to get AI-powered recommendations
-      const response = await fetch(`${API_BASE_URL}/api/v1/phones/recommendations?query=${encodeURIComponent(input)}`, {
-        method: 'GET',
+      const response = await fetch(`${API_BASE_URL}/api/v1/natural-language/query`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({ query: input })
       });
 
       if (!response.ok) {
@@ -106,41 +107,58 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-200">
-      <nav className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">PickBD</h1>
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            AI Phone Recommender
+          </h1>
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-2 rounded-lg hover:bg-accent"
+            className={`p-2 rounded-lg ${
+              darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
+            }`}
           >
             {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
         </div>
-      </nav>
 
-      <main className="container mx-auto p-4 max-w-4xl">
-        <div className="flex flex-col h-[calc(100vh-8rem)]">
-          <div className="flex-1 overflow-y-auto space-y-4 p-4">
+        <div className={`rounded-lg p-6 ${
+          darkMode ? 'bg-gray-800' : 'bg-white'
+        } shadow-lg`}>
+          <div className="space-y-4 mb-4">
             {messages.map((message) => (
               <motion.div
                 key={message.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-                className={`chat-bubble ${
-                  message.role === 'user' ? 'user-bubble' : 'assistant-bubble'
+                className={`p-4 rounded-lg ${
+                  message.role === 'user'
+                    ? darkMode
+                      ? 'bg-blue-600 text-white ml-12'
+                      : 'bg-blue-500 text-white ml-12'
+                    : darkMode
+                    ? 'bg-gray-700 text-white mr-12'
+                    : 'bg-gray-100 text-gray-900 mr-12'
                 }`}
               >
-                {message.content}
+                <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
               </motion.div>
             ))}
             {isTyping && (
-              <div className="typing-indicator">
-                <div className="typing-dot" style={{ animationDelay: '0ms' }} />
-                <div className="typing-dot" style={{ animationDelay: '150ms' }} />
-                <div className="typing-dot" style={{ animationDelay: '300ms' }} />
-              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className={`p-4 rounded-lg ${
+                  darkMode ? 'bg-gray-700 text-white mr-12' : 'bg-gray-100 text-gray-900 mr-12'
+                }`}
+              >
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
+                </div>
+              </motion.div>
             )}
           </div>
 

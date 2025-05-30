@@ -3,28 +3,31 @@ services:
     name: pickbd-ai
     env: python
     buildCommand: pip install -r requirements.production.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
       - key: DATABASE_URL
-        fromDatabase:
-          name: product-recommender-db
-          property: connectionString
-      - key: API_V1_STR
-        value: /api/v1
-      - key: PROJECT_NAME
-        value: Product Recommender API
-      - key: BACKEND_CORS_ORIGINS
-        value: '["http://localhost:3000","http://localhost:8000","http://localhost:8080","https://pickbd-ai.onrender.com"]'
-      - key: SECRET_KEY
-        generateValue: true
-      - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: 30
-      - key: DEBUG
-        value: "true"
-      - key: API_PREFIX
-        value: /api/v1
-      - key: CORS_ORIGINS
-        value: '["*"]'
+        sync: false
+      - key: GEMINI_SERVICE_URL
+        value: https://pickbd-gemini.onrender.com
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+
+  - type: web
+    name: pickbd-gemini
+    env: node
+    buildCommand: cd backend/grok_service && npm install
+    startCommand: cd backend/grok_service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: GOOGLE_API_KEY
+        sync: false
+    healthCheckPath: /health
+    autoDeploy: true
 
 databases:
   - name: pickbd-db

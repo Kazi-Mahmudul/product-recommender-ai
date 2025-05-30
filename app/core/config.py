@@ -1,30 +1,31 @@
-import os
-from dotenv import load_dotenv
-from pathlib import Path
+from pydantic_settings import BaseSettings
 from typing import List
-import json
+import os
 
-# Load environment variables from .env file
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
-
-class Settings:
-    PROJECT_NAME: str = "Mobile Phone Recommender API"
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "PickBD"
     PROJECT_VERSION: str = "1.0.0"
+    API_PREFIX: str = "/api/v1"
+    DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
     
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL")
+    # Database settings
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/pickbd")
     
-    # API
-    API_PREFIX: str = os.getenv("API_PREFIX", "/api/v1")
+    # CORS settings
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "https://pickbd.com",
+        "https://pickbd-ai.onrender.com"
+    ]
     
-    # Debug mode
-    DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
-    
-    # CORS
-    CORS_ORIGINS: List[str] = json.loads(os.getenv("CORS_ORIGINS", '["*"]'))
-    
-    # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    # Grok-3 service settings
+    GROK_SERVICE_URL: str = os.getenv(
+        "GROK_SERVICE_URL",
+        "http://localhost:3001" if os.getenv("DEBUG", "True").lower() == "true" else "https://pickbd-grok-service.onrender.com"
+    )
+
+    class Config:
+        case_sensitive = True
 
 settings = Settings()
