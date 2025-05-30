@@ -57,28 +57,32 @@ function App() {
 
     try {
       // Send the user's query to get AI-powered recommendations
-      const response = await fetch(`${API_BASE_URL}/api/v1/natural-language/query`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(input)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: input })
+        }
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
 
       const recommendations: Phone[] = await response.json();
       
+      if (!recommendations || recommendations.length === 0) {
+        throw new Error('No recommendations found for your query.');
+      }
+
       // Format the recommendations into a readable message
       const recommendationsText = recommendations
         .slice(0, 5) // Show top 5 recommendations
         .map((phone, index) => 
           `📱 ${index + 1}. ${phone.brand} ${phone.name}\n` +
           `   💰 Price: BDT ${phone.price.toLocaleString()}\n` +
-          `   💾 RAM: ${phone.ram}GB\n` +
-          `   💿 Storage: ${phone.internal_storage}GB\n` +
+          `   💾 RAM: ${phone.ram}\n` +
+          `   💿 Storage: ${phone.internal_storage}\n` +
           `   ⚡ Performance: ${phone.performance_score.toFixed(1)}/10\n` +
           `   📸 Camera: ${phone.camera_score.toFixed(1)}/10\n` +
           `   🖥️ Display: ${phone.display_score.toFixed(1)}/10\n` +
@@ -97,7 +101,7 @@ function App() {
       console.error('Error:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'Sorry, there was an error getting recommendations. Please try again.',
+        content: `Sorry, there was an error: ${error instanceof Error ? error.message : 'Please try again.'}`,
         role: 'assistant',
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -111,7 +115,7 @@ function App() {
       <main className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            AI Phone Recommender
+            PickBD
           </h1>
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -135,8 +139,8 @@ function App() {
                 className={`p-4 rounded-lg ${
                   message.role === 'user'
                     ? darkMode
-                      ? 'bg-blue-600 text-white ml-12'
-                      : 'bg-blue-500 text-white ml-12'
+                      ? 'bg-brand text-white ml-12'
+                      : 'bg-brand text-white ml-12'
                     : darkMode
                     ? 'bg-gray-700 text-white mr-12'
                     : 'bg-gray-100 text-gray-900 mr-12'
@@ -169,7 +173,11 @@ function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Describe what kind of phone you're looking for..."
-                className="flex-1 p-2 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-brand"
+                className={`flex-1 p-2 rounded-lg border ${
+                  darkMode 
+                    ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' 
+                    : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500'
+                } focus:outline-none focus:ring-2 focus:ring-brand`}
               />
               <button
                 type="submit"

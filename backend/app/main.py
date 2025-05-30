@@ -4,6 +4,8 @@ import httpx
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import os
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 app = FastAPI(title="PickBD API")
@@ -16,6 +18,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Database setup
+engine = create_engine(settings.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class QueryRequest(BaseModel):
     query: str
@@ -39,6 +45,39 @@ class Phone(BaseModel):
 async def health_check():
     return {"status": "healthy"}
 
+def build_query(filters: Dict[str, Any]) -> str:
+    """Build SQL query based on filters."""
+    conditions = []
+    params = {}
+    
+    if "price_max" in filters:
+        conditions.append("price <= :price_max")
+        params["price_max"] = filters["price_max"]
+    
+    if "price_min" in filters:
+        conditions.append("price >= :price_min")
+        params["price_min"] = filters["price_min"]
+    
+    if "ram" in filters:
+        conditions.append("ram = :ram")
+        params["ram"] = filters["ram"]
+    
+    if "brand" in filters:
+        conditions.append("LOWER(brand) = LOWER(:brand)")
+        params["brand"] = filters["brand"]
+    
+    if "limit" in filters:
+        limit = filters["limit"]
+    else:
+        limit = 5  # Default limit
+    
+    query = "SELECT * FROM phones"
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += f" LIMIT {limit}"
+    
+    return query, params
+
 @app.post("/api/v1/natural-language/query", response_model=List[Phone])
 async def natural_language_query(request: QueryRequest):
     try:
@@ -47,7 +86,7 @@ async def natural_language_query(request: QueryRequest):
             response = await client.post(
                 f"{settings.GEMINI_SERVICE_URL}/parse-query",
                 json={"query": request.query},
-                timeout=30.0  # Add timeout
+                timeout=30.0
             )
             
             if response.status_code != 200:
@@ -67,25 +106,37 @@ async def natural_language_query(request: QueryRequest):
             
             filters = response_data["filters"]
             
-            # TODO: Use these filters to query your database
-            # For now, return mock data
-            return [
-                Phone(
-                    id=1,
-                    name="Sample Phone",
-                    brand="Sample Brand",
-                    price=20000.0,
-                    ram=8,
-                    internal_storage=128,
-                    display_size=6.5,
-                    battery=5000,
-                    camera_score=8.5,
-                    performance_score=8.0,
-                    display_score=8.0,
-                    storage_score=8.0,
-                    battery_efficiency=8.0
-                )
-            ]
+            # Build and execute the database query
+            query, params = build_query(filters)
+            db = SessionLocal()
+            try:
+                result = db.execute(text(query), params)
+                phones = result.fetchall()
+                
+                if not phones:
+                    return []
+                
+                # Convert to Phone objects
+                return [
+                    Phone(
+                        id=phone.id,
+                        name=phone.name,
+                        brand=phone.brand,
+                        price=phone.price,
+                        ram=phone.ram,
+                        internal_storage=phone.internal_storage,
+                        display_size=phone.display_size,
+                        battery=phone.battery,
+                        camera_score=phone.camera_score,
+                        performance_score=phone.performance_score,
+                        display_score=phone.display_score,
+                        storage_score=phone.storage_score,
+                        battery_efficiency=phone.battery_efficiency
+                    )
+                    for phone in phones
+                ]
+            finally:
+                db.close()
             
     except httpx.RequestError as e:
         raise HTTPException(
