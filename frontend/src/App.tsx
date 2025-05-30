@@ -112,7 +112,7 @@ function App() {
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex flex-col h-screen">
         <div className="flex justify-between items-center mb-8">
           <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             PickBD
@@ -127,70 +127,111 @@ function App() {
           </button>
         </div>
 
-        <div className={`rounded-lg p-6 ${
-          darkMode ? 'bg-gray-800' : 'bg-white'
-        } shadow-lg`}>
-          <div className="space-y-4 mb-4">
-            {messages.map((message) => (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-lg ${
-                  message.role === 'user'
-                    ? darkMode
-                      ? 'bg-brand text-white ml-12'
-                      : 'bg-brand text-white ml-12'
-                    : darkMode
-                    ? 'bg-gray-700 text-white mr-12'
-                    : 'bg-gray-100 text-gray-900 mr-12'
-                }`}
-              >
-                <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
-              </motion.div>
-            ))}
-            {isTyping && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className={`p-4 rounded-lg ${
-                  darkMode ? 'bg-gray-700 text-white mr-12' : 'bg-gray-100 text-gray-900 mr-12'
-                }`}
-              >
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
-                </div>
-              </motion.div>
-            )}
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Describe what kind of phone you're looking for..."
-                className={`flex-1 p-2 rounded-lg border ${
-                  darkMode 
-                    ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' 
-                    : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500'
-                } focus:outline-none focus:ring-2 focus:ring-brand`}
-              />
-              <button
-                type="submit"
-                className="p-2 rounded-lg bg-brand text-white hover:bg-brand/90 transition-colors"
-              >
-                <Send className="h-5 w-5" />
-              </button>
+        {messages.length > 0 ? (
+          <div className={`rounded-lg p-6 flex-grow overflow-y-auto lg:w-[800px] mx-auto ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          } shadow-lg mb-4`}>
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded-lg ${
+                    message.role === 'user'
+                      ? darkMode
+                        ? 'bg-brand text-white ml-12'
+                        : 'bg-brand text-white ml-12'
+                      : darkMode
+                      ? 'bg-gray-700 text-white mr-12'
+                      : 'bg-gray-100 text-gray-900 mr-12'
+                  }`}
+                >
+                  <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
+                </motion.div>
+              ))}
+              {isTyping && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={`p-4 rounded-lg ${
+                    darkMode ? 'bg-gray-700 text-white mr-12' : 'bg-gray-100 text-gray-900 mr-12'
+                  }`}
+                >
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
+                  </div>
+                </motion.div>
+              )}
             </div>
-          </form>
-        </div>
+          </div>
+        ) : (
+          <div className="flex-grow flex flex-col items-center justify-center text-center">
+            <div className="text-center mb-8">
+              <h2 className={`text-2xl font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                Find Your Perfect Phone
+              </h2>
+              <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                Ask me about phones and I'll recommend the best options for you
+              </p>
+            </div>
+
+            <div className="w-full max-w-2xl px-4">
+              <form onSubmit={handleSubmit} className="w-full">
+                <div className="relative w-full h-32 flex">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Describe what kind of phone you're looking for..."
+                    className={`w-full h-full resize-none p-4 rounded-lg border sm:text-base text-lg ${
+                      darkMode 
+                        ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' 
+                        : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500'
+                    } focus:outline-none focus:ring-2 focus:ring-brand pr-12`}
+                    rows={1}
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-2 bottom-2 p-2 rounded-md bg-brand text-white hover:bg-brand/90 transition-colors flex items-center justify-center"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="flex justify-center items-center w-full absolute bottom-8 left-0 right-0 px-4">
+            <form onSubmit={handleSubmit} className="w-full max-w-2xl">
+              <div className="relative w-full h-16 flex items-center">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Describe what kind of phone you're looking for..."
+                  className={`w-full h-full resize-none py-4 px-2 rounded-lg border sm:text-base text-lg ${
+                    darkMode 
+                      ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' 
+                      : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500'
+                  } focus:outline-none focus:ring-2 focus:ring-brand pr-12`}
+                  rows={1}
+                />
+                <button
+                  type="submit"
+                  className="absolute right-2 bottom-2 p-2 rounded-md bg-brand text-white hover:bg-brand/90 transition-colors flex items-center justify-center"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-export default App; 
+export default App;
