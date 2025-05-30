@@ -140,10 +140,13 @@ def get_smart_recommendations(
     min_camera_score: Optional[float] = None,
     min_storage_score: Optional[float] = None,
     min_battery_efficiency: Optional[float] = None,
-    max_price: Optional[float] = None
+    max_price: Optional[float] = None,
+    min_ram: Optional[float] = None,
+    brand: Optional[str] = None,
+    limit: Optional[int] = None
 ):
     """
-    Get smart phone recommendations based on derived scores and price.
+    Get smart phone recommendations based on derived scores, price, RAM, and brand.
     """
     query = db.query(Phone)
     if min_performance_score is not None:
@@ -158,7 +161,25 @@ def get_smart_recommendations(
         query = query.filter(Phone.battery_efficiency >= min_battery_efficiency)
     if max_price is not None:
         query = query.filter(Phone.price <= max_price)
-    return query.all()
+    
+    # New filters
+    if min_ram is not None:
+        # Since RAM is stored as a string like "8 GB", we need to extract the numeric part
+        # We'll use SQL CAST and a regex to extract the number
+        from sqlalchemy import cast, Float, func
+        query = query.filter(
+            cast(func.regexp_replace(Phone.ram, '[^0-9.]', '', 'g'), Float) >= min_ram
+        )
+    if brand is not None:
+        query = query.filter(func.lower(Phone.brand) == func.lower(brand))
+    
+    # Get all results and then apply limit if specified
+    results = query.all()
+    
+    # Apply limit if specified, otherwise return all results
+    if limit is not None:
+        return results[:limit]
+    return results
 
 # Placeholder functions
 def get_price_history(db: Session, phone_id: int):

@@ -37,10 +37,16 @@ async def process_natural_language_query(
             min_camera_score=filters.get("min_camera_score"),
             min_storage_score=filters.get("min_storage_score"),
             min_battery_efficiency=filters.get("min_battery_efficiency"),
-            max_price=filters.get("max_price")
+            max_price=filters.get("max_price"),
+            min_ram=filters.get("min_ram"),
+            brand=filters.get("brand"),
+            limit=filters.get("limit")
         )
 
-        return recommendations[:5]  # Return top 5 recommendations
+        # If limit is not specified in the query but we have results, return top 5 by default
+        if filters.get("limit") is None and recommendations:
+            return recommendations[:5]
+        return recommendations
 
     except httpx.HTTPError as e:
         raise HTTPException(
@@ -51,4 +57,4 @@ async def process_natural_language_query(
         raise HTTPException(
             status_code=500,
             detail=f"Error processing query: {str(e)}"
-        ) 
+        )

@@ -46,7 +46,10 @@ async function parseQuery(query) {
       "min_camera_score": number,       // 0-100 scale
       "min_storage_score": number,      // 0-100 scale
       "min_battery_efficiency": number, // 0-100 scale
-      "max_price": number              // in BDT
+      "max_price": number,             // in BDT
+      "min_ram": number,               // in GB
+      "brand": string,                 // brand name like Samsung, Apple, etc.
+      "limit": number                  // number of results to return
     }
     Only include fields that are relevant to the query.
     Do not include any markdown formatting or additional text.
@@ -55,6 +58,10 @@ async function parseQuery(query) {
     - "phones under 20,000 BDT" -> {"max_price": 20000}
     - "good camera phones" -> {"min_camera_score": 80}
     - "fast phones with good battery" -> {"min_performance_score": 80, "min_battery_efficiency": 80}
+    - "phones with 8GB RAM" -> {"min_ram": 8}
+    - "Samsung phones" -> {"brand": "Samsung"}
+    - "5 Samsung phones" -> {"brand": "Samsung", "limit": 5}
+    - "best 3 phones with good camera" -> {"min_camera_score": 85, "limit": 3}
     
     Query: ${query}`;
 
@@ -123,4 +130,4 @@ app.listen(PORT, () => {
   console.log(`Phone query parser service running on port ${PORT}`);
   console.log('Environment:', process.env.NODE_ENV || 'development');
   console.log('GOOGLE_API_KEY available:', !!process.env.GOOGLE_API_KEY);
-}); 
+});
