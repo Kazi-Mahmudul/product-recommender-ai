@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, cast, Float
 import logging
 
 from app.models.phone import Phone
@@ -30,8 +30,13 @@ def get_phones(
         query = query.filter(Phone.price >= min_price)
     if max_price is not None:
         query = query.filter(Phone.price <= max_price)
+    # New filters
     if min_ram is not None:
-        query = query.filter(Phone.ram >= min_ram)
+        # Since RAM is stored as a string like "8 GB", we need to extract the numeric part
+        # We'll use SQL CAST and a regex to extract the number
+        query = query.filter(
+            cast(func.regexp_replace(Phone.ram, '[^0-9.]', '', 'g'), Float) >= min_ram
+        )
     if search:
         search_term = f"%{search}%"
         query = query.filter(
