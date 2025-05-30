@@ -171,7 +171,6 @@ def get_smart_recommendations(
     if min_ram is not None:
         # Since RAM is stored as a string like "8 GB", we need to extract the numeric part
         # We'll use SQL CAST and a regex to extract the number
-        from sqlalchemy import cast, Float, func
         query = query.filter(
             cast(func.regexp_replace(Phone.ram, '[^0-9.]', '', 'g'), Float) >= min_ram
         )
