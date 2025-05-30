@@ -4,20 +4,18 @@ import httpx
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import os
+from app.core.config import settings
 
 app = FastAPI(title="PickBD API")
 
 # CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Get Gemini service URL from environment variable
-GEMINI_SERVICE_URL = os.getenv("GEMINI_SERVICE_URL", "http://localhost:3000")
 
 class QueryRequest(BaseModel):
     query: str
@@ -47,7 +45,7 @@ async def natural_language_query(request: QueryRequest):
         # Forward the query to the Gemini service
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{GEMINI_SERVICE_URL}/parse-query",
+                f"{settings.GEMINI_SERVICE_URL}/parse-query",
                 json={"query": request.query},
                 timeout=30.0  # Add timeout
             )

@@ -19,10 +19,10 @@ class Settings(BaseSettings):
         "https://pickbd-ai.onrender.com"
     ]
     
-    # Grok-3 service settings
-    GROK_SERVICE_URL: str = os.getenv(
-        "GROK_SERVICE_URL",
-        "http://localhost:3001" if os.getenv("DEBUG", "True").lower() == "true" else "https://pickbd-grok-service.onrender.com"
+    # Gemini service settings
+    GEMINI_SERVICE_URL: str = os.getenv(
+        "GEMINI_SERVICE_URL",
+        "http://localhost:3001" if os.getenv("DEBUG", "True").lower() == "true" else "https://gemini-api-wm3b.onrender.com"
     )
 
     class Config:
