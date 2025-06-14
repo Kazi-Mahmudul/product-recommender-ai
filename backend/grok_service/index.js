@@ -37,6 +37,11 @@ function cleanJsonResponse(text) {
 }
 
 async function parseQuery(query) {
+  // Fallback: regex for 'full specification of ...'
+  const fullSpecMatch = query.match(/full specification of (.+)/i);
+  if (fullSpecMatch) {
+    return { name: fullSpecMatch[1].trim(), full_spec: true };
+  }
   try {
     const prompt = `You are an intelligent assistant that converts phone search queries into structured JSON filters.
     Return ONLY a JSON object with the following optional fields:
@@ -49,9 +54,12 @@ async function parseQuery(query) {
       "max_price": number,             // in BDT
       "min_ram_gb": number,               // in GB
       "brand": string,                 // brand name like Samsung, Apple, etc.
-      "limit": number                  // number of results to return
+      "limit": number,                  // number of results to return
+      "name": string,                   // phone name (for full specification)
+      "full_spec": boolean              // true if user asks for full specification
     }
     Only include fields that are relevant to the query.
+    If the user asks for the full specification of a phone, return {"name": "<phone name>", "full_spec": true}.
     Do not include any markdown formatting or additional text.
     
     For example:
@@ -62,6 +70,7 @@ async function parseQuery(query) {
     - "Samsung phones" -> {"brand": "Samsung"}
     - "5 Samsung phones" -> {"brand": "Samsung", "limit": 5}
     - "best 3 phones with good camera" -> {"min_camera_score": 85, "limit": 3}
+    - "Full specification of Redmi note 13 pro" -> {"name": "Redmi note 13 pro", "full_spec": true}
     
     Query: ${query}`;
 

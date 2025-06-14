@@ -29,9 +29,25 @@ async def process_natural_language_query(
             response.raise_for_status()
             filters = response.json()["filters"]
 
+        # If user requests full specification, return all columns for the matched phone
+        if filters.get("full_spec") and filters.get("name"):
+            from app.models.phone import Phone as PhoneModel
+            import logging
+            logging.warning(f"Full spec query: filters={filters}")
+            phone = db.query(PhoneModel).filter(PhoneModel.name.ilike(f"%{filters['name']}%"))
+            results = phone.all()
+            logging.warning(f"Full spec DB results count: {len(results)}")
+            if not results:
+                # Try matching by model as fallback
+                if hasattr(PhoneModel, 'model'):
+                    phone = db.query(PhoneModel).filter(PhoneModel.model.ilike(f"%{filters['name']}%"))
+                    results = phone.all()
+                    logging.warning(f"Full spec fallback by model results count: {len(results)}")
+            return results
+
         # Use the parsed filters to get recommendations
         recommendations = phone_crud.get_smart_recommendations(
-            db,
+            db=db,
             min_display_score=filters.get("min_display_score"),
             min_camera_score=filters.get("min_camera_score"),
             min_battery_score=filters.get("min_battery_score"),
