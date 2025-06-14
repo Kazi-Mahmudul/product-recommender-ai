@@ -32,13 +32,11 @@ async def process_natural_language_query(
         # Use the parsed filters to get recommendations
         recommendations = phone_crud.get_smart_recommendations(
             db,
-            min_performance_score=filters.get("min_performance_score"),
             min_display_score=filters.get("min_display_score"),
             min_camera_score=filters.get("min_camera_score"),
-            min_storage_score=filters.get("min_storage_score"),
-            min_battery_efficiency=filters.get("min_battery_efficiency"),
+            min_battery_score=filters.get("min_battery_score"),
             max_price=filters.get("max_price"),
-            min_ram=filters.get("min_ram"),
+            min_ram_gb=filters.get("min_ram_gb"),
             brand=filters.get("brand"),
             limit=filters.get("limit")
         )

@@ -1,6 +1,15 @@
+from pathlib import Path
+import sys
+# Ensure the project root is in sys.path so 'app' is importable
+backend_dir = Path(__file__).resolve().parent
+project_root = backend_dir.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from app.core.database import SessionLocal
 from app.utils.data_loader import load_data_from_csv
 import logging
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -13,7 +22,7 @@ def test_data_loading():
         
         # Load data from CSV
         logger.info("Starting data loading process...")
-        phones = load_data_from_csv(db, 'mobiledokan_data.csv')
+        phones = load_data_from_csv(db, 'mobile_data.csv')
         
         # Log some sample data
         logger.info("\nSample phone data:")

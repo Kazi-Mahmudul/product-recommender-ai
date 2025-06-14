@@ -11,7 +11,7 @@ from app.utils.data_loader import load_data_from_csv
 
 def main():
     # Get the absolute path to the CSV file
-    csv_path = os.path.join(project_root, "mobiledokan_data.csv")
+    csv_path = os.path.join(project_root, "mobile_data.csv")
     
     # Create a database session
     db = SessionLocal()

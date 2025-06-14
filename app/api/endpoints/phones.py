@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone, PhoneList
 from app.core.database import get_db
+from app.models.phone import Phone as PhoneModel
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ def read_phones(
     brand: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    min_ram: Optional[int] = None,
+    min_ram_gb: Optional[int] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -29,7 +30,7 @@ def read_phones(
         brand=brand,
         min_price=min_price,
         max_price=max_price,
-        min_ram=min_ram,
+        min_ram_gb=min_ram_gb,
         search=search
     )
     return {"items": phones, "total": total}
@@ -39,7 +40,8 @@ def read_brands(db: Session = Depends(get_db)):
     """
     Get all unique phone brands
     """
-    return phone_crud.get_brands(db)
+    brands = db.query(PhoneModel.brand).distinct().all()
+    return [b[0] for b in brands if b[0] is not None]
 
 @router.get("/price-range")
 def read_price_range(db: Session = Depends(get_db)):
@@ -50,11 +52,9 @@ def read_price_range(db: Session = Depends(get_db)):
 
 @router.get("/recommendations", response_model=List[Phone])
 def get_smart_recommendations(
-    min_performance_score: Optional[float] = None,
     min_display_score: Optional[float] = None,
     min_camera_score: Optional[float] = None,
-    min_storage_score: Optional[float] = None,
-    min_battery_efficiency: Optional[float] = None,
+    min_battery_score: Optional[float] = None,
     max_price: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
@@ -63,11 +63,9 @@ def get_smart_recommendations(
     """
     recommendations = phone_crud.get_smart_recommendations(
         db,
-        min_performance_score=min_performance_score,
         min_display_score=min_display_score,
         min_camera_score=min_camera_score,
-        min_storage_score=min_storage_score,
-        min_battery_efficiency=min_battery_efficiency,
+        min_battery_score=min_battery_score,
         max_price=max_price
     )
     return recommendations

@@ -11,7 +11,7 @@ def load_data():
         
         # Read the CSV file
         print("Reading CSV file...")
-        df = pd.read_csv('mobiledokan_data.csv')
+        df = pd.read_csv('mobile_data.csv')
         
         # Print column names from CSV
         print("\nCSV Columns:", df.columns.tolist())

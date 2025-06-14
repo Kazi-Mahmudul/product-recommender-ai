@@ -30,7 +30,7 @@ class Phone(BaseModel):
     id: int
     name: str
     brand: str
-    price: float
+    price: str
     ram: int
     internal_storage: int
     display_size: float
@@ -38,8 +38,8 @@ class Phone(BaseModel):
     camera_score: float
     performance_score: float
     display_score: float
-    storage_score: float
-    battery_efficiency: float
+    security_score: float
+    connectivity_score: float
 
 @app.get("/api/v1/health")
 async def health_check():
@@ -51,11 +51,11 @@ def build_query(filters: Dict[str, Any]) -> str:
     params = {}
     
     if "price_max" in filters:
-        conditions.append("price <= :price_max")
+        conditions.append("price_original <= :price_max")
         params["price_max"] = filters["price_max"]
     
     if "price_min" in filters:
-        conditions.append("price >= :price_min")
+        conditions.append("price_original >= :price_min")
         params["price_min"] = filters["price_min"]
     
     if "ram" in filters:
@@ -130,8 +130,8 @@ async def natural_language_query(request: QueryRequest):
                         camera_score=phone.camera_score,
                         performance_score=phone.performance_score,
                         display_score=phone.display_score,
-                        storage_score=phone.storage_score,
-                        battery_efficiency=phone.battery_efficiency
+                        security_score=phone.security_score,
+                        connectivity_score=phone.connectivity_score
                     )
                     for phone in phones
                 ]

@@ -16,7 +16,7 @@ def load_data_to_production():
         
         # Read the CSV file
         print("Reading CSV file...")
-        df = pd.read_csv('data/phones.csv')
+        df = pd.read_csv('mobile_data.csv')
         
         # Load data into the database
         print("Loading data into production database...")

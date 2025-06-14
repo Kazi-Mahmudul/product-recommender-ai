@@ -44,10 +44,10 @@ async function parseQuery(query) {
       "min_performance_score": number,  // 0-100 scale
       "min_display_score": number,      // 0-100 scale
       "min_camera_score": number,       // 0-100 scale
-      "min_storage_score": number,      // 0-100 scale
-      "min_battery_efficiency": number, // 0-100 scale
+      "min_security_score": number,      // 0-100 scale
+      "min_battery_score": number, // 0-100 scale
       "max_price": number,             // in BDT
-      "min_ram": number,               // in GB
+      "min_ram_gb": number,               // in GB
       "brand": string,                 // brand name like Samsung, Apple, etc.
       "limit": number                  // number of results to return
     }
@@ -57,8 +57,8 @@ async function parseQuery(query) {
     For example:
     - "phones under 20,000 BDT" -> {"max_price": 20000}
     - "good camera phones" -> {"min_camera_score": 80}
-    - "fast phones with good battery" -> {"min_performance_score": 80, "min_battery_efficiency": 80}
-    - "phones with 8GB RAM" -> {"min_ram": 8}
+    - "fast phones with good battery" -> {"min_performance_score": 80, "min_battery_score": 60}
+    - "phones with 8GB RAM" -> {"min_ram_gb": 8}
     - "Samsung phones" -> {"brand": "Samsung"}
     - "5 Samsung phones" -> {"brand": "Samsung", "limit": 5}
     - "best 3 phones with good camera" -> {"min_camera_score": 85, "limit": 3}

@@ -1,11 +1,17 @@
 import logging
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+import sys
+from pathlib import Path
+# Ensure the project root is in sys.path so 'app' is importable
+backend_dir = Path(__file__).resolve().parent
+project_root = backend_dir.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from app.core.config import settings
 from app.core.database import Base
-from pathlib import Path
 from app.models.phone import Phone
-import sys
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

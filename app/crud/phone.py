@@ -15,28 +15,27 @@ def get_phones(
     brand: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    min_ram: Optional[int] = None,
+    min_ram_gb: Optional[int] = None,
+    min_storage_gb: Optional[int] = None,
+    min_refresh_rate: Optional[int] = None,
     search: Optional[str] = None
 ) -> Tuple[List[Phone], int]:
-    """
-    Get phones with optional filtering
-    """
+    """Get phones with optional filtering"""
     query = db.query(Phone)
     
     # Apply filters if provided
     if brand:
         query = query.filter(Phone.brand == brand)
     if min_price is not None:
-        query = query.filter(Phone.price >= min_price)
+        query = query.filter(Phone.price_original >= min_price)
     if max_price is not None:
-        query = query.filter(Phone.price <= max_price)
-    # New filters
-    if min_ram is not None:
-        # Since RAM is stored as a string like "8 GB", we need to extract the numeric part
-        # We'll use SQL CAST and a regex to extract the number
-        query = query.filter(
-            cast(func.regexp_replace(Phone.ram, '[^0-9.]', '', 'g'), Float) >= min_ram
-        )
+        query = query.filter(Phone.price_original <= max_price)
+    if min_ram_gb is not None:
+        query = query.filter(Phone.ram_gb >= min_ram_gb)
+    if min_storage_gb is not None:
+        query = query.filter(Phone.storage_gb >= min_storage_gb)
+    if min_refresh_rate is not None:
+        query = query.filter(Phone.refresh_rate_hz >= min_refresh_rate)
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -45,12 +44,8 @@ def get_phones(
             (Phone.model.ilike(search_term))
         )
     
-    # Get total count for pagination
     total = query.count()
-    
-    # Apply pagination
     phones = query.offset(skip).limit(limit).all()
-    
     return phones, total
 
 def get_phone(db: Session, phone_id: int) -> Optional[Phone]:
@@ -89,8 +84,8 @@ def get_price_range(db: Session) -> Dict[str, float]:
     Get the minimum and maximum price in the database
     """
     try:
-        min_price = db.query(func.min(Phone.price)).scalar()
-        max_price = db.query(func.max(Phone.price)).scalar()
+        min_price = db.query(func.min(Phone.price_original)).scalar()
+        max_price = db.query(func.max(Phone.price_original)).scalar()
         return {"min": min_price, "max": max_price}
     except Exception as e:
         logger.error(f"Error fetching price range: {str(e)}")
@@ -140,47 +135,34 @@ def create_phones_batch(db: Session, phones: List[Dict[str, Any]]) -> List[Phone
 
 def get_smart_recommendations(
     db: Session,
-    min_performance_score: Optional[float] = None,
     min_display_score: Optional[float] = None,
     min_camera_score: Optional[float] = None,
-    min_storage_score: Optional[float] = None,
-    min_battery_efficiency: Optional[float] = None,
+    min_battery_score: Optional[float] = None,
+    min_ram_gb: Optional[int] = None,
+    min_storage_gb: Optional[int] = None,
     max_price: Optional[float] = None,
-    min_ram: Optional[float] = None,
     brand: Optional[str] = None,
     limit: Optional[int] = None
 ):
-    """
-    Get smart phone recommendations based on derived scores, price, RAM, and brand.
-    """
+    """Get smart phone recommendations based on scores and specifications"""
     query = db.query(Phone)
-    if min_performance_score is not None:
-        query = query.filter(Phone.performance_score >= min_performance_score)
+    
     if min_display_score is not None:
         query = query.filter(Phone.display_score >= min_display_score)
     if min_camera_score is not None:
         query = query.filter(Phone.camera_score >= min_camera_score)
-    if min_storage_score is not None:
-        query = query.filter(Phone.storage_score >= min_storage_score)
-    if min_battery_efficiency is not None:
-        query = query.filter(Phone.battery_efficiency >= min_battery_efficiency)
+    if min_battery_score is not None:
+        query = query.filter(Phone.battery_score >= min_battery_score)
+    if min_ram_gb is not None:
+        query = query.filter(Phone.ram_gb >= min_ram_gb)
+    if min_storage_gb is not None:
+        query = query.filter(Phone.storage_gb >= min_storage_gb)
     if max_price is not None:
-        query = query.filter(Phone.price <= max_price)
-    
-    # New filters
-    if min_ram is not None:
-        # Since RAM is stored as a string like "8 GB", we need to extract the numeric part
-        # We'll use SQL CAST and a regex to extract the number
-        query = query.filter(
-            cast(func.regexp_replace(Phone.ram, '[^0-9.]', '', 'g'), Float) >= min_ram
-        )
+        query = query.filter(Phone.price_original <= max_price)
     if brand is not None:
         query = query.filter(func.lower(Phone.brand) == func.lower(brand))
     
-    # Get all results and then apply limit if specified
     results = query.all()
-    
-    # Apply limit if specified, otherwise return all results
     if limit is not None:
         return results[:limit]
     return results

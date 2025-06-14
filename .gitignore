@@ -28,6 +28,13 @@ htmlcov/
 data/
 *.csv
 
+data_cleaning/
+*.csv
+
+*.csv
+
+data_cleaning/
+
 # Alembic
 alembic/versions/*.py
 
