@@ -20,7 +20,9 @@ def create_user(db: Session, user_data: UserSignup) -> User:
     db_user = User(
         email=user_data.email,
         password_hash=hashed_password,
-        is_verified=False
+        is_verified=False,
+        first_name=user_data.first_name,
+        last_name=user_data.last_name
     )
     db.add(db_user)
     db.commit()

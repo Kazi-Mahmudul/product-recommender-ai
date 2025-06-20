@@ -1,10 +1,10 @@
-const API_BASE = `${process.env.API_BASE}/api/v1/auth`;
+const API_BASE = `${process.env.REACT_APP_API_BASE }/api/v1/auth`;
 
-export async function signup(email: string, password: string, confirmPassword: string) {
+export async function signup(email: string, password: string, confirmPassword: string, first_name: string, last_name: string) {
   const res = await fetch(`${API_BASE}/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, confirm_password: confirmPassword })
+    body: JSON.stringify({ email, password, confirm_password: confirmPassword, first_name, last_name })
   });
   return res.json();
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
+import { GoogleLogin } from '@react-oauth/google';
 
 interface LoginPageProps { darkMode: boolean; }
 export default function LoginPage({ darkMode }: LoginPageProps) {
@@ -9,7 +10,7 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -29,10 +30,46 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
     setLoading(false);
   };
 
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE}/api/v1/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) {
+        localStorage.setItem('auth_token', data.access_token);
+        setUser(data.user || null);
+        navigate('/');
+      } else {
+        setError(data.detail || 'Google authentication failed');
+      }
+    } catch {
+      setError('Google authentication failed');
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#fdfbf9] dark:bg-[#121212]">
       <form onSubmit={handleSubmit} className="w-full max-w-md p-8 bg-white dark:bg-[#232323] rounded-xl shadow-xl flex flex-col gap-4">
         <h2 className="text-2xl font-bold mb-2 text-center text-brand">Login to ePick</h2>
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => setError('Google authentication failed')}
+          width="100%"
+          text="signin_with"
+          shape="pill"
+          theme="filled_black"
+        />
+        <div className="flex items-center my-2">
+          <div className="flex-grow border-t border-gray-300"></div>
+          <span className="mx-2 text-gray-500 text-sm">or</span>
+          <div className="flex-grow border-t border-gray-300"></div>
+        </div>
         <input type="email" name="email" placeholder="Email" value={form.email} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent" autoFocus />
         <input type="password" name="password" placeholder="Password" value={form.password} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent" />
         {error && <div className="text-red-500 text-sm text-center">{error}</div>}
@@ -42,7 +79,6 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
           style={{ marginBottom: '0.5rem' }}
           disabled={loading}
         >
-          {/* Workaround for react-icons v5+ and TS: use as function, not JSX component */}
           {require('react-icons/fc').FcGoogle({ className: 'text-xl' })} Continue with Google
         </button>
         <button type="submit" className="rounded-lg py-2 font-semibold text-white" style={{background: '#d4a88d'}} disabled={loading}>

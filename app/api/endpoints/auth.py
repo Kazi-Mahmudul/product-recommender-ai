@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.crud.auth import (
@@ -13,6 +13,8 @@ from app.utils.auth import verify_password, create_access_token
 from app.utils.email import send_verification_email
 from app.api.deps import get_current_user, get_current_verified_user
 import logging
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 logger = logging.getLogger(__name__)
 
@@ -204,4 +206,49 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to resend verification email"
-        ) 
+        )
+
+@router.post("/google", response_model=Token)
+async def google_auth(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    token = data.get("credential") or data.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing Google token")
+
+    try:
+        # Replace with your Google client ID
+        CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
+        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
+        email = idinfo["email"]
+        first_name = idinfo.get("given_name", "")
+        last_name = idinfo.get("family_name", "")
+
+        # Check if user exists, else create
+        user = get_user_by_email(db, email)
+        if not user:
+            from app.schemas.auth import UserSignup
+            user_data = UserSignup(
+                email=email,
+                password="google_oauth",  # Not used, but required by schema
+                confirm_password="google_oauth",
+                first_name=first_name,
+                last_name=last_name
+            )
+            user = create_user(db, user_data)
+            user.is_verified = True
+            db.commit()
+            db.refresh(user)
+        elif not user.is_verified:
+            user.is_verified = True
+            db.commit()
+            db.refresh(user)
+
+        # Create JWT
+        access_token = create_access_token(data={"sub": str(user.id)})
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=60
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}") 

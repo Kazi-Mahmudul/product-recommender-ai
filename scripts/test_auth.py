@@ -14,7 +14,7 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 # Configuration
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = "https://pickbd-ai.onrender.com/api/v1"
 TEST_EMAIL = f"test_{int(datetime.now().timestamp())}@example.com"
 TEST_PASSWORD = "TestPassword123"
 
@@ -29,7 +29,9 @@ def test_auth_endpoints():
     signup_data = {
         "email": TEST_EMAIL,
         "password": TEST_PASSWORD,
-        "confirm_password": TEST_PASSWORD
+        "confirm_password": TEST_PASSWORD,
+        "first_name": "Test",
+        "last_name": "User"
     }
     
     try:

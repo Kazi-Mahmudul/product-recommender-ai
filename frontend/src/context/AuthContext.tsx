@@ -6,6 +6,8 @@ export interface User {
   email: string;
   is_verified: boolean;
   created_at: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 interface AuthContextType {
@@ -13,7 +15,7 @@ interface AuthContextType {
   loading: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, confirm: string) => Promise<void>;
+  signup: (email: string, password: string, confirm: string, first_name: string, last_name: string) => Promise<void>;
   verify: (email: string, code: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User | null) => void;
@@ -72,9 +74,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
-  const signup = async (email: string, password: string, confirm: string) => {
+  const signup = async (email: string, password: string, confirm: string, first_name: string, last_name: string) => {
     setLoading(true);
-    const data = await authApi.signup(email, password, confirm);
+    const data = await authApi.signup(email, password, confirm, first_name, last_name);
     if (!data.success) {
       setLoading(false);
       throw new Error(data.detail || data.message || 'Signup failed');

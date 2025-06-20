@@ -6,6 +6,8 @@ class UserSignup(BaseModel):
     email: EmailStr
     password: str
     confirm_password: str
+    first_name: str
+    last_name: str
 
     @validator('password')
     def validate_password(cls, v):
@@ -43,6 +45,8 @@ class UserResponse(BaseModel):
     email: str
     is_verified: bool
     created_at: datetime
+    first_name: Optional[str]
+    last_name: Optional[str]
 
     class Config:
         from_attributes = True
