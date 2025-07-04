@@ -4,10 +4,15 @@ import sys
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+print("Loaded DATABASE_URL:", os.getenv("DATABASE_URL"))
+
 def get_db_connection():
     """Create and return a database connection."""
-    # Use the provided database credentials
-    database_url = "postgresql://product_user1:8oZhXwwMrEZ0RK3uzHYIlqbzC0O8IPKV@dpg-d0o91hodl3ps73ac3j80-a.singapore-postgres.render.com/product_recommender"
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL not set in environment variables.")
     return create_engine(database_url, echo=True)
 
 def check_data():

@@ -2,7 +2,10 @@ import pandas as pd
 from sqlalchemy import create_engine, text, inspect
 
 # Database URL
-DATABASE_URL = "postgresql://product_user1:8oZhXwwMrEZ0RK3uzHYIlqbzC0O8IPKV@dpg-d0o91hodl3ps73ac3j80-a.singapore-postgres.render.com/product_recommender"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def load_data():
     try:
