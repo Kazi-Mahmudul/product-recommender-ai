@@ -333,7 +333,7 @@ function App() {
       <main className="flex flex-col items-center min-h-screen lg:mt-16 pt-16">
         <div className="w-full max-w-5xl px-2 md:px-6 mx-auto">
           {/* Hero Section and Search Form */}
-          <HeroSection backgroundImage="https://i.ibb.co/99jwDtmC/Hero-bg-web.png">
+          <HeroSection>
             <form onSubmit={safeHandleSubmit} className="w-full max-w-xl mx-auto">
               <div className="relative w-full flex items-center bg-white/80 rounded-lg shadow-lg p-1 md:p-3">
                 <span className="pl-1 pr-2 text-gray-400 flex items-center">

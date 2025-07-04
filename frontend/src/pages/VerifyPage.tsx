@@ -28,7 +28,7 @@ export default function VerifyPage({ darkMode }: VerifyPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#fdfbf9] dark:bg-[#121212]">
+    <div className="min-h-screen mx-4 flex flex-col items-center justify-center bg-[#fdfbf9] dark:bg-[#121212]">
       <form onSubmit={handleSubmit} className="w-full max-w-md p-8 bg-white dark:bg-[#232323] rounded-xl shadow-xl flex flex-col gap-4">
         <h2 className="text-2xl font-bold mb-2 text-center text-brand">Verify Your Email</h2>
         <div className="text-center text-sm mb-2">Verification code sent to <span className="font-semibold">{email}</span></div>

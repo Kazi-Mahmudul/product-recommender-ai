@@ -115,7 +115,7 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
                 loading="lazy"
               />
               <div className={`font-semibold text-base truncate w-full text-center mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{phone.name}</div>
-              <div className="text-brand text-lg font-bold w-full text-center">৳{phone.price.toLocaleString()}</div>
+              <div className="text-brand text-lg font-bold w-full text-center">{phone.price.toLocaleString()}</div>
             </div>
           </div>
         ))}

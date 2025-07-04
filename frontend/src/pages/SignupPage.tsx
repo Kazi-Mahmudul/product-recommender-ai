@@ -54,12 +54,10 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#fdfbf9] dark:bg-[#121212]">
+    <div className="min-h-screen mx-4 flex flex-col items-center justify-center bg-[#fdfbf9] dark:bg-[#121212]">
       <form onSubmit={handleSubmit} className="w-full max-w-md p-8 bg-white dark:bg-[#232323] rounded-xl shadow-xl flex flex-col gap-4">
         <h2 className="text-2xl font-bold mb-2 text-center text-brand">Sign Up for ePick</h2>
         <div className="flex items-center my-2">
-          <div className="flex-grow border-t border-gray-300"></div>
-          <span className="mx-2 text-gray-500 text-sm">or</span>
           <div className="flex-grow border-t border-gray-300"></div>
         </div>
         <div className="flex gap-2">

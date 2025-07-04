@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Moon, Sun } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import UserDropdown from './UserDropdown';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,7 +9,6 @@ interface NavbarProps {
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
 }
-
 
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick, darkMode, setDarkMode }) => {
   const { user, logout } = useAuth();
@@ -29,7 +28,8 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, darkMode, setDarkMode }) =
     return () => document.removeEventListener('mousedown', handleClick);
   }, [dropdownOpen]);
 
-  // No need for handleLogout; use logout from AuthContext
+  // Helper to determine if a route is active
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <nav className="w-full flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-[#232323]/80 backdrop-blur-md shadow-sm fixed top-0 left-0 z-30">
@@ -42,10 +42,30 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, darkMode, setDarkMode }) =
         <span className="font-bold text-lg tracking-tight">ePick</span>
       </div>
       <ul className="hidden md:flex space-x-8 font-medium text-gray-700 dark:text-gray-100">
-        <li><a href="#home" className="hover:text-brand transition-colors">Home</a></li>
-        <li><a href="#smartphones" className="hover:text-brand transition-colors">Smartphones</a></li>
-        <li><a href="#about" className="hover:text-brand transition-colors">About</a></li>
-        <li><a href="#coming-soon" className="hover:text-brand transition-colors">Coming Soon</a></li>
+        <li>
+          <Link
+            to="/"
+            className={
+              isActive('/')
+                ? 'text-brand font-bold border-b-2 border-brand pb-1'
+                : 'hover:text-brand transition-colors'
+            }
+          >
+            Home
+          </Link>
+        </li>
+        <li>
+          <Link
+            to="/chat"
+            className={
+              isActive('/chat')
+                ? 'text-brand font-bold border-b-2 border-brand pb-1'
+                : 'hover:text-brand transition-colors'
+            }
+          >
+            Chat
+          </Link>
+        </li>
       </ul>
       <div className="flex items-center space-x-4 relative">
         <button
@@ -95,6 +115,5 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, darkMode, setDarkMode }) =
     </nav>
   );
 };
-
 
 export default Navbar;
