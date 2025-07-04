@@ -15,6 +15,7 @@ from app.api.deps import get_current_user, get_current_verified_user
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +217,7 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Missing Google token")
 
     try:
-        # Replace with your Google client ID
-        CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
+        CLIENT_ID = settings.GOOGLE_CLIENT_ID
         idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
         email = idinfo["email"]
         first_name = idinfo.get("given_name", "")
