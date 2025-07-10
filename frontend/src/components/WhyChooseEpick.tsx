@@ -49,11 +49,14 @@ const features = [
 
 const sliderSettings = {
   dots: false,
-  arrows: false,
-  infinite: false,
+  infinite: true,
   speed: 500,
   slidesToShow: 3,
   slidesToScroll: 1,
+  autoplay: true,
+  autoplaySpeed: 3000,
+  pauseOnHover: true,
+  pauseOnFocus: true,
   responsive: [
     { breakpoint: 1280, settings: { slidesToShow: 3 } },
     { breakpoint: 768, settings: { slidesToShow: 2 } },

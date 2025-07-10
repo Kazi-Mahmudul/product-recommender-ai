@@ -11,7 +11,8 @@ import Footer from './components/Footer';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import VerifyPage from './pages/VerifyPage';
-import { Routes, Route } from 'react-router-dom';
+import ChatPage from './pages/ChatPage';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 interface Message {
@@ -231,6 +232,8 @@ function App() {
   const [lastUserQuery, setLastUserQuery] = useState<string>('');
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (darkMode) {
@@ -329,33 +332,74 @@ function App() {
   };
 
   function HomePage() {
+    const navigate = useNavigate();
+    const [homeInput, setHomeInput] = useState('');
+    const [homeIsTyping, setHomeIsTyping] = useState(false);
+    const examplePlaceholders = [
+      "Best phones under 20,000 BDT",
+      "Top camera phones 2025",
+      "Phones with best battery life",
+      "Best gaming phones",
+      "Latest Samsung phones",
+      "Compare iPhone 16 vs Samsung S24",
+      "Full specification of Realme 10 Pro",
+    ];
+    const [placeholderIndex, setPlaceholderIndex] = useState(0);
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setPlaceholderIndex((prev) => (prev + 1) % examplePlaceholders.length);
+      }, 2000);
+      return () => clearInterval(interval);
+    }, []);
+
+    const handleHomeSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!homeInput.trim()) return;
+      navigate('/chat', { state: { initialMessage: homeInput } });
+    };
+
     return (
       <main className="flex flex-col items-center min-h-screen lg:mt-16 pt-16">
         <div className="w-full max-w-5xl px-2 md:px-6 mx-auto">
           {/* Hero Section and Search Form */}
-          <HeroSection>
-            <form onSubmit={safeHandleSubmit} className="w-full max-w-xl mx-auto">
-              <div className="relative w-full flex items-center bg-white/80 rounded-lg shadow-lg p-1 md:p-3">
+          <section className="w-full flex flex-col items-center justify-center py-12 md:py-20">
+            <h1 className={`text-3xl md:text-5xl font-extrabold text-center mb-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Find Your Perfect Phone in Bangladesh</h1>
+            <p className={`text-lg md:text-xl text-center mb-8 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Ask anything about smartphones, compare models, or get recommendations tailored to your needs.</p>
+            <form onSubmit={handleHomeSubmit} className="w-full max-w-xl mx-auto">
+              <div className={`relative w-full flex items-center bg-white dark:bg-[#232323] border ${darkMode ? 'border-gray-700' : 'border-[#eae4da]'} rounded-2xl shadow-lg p-2 md:p-4 transition-all duration-200`}>
                 <span className="pl-1 pr-2 text-gray-400 flex items-center">
                   <Search className="h-5 w-5" />
                 </span>
                 <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Best phone under 30K with good camera"
-                  className="flex-grow px-1 py-2 md:py-3 rounded-lg bg-transparent focus:outline-none text-sm md:text-lg"
-                  disabled={isTyping}
+                  value={homeInput}
+                  onChange={(e) => setHomeInput(e.target.value)}
+                  placeholder={examplePlaceholders[placeholderIndex]}
+                  className={`flex-grow px-2 py-2 md:py-3 rounded-lg bg-transparent focus:outline-none text-base md:text-lg ${darkMode ? 'text-white placeholder-gray-400' : 'text-gray-900 placeholder-gray-500'}`}
+                  disabled={homeIsTyping}
                 />
                 <button
                   type="submit"
-                  className="ml-1 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-brand text-white text-xs md:text-base font-semibold hover:bg-brand/90 transition-colors flex items-center whitespace-nowrap"
-                  disabled={isTyping}
+                  className="ml-2 flex items-center justify-center"
+                  style={{ minWidth: 44, minHeight: 44 }}
+                  disabled={homeIsTyping || !homeInput.trim()}
                 >
-                  Ask ePick
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6 text-brand"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
                 </button>
               </div>
             </form>
-          </HeroSection>
+          </section>
           <TrendingPhones darkMode={darkMode} />
           <div className="my-8" />
           <UpcomingPhones darkMode={darkMode} />
@@ -425,8 +469,9 @@ function App() {
         <Route path="/login" element={<LoginPage darkMode={darkMode} />} />
         <Route path="/signup" element={<SignupPage darkMode={darkMode} />} />
         <Route path="/verify" element={<VerifyPage darkMode={darkMode} />} />
+        <Route path="/chat" element={<ChatPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
       </Routes>
-      <Footer />
+      {location.pathname !== '/chat' && <Footer />}
     </div>
   );
 }

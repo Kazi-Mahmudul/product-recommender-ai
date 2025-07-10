@@ -16,10 +16,14 @@ interface Phone {
 
 const sliderSettings = {
   dots: false,
-  infinite: false,
+  infinite: true,
   speed: 500,
   slidesToShow: 4,
   slidesToScroll: 1,
+  autoplay: true,
+  autoplaySpeed: 3000,
+  pauseOnHover: true,
+  pauseOnFocus: true,
   responsive: [
     {
       breakpoint: 1536, // 2xl screens
@@ -47,26 +51,6 @@ const sliderSettings = {
 interface TrendingPhonesProps {
   darkMode: boolean;
 }
-
-const CustomArrow: React.FC<{ direction: 'next' | 'prev'; darkMode: boolean; onClick?: () => void }> = ({ direction, darkMode, onClick }) => (
-  <button
-    type="button"
-    className={`slick-arrow z-20 w-10 h-10 flex items-center justify-center rounded-full shadow-lg absolute top-1/2 -translate-y-1/2
-      ${direction === 'next' ? 'right-1 sm:right-1 md:right-[-36px]' : 'left-1 sm:left-1 md:left-[-36px]'}
-      ${darkMode ? 'bg-[#3b2a1a] text-white' : 'bg-[#f4e2d4] text-[#7c4a1e]'}
-      hover:scale-110 transition-all border border-[#eabf9f]'}`
-    }
-    style={{ outline: 'none' }}
-    onClick={onClick}
-    aria-label={direction === 'next' ? 'Next' : 'Previous'}
-  >
-    {direction === 'next' ? (
-      <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M7 15l5-5-5-5v10z" /></svg>
-    ) : (
-      <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M13 5l-5 5 5 5V5z" /></svg>
-    )}
-  </button>
-);
 
 const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
   const [phones, setPhones] = useState<Phone[]>([]);
@@ -102,8 +86,6 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
       <h2 className={`text-2xl md:text-3xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Trending Phones</h2>
       <Slider
         {...sliderSettings}
-        nextArrow={<CustomArrow direction="next" darkMode={darkMode} />}
-        prevArrow={<CustomArrow direction="prev" darkMode={darkMode} />}
       >
         {phones.map(phone => (
           <div key={phone.id} className="px-4">
