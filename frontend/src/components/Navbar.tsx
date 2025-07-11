@@ -88,8 +88,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, darkMode, setDarkMode }) =
           <div className="hidden md:block relative">
             <button
               onClick={() => setDropdownOpen(v => !v)}
-              className={`rounded-lg px-4 py-2 font-semibold text-white text-sm ${['/login','/signup'].includes(location.pathname) ? 'bg-brand' : ''}`}
-              style={{ background: ['/', '/login', '/signup'].includes(location.pathname) ? '#d4a88d' : undefined }}
+              className="rounded-lg px-4 py-2 font-semibold text-white text-sm bg-brand hover:opacity-90 transition"
             >
               Login / Signup
             </button>

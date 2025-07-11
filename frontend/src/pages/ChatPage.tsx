@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Moon, Sun } from "lucide-react";
+
 import {
   BarChart,
   Bar,
@@ -13,6 +13,7 @@ import {
 interface ChatMessage {
   user: string;
   bot: string;
+  phones?: any[]; // Store recommendations for this message
 }
 
 interface ChatPageProps {
@@ -35,14 +36,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [lastBotPhones, setLastBotPhones] = useState<any[]>([]); // Store last phone recommendations
+  
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  
   const API_BASE_URL = "https://pickbd-ai.onrender.com";
 
   useEffect(() => {
     if (location.state?.initialMessage) {
       handleSendMessage(location.state.initialMessage);
     }
+    // eslint-disable-next-line
   }, [location.state]);
 
   useEffect(() => {
@@ -84,9 +87,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
         `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
         {
           method: "POST",
-        headers: {
+          headers: {
             "Content-Type": "application/json",
-        },
+          },
         }
       );
 
@@ -98,17 +101,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
       }
 
       const recommendations = await response.json();
-      // Store the recommendations for card, chart, and table
-      setLastBotPhones(Array.isArray(recommendations) ? recommendations : []);
+      
 
       const recommendationsText = recommendations
         .slice(0, 5)
         .map(
           (phone: any, index: number) =>
-          `📱 ${index + 1}. ${phone.brand} ${phone.name}\n` +
-          `   💰 Price: BDT ${phone.price}\n` +
-          `   💾 RAM: ${phone.ram}\n` +
-          `   💿 Storage: ${phone.internal_storage}\n` +
+            `📱 ${index + 1}. ${phone.brand} ${phone.name}\n` +
+            `   💰 Price: BDT ${phone.price}\n` +
+            `   💾 RAM: ${phone.ram}\n` +
+            `   💿 Storage: ${phone.internal_storage}\n` +
             `   ⚡ Performance: ${phone.performance_score?.toFixed(1) ?? "-"}\n` +
             `   📸 Camera: ${phone.camera_score?.toFixed(1) ?? "-"}\n` +
             `   🖥️ Display: ${phone.display_score?.toFixed(1) ?? "-"}\n` +
@@ -121,6 +123,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
       setChatHistory((prev) => {
         const updatedHistory = [...prev];
         updatedHistory[updatedHistory.length - 1].bot = botResponse;
+        updatedHistory[updatedHistory.length - 1].phones = Array.isArray(recommendations) ? recommendations : [];
         return updatedHistory;
       });
     } catch (err) {
@@ -129,11 +132,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
       setError(errorMessage);
       setChatHistory((prev) => {
         const updatedHistory = [...prev];
-        updatedHistory[updatedHistory.length - 1].bot =
-          `Sorry, there was an error: ${errorMessage}`;
+        updatedHistory[updatedHistory.length - 1].bot = `Sorry, there was an error: ${errorMessage}`;
         return updatedHistory;
       });
-      setLastBotPhones([]); // Clear on error
+      
     } finally {
       setIsLoading(false);
     }
@@ -144,53 +146,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
     handleSendMessage(suggestion);
   };
 
-  // Helper to extract key fields for card and table
-  const getCardFields = (phone: any) => ({
-    img_url: phone.img_url,
-    name: phone.name,
-    brand: phone.brand,
-    price: phone.price,
-    display_type: phone.display_type,
-    screen_size_inches: phone.screen_size_numeric,
-    processor: phone.chipset || phone.cpu,
-    ram: phone.ram,
-    internal_storage: phone.internal_storage,
-    primary_camera: phone.primary_camera_resolution,
-    selfie_camera: phone.selfie_camera_resolution,
-    battery: phone.battery_capacity_numeric,
-  });
-
-  // Custom tick for XAxis to wrap long names
-  const WrappedXAxisTick = (props: any) => {
-    const { x, y, payload, fill } = props;
-    const words = String(payload.value).split(" ");
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <text
-          x={0}
-          y={0}
-          dy={16}
-          textAnchor="middle"
-          fill={fill}
-          fontWeight={600}
-          fontSize={12}
-        >
-          {words.map((word: string, idx: number) => (
-            <tspan key={idx} x={0} dy={idx === 0 ? 0 : 14}>
-              {word}
-            </tspan>
-          ))}
-        </text>
-      </g>
-    );
-  };
-
   return (
     <div
-      className={`flex items-center justify-center min-h-screen ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"}`}
+      className={`flex items-center justify-center min-h-screen ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"} overflow-x-hidden`}
     >
       <div
-        className={`w-full max-w-3xl mx-auto my-8 rounded-3xl shadow-2xl ${darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"} border flex flex-col`}
+        className={`w-full max-w-3xl mx-auto my-8 rounded-3xl shadow-2xl ${darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"} border flex flex-col overflow-x-hidden`}
       >
         {/* Header */}
         <div
@@ -210,9 +171,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
         {/* Chat Area */}
         <div ref={chatContainerRef} className="px-6 py-4 space-y-6 pb-32">
           {/* Show chat history as a normal conversation */}
-        <div className="flex flex-col space-y-4">
-          {chatHistory.map((chat, index) => (
-            <div key={index}>
+          <div className="flex flex-col space-y-4">
+            {chatHistory.map((chat, index) => (
+              <div key={index}>
                 {chat.user && (
                   <div className="flex justify-end mb-2">
                     <div className="rounded-2xl px-5 py-3 max-w-xs shadow-md bg-brand text-white text-base font-medium whitespace-pre-wrap">
@@ -220,14 +181,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                     </div>
                   </div>
                 )}
-                {/* If this is the last bot message and there are phone recommendations, show the card/chart/table as the bot's reply */}
-                {chat.bot &&
-                index === chatHistory.length - 1 &&
-                lastBotPhones.length > 0 ? (
+                {/* If this bot message has phone recommendations, show the card/chart/table as the bot's reply */}
+                {chat.bot && chat.phones && chat.phones.length > 0 ? (
                   <div className="flex justify-start">
                     <div
-                      className="rounded-2xl px-0 py-0 max-w-2xl shadow-md text-base whitespace-pre-wrap border w-full overflow-x-auto
-                      ${darkMode ? 'bg-[#181818] text-gray-100 border-gray-700' : 'bg-[#f7f3ef] text-gray-900 border-[#eae4da]'}"
+                      className={`rounded-2xl px-0 py-0 max-w-2xl shadow-md text-base whitespace-pre-wrap border w-full overflow-x-auto ${darkMode ? 'bg-[#181818] text-gray-100 border-gray-700' : 'bg-[#f7f3ef] text-gray-900 border-[#eae4da]'}`}
                     >
                       <div className="space-y-6 p-4">
                         {/* Top phone card */}
@@ -236,53 +194,53 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                           ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border`}
                         >
                           <img
-                            src={lastBotPhones[0].img_url}
-                            alt={lastBotPhones[0].name}
+                            src={chat.phones[0].img_url}
+                            alt={chat.phones[0].name}
                             className={`w-28 h-36 object-contain rounded-xl ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-[#eae4da]"} border`}
                           />
                           <div className="flex-1 flex flex-col gap-2">
                             <div className="text-lg font-bold text-brand">
-                              {lastBotPhones[0].name}
+                              {chat.phones[0].name}
                             </div>
                             <div
                               className={`text-xl font-extrabold ${darkMode ? "text-[#e2b892]" : "text-[#6b4b2b]"}`}
                             >
-                              {lastBotPhones[0].price}
+                              {chat.phones[0].price}
                             </div>
                             <div
                               className={`grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}
                             >
                               <div>
                                 <span className="font-semibold">Display:</span>{" "}
-                                {lastBotPhones[0].display_type}
+                                {chat.phones[0].display_type}
                               </div>
                               <div>
                                 <span className="font-semibold">Screen:</span>{" "}
-                                {lastBotPhones[0].screen_size_numeric} inches
+                                {chat.phones[0].screen_size_numeric} inches
                               </div>
                               <div>
                                 <span className="font-semibold">
                                   Processor:
                                 </span>{" "}
-                                {lastBotPhones[0].chipset ||
-                                  lastBotPhones[0].cpu}
+                                {chat.phones[0].chipset ||
+                                  chat.phones[0].cpu}
                               </div>
                               <div>
                                 <span className="font-semibold">RAM:</span>{" "}
-                                {lastBotPhones[0].ram}
+                                {chat.phones[0].ram}
                               </div>
                               <div>
                                 <span className="font-semibold">Storage:</span>{" "}
-                                {lastBotPhones[0].internal_storage}
+                                {chat.phones[0].internal_storage}
                               </div>
                               <div>
                                 <span className="font-semibold">Camera:</span>{" "}
-                                {lastBotPhones[0].primary_camera_resolution} /{" "}
-                                {lastBotPhones[0].selfie_camera_resolution}
+                                {chat.phones[0].primary_camera_resolution} /{" "}
+                                {chat.phones[0].selfie_camera_resolution}
                               </div>
                               <div>
                                 <span className="font-semibold">Battery:</span>{" "}
-                                {lastBotPhones[0].battery_capacity_numeric} mAh
+                                {chat.phones[0].battery_capacity_numeric} mAh
                               </div>
                             </div>
                           </div>
@@ -290,28 +248,58 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                         {/* Bar chart for device scores */}
                         <div
                           className={`rounded-2xl shadow p-2 sm:p-4 mx-auto w-full max-w-xs sm:max-w-md md:max-w-lg 
-                          ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border`}
+    ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border overflow-x-auto`}
                         >
                           <div className="font-semibold mb-2 text-brand">
                             Device Score Comparison
                           </div>
-                          <ResponsiveContainer width="90%" height={160}>
+                          <ResponsiveContainer width="100%" height={220}>
                             <BarChart
-                              data={lastBotPhones}
-                              margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                              barCategoryGap={"15%"}
+                              data={chat.phones}
+                              margin={{ top: 0, right: 0, left: 0, bottom: 30 }}
+                              barCategoryGap="15%" // More breathing room between bars
                             >
                               <XAxis
                                 dataKey="name"
-                                tick={
-                                  <WrappedXAxisTick
-                                    fill={darkMode ? "#fff" : "#6b4b2b"}
-                                  />
-                                }
                                 interval={0}
                                 tickLine={false}
-                                minTickGap={10}
+                                height={70}
+                                tick={({
+                                  x,
+                                  y,
+                                  payload,
+                                }: {
+                                  x: number;
+                                  y: number;
+                                  payload: { value: string };
+                                }) => {
+                                  const words: string[] =
+                                    payload.value.split(" ");
+                                  return (
+                                    <text
+                                      x={x}
+                                      y={y + 10}
+                                      textAnchor="middle"
+                                      fill={darkMode ? "#fff" : "#6b4b2b"}
+                                      fontSize={11}
+                                      fontWeight={500}
+                                    >
+                                      {words.map(
+                                        (word: string, index: number) => (
+                                          <tspan
+                                            key={index}
+                                            x={x}
+                                            dy={index === 0 ? 0 : 12}
+                                          >
+                                            {word}
+                                          </tspan>
+                                        )
+                                      )}
+                                    </text>
+                                  );
+                                }}
                               />
+
                               <YAxis
                                 tick={{
                                   fill: darkMode ? "#fff" : "#6b4b2b",
@@ -319,20 +307,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                                   fontSize: 10,
                                 }}
                                 tickLine={false}
+                                width={30}
                               />
                               <Tooltip
                                 contentStyle={{
                                   background: darkMode ? "#232323" : "#fff7f0",
                                   color: darkMode ? "#e2b892" : "#6b4b2b",
                                   borderRadius: 8,
-                                  fontSize: 12
+                                  fontSize: 12,
+                                }}
+                                labelStyle={{
+                                  color: darkMode ? "#fff" : "#222",
+                                  fontWeight: 700,
+                                }}
+                                itemStyle={{
+                                  color: darkMode ? "#fff" : "#222",
+                                  fontWeight: 600,
                                 }}
                               />
                               <Bar
                                 dataKey="overall_device_score"
                                 radius={[6, 6, 0, 0]}
+                                minPointSize={2}
                               >
-                                {lastBotPhones.map((_, idx) => (
+                                {chat.phones.map((_, idx) => (
                                   <Cell
                                     key={idx}
                                     fill={darkMode ? "#e2b892" : "#d4a88d"}
@@ -361,6 +359,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
+
                         {/* Table of specifications */}
                         <div
                           className={`rounded-2xl shadow p-4 ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border`}
@@ -386,7 +385,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                                 </tr>
                               </thead>
                               <tbody>
-                                {lastBotPhones.map((phone, idx) => (
+                                {chat.phones.map((phone, idx) => (
                                   <tr
                                     key={idx}
                                     className={
@@ -426,8 +425,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                             </table>
                           </div>
                         </div>
-                </div>
-              </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   chat.bot && (
@@ -453,12 +452,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                         {suggestion}
                       </button>
                     ))}
-                </div>
-              )}
-            </div>
-          ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
         {/* Fixed Input Area at the bottom of the viewport */}
         <div className="fixed bottom-0 left-0 w-full flex justify-center z-30 pb-4 pointer-events-none">
           <div
@@ -467,27 +466,27 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
             <div
               className={`flex items-center bg-white dark:bg-[#232323] border ${darkMode ? "border-gray-700" : "border-[#eae4da]"} shadow-lg rounded-2xl py-2 px-3 sm:py-3 sm:px-5 mb-2 transition-all duration-200`}
             >
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                handleSendMessage();
-              }
-            }}
+                    handleSendMessage();
+                  }
+                }}
                 className={`flex-1 bg-transparent text-base focus:outline-none placeholder-gray-400 ${darkMode ? "text-white" : "text-gray-900"}`}
-            placeholder="Type your message..."
-            disabled={isLoading}
-          />
-          <button
-            onClick={() => handleSendMessage()}
+                placeholder="Type your message..."
+                disabled={isLoading}
+              />
+              <button
+                onClick={() => handleSendMessage()}
                 disabled={isLoading || !message.trim()}
                 className="ml-2 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-transparent text-brand hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand transition disabled:text-gray-400 disabled:cursor-not-allowed"
                 style={{ minWidth: 44, minHeight: 44 }}
                 aria-label="Send"
-          >
-            {isLoading ? (
+              >
+                {isLoading ? (
                   <svg
                     className="animate-spin h-6 w-6 text-brand"
                     xmlns="http://www.w3.org/2000/svg"
@@ -507,8 +506,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                       fill="currentColor"
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
-              </svg>
-            ) : (
+                  </svg>
+                ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-6 w-6 text-brand"
@@ -521,10 +520,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                   >
                     <line x1="22" y1="2" x2="11" y2="13" />
                     <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            )}
-          </button>
-        </div>
+                  </svg>
+                )}
+              </button>
+            </div>
             {error && (
               <p className="text-red-500 text-sm mt-2 text-center">{error}</p>
             )}
