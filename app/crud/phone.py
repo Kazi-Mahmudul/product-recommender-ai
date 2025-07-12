@@ -136,31 +136,149 @@ def create_phones_batch(db: Session, phones: List[Dict[str, Any]]) -> List[Phone
 def get_smart_recommendations(
     db: Session,
     min_display_score: Optional[float] = None,
+    max_display_score: Optional[float] = None,
     min_camera_score: Optional[float] = None,
+    max_camera_score: Optional[float] = None,
     min_battery_score: Optional[float] = None,
-    min_ram_gb: Optional[int] = None,
-    min_storage_gb: Optional[int] = None,
+    max_battery_score: Optional[float] = None,
+    min_performance_score: Optional[float] = None,
+    max_performance_score: Optional[float] = None,
+    min_security_score: Optional[float] = None,
+    max_security_score: Optional[float] = None,
+    min_connectivity_score: Optional[float] = None,
+    max_connectivity_score: Optional[float] = None,
+    min_overall_device_score: Optional[float] = None,
+    max_overall_device_score: Optional[float] = None,
+    min_ram_gb: Optional[float] = None,
+    max_ram_gb: Optional[float] = None,
+    min_storage_gb: Optional[float] = None,
+    max_storage_gb: Optional[float] = None,
+    min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     brand: Optional[str] = None,
+    min_refresh_rate_hz: Optional[int] = None,
+    max_refresh_rate_hz: Optional[int] = None,
+    min_screen_size_inches: Optional[float] = None,
+    max_screen_size_inches: Optional[float] = None,
+    min_battery_capacity_numeric: Optional[int] = None,
+    max_battery_capacity_numeric: Optional[int] = None,
+    min_primary_camera_mp: Optional[float] = None,
+    max_primary_camera_mp: Optional[float] = None,
+    min_selfie_camera_mp: Optional[float] = None,
+    max_selfie_camera_mp: Optional[float] = None,
+    has_fast_charging: Optional[bool] = None,
+    has_wireless_charging: Optional[bool] = None,
+    is_popular_brand: Optional[bool] = None,
+    is_new_release: Optional[bool] = None,
+    is_upcoming: Optional[bool] = None,
+    display_type: Optional[str] = None,
+    camera_setup: Optional[str] = None,
+    battery_type: Optional[str] = None,
+    chipset: Optional[str] = None,
+    operating_system: Optional[str] = None,
     limit: Optional[int] = None
 ):
     """Get smart phone recommendations based on scores and specifications"""
     query = db.query(Phone)
     
+    # Score filters
     if min_display_score is not None:
         query = query.filter(Phone.display_score >= min_display_score)
+    if max_display_score is not None:
+        query = query.filter(Phone.display_score <= max_display_score)
     if min_camera_score is not None:
         query = query.filter(Phone.camera_score >= min_camera_score)
+    if max_camera_score is not None:
+        query = query.filter(Phone.camera_score <= max_camera_score)
     if min_battery_score is not None:
         query = query.filter(Phone.battery_score >= min_battery_score)
+    if max_battery_score is not None:
+        query = query.filter(Phone.battery_score <= max_battery_score)
+    if min_performance_score is not None:
+        query = query.filter(Phone.performance_score >= min_performance_score)
+    if max_performance_score is not None:
+        query = query.filter(Phone.performance_score <= max_performance_score)
+    if min_security_score is not None:
+        query = query.filter(Phone.security_score >= min_security_score)
+    if max_security_score is not None:
+        query = query.filter(Phone.security_score <= max_security_score)
+    if min_connectivity_score is not None:
+        query = query.filter(Phone.connectivity_score >= min_connectivity_score)
+    if max_connectivity_score is not None:
+        query = query.filter(Phone.connectivity_score <= max_connectivity_score)
+    if min_overall_device_score is not None:
+        query = query.filter(Phone.overall_device_score >= min_overall_device_score)
+    if max_overall_device_score is not None:
+        query = query.filter(Phone.overall_device_score <= max_overall_device_score)
+    
+    # Hardware filters
     if min_ram_gb is not None:
         query = query.filter(Phone.ram_gb >= min_ram_gb)
+    if max_ram_gb is not None:
+        query = query.filter(Phone.ram_gb <= max_ram_gb)
     if min_storage_gb is not None:
         query = query.filter(Phone.storage_gb >= min_storage_gb)
+    if max_storage_gb is not None:
+        query = query.filter(Phone.storage_gb <= max_storage_gb)
+    if min_price is not None:
+        query = query.filter(Phone.price_original >= min_price)
     if max_price is not None:
         query = query.filter(Phone.price_original <= max_price)
     if brand is not None:
         query = query.filter(func.lower(Phone.brand) == func.lower(brand))
+    
+    # Display filters
+    if min_refresh_rate_hz is not None:
+        query = query.filter(Phone.refresh_rate_hz >= min_refresh_rate_hz)
+    if max_refresh_rate_hz is not None:
+        query = query.filter(Phone.refresh_rate_hz <= max_refresh_rate_hz)
+    if min_screen_size_inches is not None:
+        query = query.filter(Phone.screen_size_inches >= min_screen_size_inches)
+    if max_screen_size_inches is not None:
+        query = query.filter(Phone.screen_size_inches <= max_screen_size_inches)
+    if display_type is not None:
+        query = query.filter(func.lower(Phone.display_type).contains(func.lower(display_type)))
+    
+    # Camera filters
+    if min_primary_camera_mp is not None:
+        query = query.filter(Phone.primary_camera_mp >= min_primary_camera_mp)
+    if max_primary_camera_mp is not None:
+        query = query.filter(Phone.primary_camera_mp <= max_primary_camera_mp)
+    if min_selfie_camera_mp is not None:
+        query = query.filter(Phone.selfie_camera_mp >= min_selfie_camera_mp)
+    if max_selfie_camera_mp is not None:
+        query = query.filter(Phone.selfie_camera_mp <= max_selfie_camera_mp)
+    if camera_setup is not None:
+        query = query.filter(func.lower(Phone.camera_setup).contains(func.lower(camera_setup)))
+    
+    # Battery filters
+    if min_battery_capacity_numeric is not None:
+        query = query.filter(Phone.battery_capacity_numeric >= min_battery_capacity_numeric)
+    if max_battery_capacity_numeric is not None:
+        query = query.filter(Phone.battery_capacity_numeric <= max_battery_capacity_numeric)
+    if has_fast_charging is not None:
+        query = query.filter(Phone.has_fast_charging == has_fast_charging)
+    if has_wireless_charging is not None:
+        query = query.filter(Phone.has_wireless_charging == has_wireless_charging)
+    if battery_type is not None:
+        query = query.filter(func.lower(Phone.battery_type).contains(func.lower(battery_type)))
+    
+    # Performance filters
+    if chipset is not None:
+        query = query.filter(func.lower(Phone.chipset).contains(func.lower(chipset)))
+    if operating_system is not None:
+        query = query.filter(func.lower(Phone.operating_system).contains(func.lower(operating_system)))
+    
+    # Status filters
+    if is_popular_brand is not None:
+        query = query.filter(Phone.is_popular_brand == is_popular_brand)
+    if is_new_release is not None:
+        query = query.filter(Phone.is_new_release == is_new_release)
+    if is_upcoming is not None:
+        query = query.filter(Phone.is_upcoming == is_upcoming)
+    
+    # Order by overall device score for better recommendations
+    query = query.order_by(Phone.overall_device_score.desc())
     
     results = query.all()
     if limit is not None:
@@ -191,6 +309,36 @@ def get_similar_phones(db: Session, phone_id: int) -> List[Phone]:
         return []
     # Placeholder for similar phones logic
     return []
+
+def get_phone_by_name_or_model(db: Session, name: str) -> Optional[Phone]:
+    """
+    Get a phone by name or model (case-insensitive search)
+    """
+    return db.query(Phone).filter(
+        (func.lower(Phone.name).contains(func.lower(name))) |
+        (func.lower(Phone.model).contains(func.lower(name))) |
+        (func.lower(Phone.brand).contains(func.lower(name)))
+    ).first()
+
+def get_phones_by_names(db: Session, names: List[str]) -> List[Phone]:
+    """
+    Get multiple phones by names for comparison
+    """
+    phones = []
+    for name in names:
+        phone = get_phone_by_name_or_model(db, name)
+        if phone:
+            phones.append(phone)
+    return phones
+
+def get_phone_feature_value(db: Session, phone_name: str, feature: str) -> Optional[Any]:
+    """
+    Get a specific feature value for a phone
+    """
+    phone = get_phone_by_name_or_model(db, phone_name)
+    if phone and hasattr(phone, feature):
+        return getattr(phone, feature)
+    return None
 
 def get_stats(db: Session):
     """

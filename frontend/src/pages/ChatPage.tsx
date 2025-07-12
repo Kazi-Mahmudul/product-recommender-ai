@@ -23,14 +23,17 @@ interface ChatPageProps {
 
 const SUGGESTED_QUERIES = [
   "Best phones under 20,000 BDT",
-  "Top camera phones 2025",
-  "Phones with best battery life",
-  "Compare POCO X6 and Redmi Note 13 pro",
-  "Does Galaxy A55 support 5G?",
+  "Phones with 120Hz refresh rate",
+  "Samsung phones with wireless charging",
+  "What is the battery capacity of Galaxy A55?",
+  "Compare POCO X6 vs Redmi Note 13 Pro",
+  "New release phones 2025",
+  "Phones with good camera under 50,000",
+  "What is the refresh rate of iPhone 15?",
 ];
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const GEMINI_API_URL = import.meta.env.VITE_GEMINI_SERVICE_URL;
+const API_BASE_URL = "https://pickbd-ai.onrender.com";
+const GEMINI_API_URL = "https://gemini-api-wm3b.onrender.com";
 
 const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
   const location = useLocation();
@@ -113,18 +116,37 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
 
         setChatHistory((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1].bot =
-            "Based on your query, here are some recommendations:";
-          updated[updated.length - 1].phones = Array.isArray(phoneData)
-            ? phoneData
-            : [];
+          if (Array.isArray(phoneData)) {
+            // Recommendation response with phone data
+            updated[updated.length - 1].bot =
+              "Based on your query, here are some recommendations:";
+            updated[updated.length - 1].phones = phoneData;
+          } else {
+            // String response for qa/comparison/chat
+            updated[updated.length - 1].bot = phoneData;
+          }
           return updated;
         });
       } else {
-        // For chat, qa, or comparison
+        // For non-recommendation queries, call the backend directly
+        const phonesRes = await fetch(
+          `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!phonesRes.ok) {
+          const err = await phonesRes.json();
+          throw new Error(err.detail || "Failed to process query");
+        }
+
+        const responseData = await phonesRes.json();
+
         setChatHistory((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1].bot = result.data;
+          updated[updated.length - 1].bot = responseData;
           return updated;
         });
       }
