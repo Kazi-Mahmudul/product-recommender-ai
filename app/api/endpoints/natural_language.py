@@ -5,6 +5,7 @@ import httpx
 import os
 import re
 import numpy as np
+from fastapi.responses import JSONResponse
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone
@@ -209,13 +210,17 @@ def generate_qa_response(db: Session, query: str) -> str:
     else:
         return f"The {phone_name} has {feature_value} for {display_name}."
 
-def generate_comparison_response(db: Session, query: str) -> dict:
+def generate_comparison_response(db: Session, query: str, phone_names: list = None) -> dict:
     """Generate a structured response for comparison queries (2-5 phones, normalized features for charting)"""
-    # Extract phone names (split by vs, comma, and, etc.)
-    query_clean = query.lower().replace(' vs ', ',').replace(' and ', ',').replace(' & ', ',')
-    phone_names = [n.strip() for n in re.split(r',|/|\\|\|', query_clean) if n.strip()]
-    phone_names = [n for n in phone_names if n and not n.isdigit()]
-    phone_names = phone_names[:5]
+    # Use provided phone_names or extract from query
+    if phone_names is None:
+        # Extract phone names (split by vs, comma, and, etc.)
+        query_clean = query.lower().replace(' vs ', ',').replace(' and ', ',').replace(' & ', ',')
+        phone_names = [n.strip() for n in re.split(r',|/|\\|\|', query_clean) if n.strip()]
+        phone_names = [n for n in phone_names if n and not n.isdigit()]
+        phone_names = phone_names[:5]
+    else:
+        phone_names = [str(n).strip() for n in phone_names if n and not str(n).isdigit()][:5]
     
     # Fuzzy match phones
     phones = phone_crud.get_phones_by_fuzzy_names(db, phone_names, limit=5)
@@ -293,9 +298,9 @@ def generate_comparison_response(db: Session, query: str) -> dict:
 async def process_natural_language_query(
     query: str,
     db: Session = Depends(get_db)
-) -> Union[List[Phone], str]:
+):
     """
-    Process a natural language query and return relevant phone recommendations
+    Process a natural language query and return relevant phone recommendations, QA, comparison, or error as JSON.
     """
     try:
         print(f"Processing query: {query}")
@@ -313,8 +318,7 @@ async def process_natural_language_query(
                 if response.status_code != 200:
                     error_text = await response.text()
                     print(f"Gemini service error: {error_text}")
-                    # Fallback to chat response for non-200 status
-                    return f"I'm having trouble processing your query right now. Please try again in a moment. (Error: {response.status_code})"
+                    return JSONResponse(content={"error": f"I'm having trouble processing your query right now. Please try again in a moment. (Error: {response.status_code})"}, status_code=500)
                 
                 result = response.json()
                 print(f"Gemini response: {result}")
@@ -325,32 +329,36 @@ async def process_natural_language_query(
                     print(f"Processing recommendation with filters: {filters}")
                 elif result.get("type") == "qa":
                     print("Processing QA query")
-                    # Handle QA queries
-                    return generate_qa_response(db, query)
+                    return JSONResponse(content={"type": "qa", "data": generate_qa_response(db, query)})
                 elif result.get("type") == "comparison":
                     print("Processing comparison query")
-                    # Handle comparison queries
-                    return generate_comparison_response(db, query)
+                    # Use Gemini's data if it's a list of phone names, else fallback to query
+                    phone_names = []
+                    if isinstance(result.get("data"), list):
+                        phone_names = result["data"]
+                    else:
+                        phone_names = None  # fallback to extract from query in generate_comparison_response
+                    comparison = generate_comparison_response(db, query, phone_names=phone_names)
+                    if isinstance(comparison, dict) and comparison.get("error"):
+                        return JSONResponse(content=comparison, status_code=400)
+                    return JSONResponse(content=comparison)
                 elif result.get("type") == "chat":
                     print("Processing chat query")
-                    # For chat queries, return the response data as a string
-                    return result.get("data", "I'm here to help you with smartphone questions!")
+                    return JSONResponse(content={"type": "chat", "data": result.get("data", "I'm here to help you with smartphone questions!")})
                 else:
                     print(f"Unknown response type: {result.get('type')}")
-                    # Fallback for old format or unknown type
                     filters = result.get("filters", {})
                     if not filters:
-                        # If no filters, return a helpful message
-                        return "I'm here to help you with smartphone questions! You can ask me about:\n\n• Phone recommendations (e.g., 'best phones under 30000')\n• Specific features (e.g., 'What is the battery capacity of Galaxy A55?')\n• Phone comparisons (e.g., 'Compare POCO X6 vs Redmi Note 13 Pro')\n• General questions about smartphones"
+                        return JSONResponse(content={"error": "I'm here to help you with smartphone questions! What would you like to know?"}, status_code=400)
             except httpx.ConnectError as e:
                 print(f"Connection error to Gemini service: {e}")
-                return "I'm having trouble connecting to my AI service right now. Please try again in a moment."
+                return JSONResponse(content={"error": "I'm having trouble connecting to my AI service right now. Please try again in a moment."}, status_code=500)
             except httpx.TimeoutException as e:
                 print(f"Timeout error to Gemini service: {e}")
-                return "The AI service is taking too long to respond. Please try again in a moment."
+                return JSONResponse(content={"error": "The AI service is taking too long to respond. Please try again in a moment."}, status_code=500)
             except Exception as e:
                 print(f"Unexpected error calling Gemini service: {e}")
-                return "I'm experiencing some technical difficulties. Please try again in a moment."
+                return JSONResponse(content={"error": "I'm experiencing some technical difficulties. Please try again in a moment."}, status_code=500)
 
         # If user requests full specification, return all columns for the matched phone
         if filters.get("full_spec") and filters.get("name"):
@@ -366,7 +374,7 @@ async def process_natural_language_query(
                     phone = db.query(PhoneModel).filter(PhoneModel.model.ilike(f"%{filters['name']}%"))
                     results = phone.all()
                     logging.warning(f"Full spec fallback by model results count: {len(results)}")
-            return results
+            return JSONResponse(content=[r.__dict__ for r in results])
 
         try:
             # Use the parsed filters to get recommendations
@@ -393,47 +401,47 @@ async def process_natural_language_query(
                 min_price=filters.get("min_price"),
                 max_price=filters.get("max_price"),
                 brand=filters.get("brand"),
-                            min_refresh_rate_numeric=filters.get("min_refresh_rate_numeric"),
-            max_refresh_rate_numeric=filters.get("max_refresh_rate_numeric"),
-            min_screen_size_numeric=filters.get("min_screen_size_numeric"),
-            max_screen_size_numeric=filters.get("max_screen_size_numeric"),
+                min_refresh_rate_numeric=filters.get("min_refresh_rate_numeric"),
+                max_refresh_rate_numeric=filters.get("max_refresh_rate_numeric"),
+                min_screen_size_numeric=filters.get("min_screen_size_numeric"),
+                max_screen_size_numeric=filters.get("max_screen_size_numeric"),
                 min_battery_capacity_numeric=filters.get("min_battery_capacity_numeric"),
                 max_battery_capacity_numeric=filters.get("max_battery_capacity_numeric"),
                 min_primary_camera_mp=filters.get("min_primary_camera_mp"),
                 max_primary_camera_mp=filters.get("max_primary_camera_mp"),
-                            min_selfie_camera_mp=filters.get("min_selfie_camera_mp"),
-            max_selfie_camera_mp=filters.get("max_selfie_camera_mp"),
-            min_camera_count=filters.get("min_camera_count"),
-            max_camera_count=filters.get("max_camera_count"),
-            has_fast_charging=filters.get("has_fast_charging"),
-            has_wireless_charging=filters.get("has_wireless_charging"),
-            is_popular_brand=filters.get("is_popular_brand"),
-            is_new_release=filters.get("is_new_release"),
-            is_upcoming=filters.get("is_upcoming"),
-            display_type=filters.get("display_type"),
-            camera_setup=filters.get("camera_setup"),
-            battery_type=filters.get("battery_type"),
-            chipset=filters.get("chipset"),
-            operating_system=filters.get("operating_system"),
-            price_category=filters.get("price_category"),
-            min_ppi_numeric=filters.get("min_ppi_numeric"),
-            max_ppi_numeric=filters.get("max_ppi_numeric"),
-            limit=filters.get("limit")
+                min_selfie_camera_mp=filters.get("min_selfie_camera_mp"),
+                max_selfie_camera_mp=filters.get("max_selfie_camera_mp"),
+                min_camera_count=filters.get("min_camera_count"),
+                max_camera_count=filters.get("max_camera_count"),
+                has_fast_charging=filters.get("has_fast_charging"),
+                has_wireless_charging=filters.get("has_wireless_charging"),
+                is_popular_brand=filters.get("is_popular_brand"),
+                is_new_release=filters.get("is_new_release"),
+                is_upcoming=filters.get("is_upcoming"),
+                display_type=filters.get("display_type"),
+                camera_setup=filters.get("camera_setup"),
+                battery_type=filters.get("battery_type"),
+                chipset=filters.get("chipset"),
+                operating_system=filters.get("operating_system"),
+                price_category=filters.get("price_category"),
+                min_ppi_numeric=filters.get("min_ppi_numeric"),
+                max_ppi_numeric=filters.get("max_ppi_numeric"),
+                limit=filters.get("limit")
             )
 
             print(f"Found {len(recommendations)} recommendations")
 
             # If limit is not specified in the query but we have results, return top 5 by default
             if filters.get("limit") is None and recommendations:
-                return recommendations[:5]
-            return recommendations
+                return JSONResponse(content=recommendations[:5])
+            return JSONResponse(content=recommendations)
         except Exception as e:
             print(f"Database error: {e}")
-            return "I'm having trouble accessing the phone database right now. Please try again in a moment."
+            return JSONResponse(content={"error": "I'm having trouble accessing the phone database right now. Please try again in a moment."}, status_code=500)
 
     except httpx.HTTPError as e:
         print(f"HTTP error: {e}")
-        return "I'm having trouble processing your query right now. Please try again in a moment."
+        return JSONResponse(content={"error": "I'm having trouble processing your query right now. Please try again in a moment."}, status_code=500)
     except Exception as e:
         print(f"Unexpected error: {e}")
-        return "I'm experiencing some technical difficulties. Please try again in a moment."
+        return JSONResponse(content={"error": "I'm experiencing some technical difficulties. Please try again in a moment."}, status_code=500)

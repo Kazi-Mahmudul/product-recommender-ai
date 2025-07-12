@@ -368,17 +368,26 @@ def get_stats(db: Session):
     return {"message": "Statistics not implemented yet."}
 
 def get_all_phone_names(db: Session):
-    """Return all phone names in the database."""
-    return [row[0] for row in db.query(Phone.name).all()]
+    names = [row[0] for row in db.query(Phone.name).all()]
+    print("All phone names in DB:", names)
+    return names
 
-def get_phones_by_fuzzy_names(db: Session, names: list, limit: int = 5, score_cutoff: int = 80):
+def get_phones_by_fuzzy_names(db: Session, names: list, limit: int = 5, score_cutoff: int = 60):
     """Return best-matching phones for a list of names using fuzzy matching."""
     all_names = get_all_phone_names(db)
     matched_phones = []
     for name in names:
+        if not all_names:
+            print(f"No phone names in DB to match '{name}'")
+            continue
         match, score, _ = process.extractOne(name, all_names, scorer=fuzz.token_sort_ratio)
+        print(f"Trying to match '{name}' -> '{match}' (score: {score})")
         if score >= score_cutoff:
             phone = get_phone_by_name_or_model(db, match)
             if phone:
                 matched_phones.append(phone)
+            else:
+                print(f"Matched name '{match}' not found in DB as Phone object.")
+        else:
+            print(f"No good match for '{name}' (best: '{match}', score: {score})")
     return matched_phones[:limit]
