@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-
 import {
   BarChart,
   Bar,
@@ -10,10 +9,11 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+
 interface ChatMessage {
   user: string;
   bot: string;
-  phones?: any[]; // Store recommendations for this message
+  phones?: any[];
 }
 
 interface ChatPageProps {
@@ -25,9 +25,12 @@ const SUGGESTED_QUERIES = [
   "Best phones under 20,000 BDT",
   "Top camera phones 2025",
   "Phones with best battery life",
-  "Best gaming phones",
-  "Latest Samsung phones",
+  "Compare POCO X6 and Redmi Note 13 pro",
+  "Does Galaxy A55 support 5G?",
 ];
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const GEMINI_API_URL = import.meta.env.VITE_GEMINI_SERVICE_URL;
 
 const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
   const location = useLocation();
@@ -36,16 +39,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
-  
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  
-  const API_BASE_URL = "https://pickbd-ai.onrender.com";
 
   useEffect(() => {
     if (location.state?.initialMessage) {
       handleSendMessage(location.state.initialMessage);
     }
-    // eslint-disable-next-line
   }, [location.state]);
 
   useEffect(() => {
@@ -56,16 +55,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
   }, [chatHistory]);
 
   useEffect(() => {
-    // Show welcome message on first load
     if (chatHistory.length === 0 && showWelcome) {
       setChatHistory([
         {
           user: "",
-          bot: `Hi there 👋\n\nI’m your ePick assistant — here to help you find and compare the best smartphones in Bangladesh.\n\nAsk anything, and let’s explore the perfect pick together! 🌿📱 \n\nHere are some things you can try:`,
+          bot: `Hi there 👋\n\nI’m your ePick assistant — here to help you find and compare the best smartphones in Bangladesh.\n\nAsk anything, and let’s explore the perfect pick together! 🌿📱\n\nHere are some things you can try:`,
         },
       ]);
     }
-  }, [showWelcome, chatHistory.length]);
+  }, [chatHistory.length, showWelcome]);
 
   const handleSendMessage = async (initialMessage?: string) => {
     const messageToSend = initialMessage || message;
@@ -83,79 +81,92 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
     setChatHistory(newChatHistory);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      // 1. Send to Gemini intent parser
+      const geminiRes = await fetch(`${GEMINI_API_URL}/parse-query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: messageToSend }),
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.detail || `HTTP error! status: ${response.status}`
-        );
+      if (!geminiRes.ok) {
+        const err = await geminiRes.json();
+        throw new Error(err.detail || "Failed to parse query");
       }
 
-      const recommendations = await response.json();
-      
+      const result = await geminiRes.json();
 
-      const recommendationsText = recommendations
-        .slice(0, 5)
-        .map(
-          (phone: any, index: number) =>
-            `📱 ${index + 1}. ${phone.brand} ${phone.name}\n` +
-            `   💰 Price: BDT ${phone.price}\n` +
-            `   💾 RAM: ${phone.ram}\n` +
-            `   💿 Storage: ${phone.internal_storage}\n` +
-            `   ⚡ Performance: ${phone.performance_score?.toFixed(1) ?? "-"}\n` +
-            `   📸 Camera: ${phone.camera_score?.toFixed(1) ?? "-"}\n` +
-            `   🖥️ Display: ${phone.display_score?.toFixed(1) ?? "-"}\n` +
-            `   🔋 Battery: ${phone.battery_score?.toFixed(1) ?? "-"}\n`
-        )
-        .join("\n");
+      if (result.type === "recommendation") {
+        const phonesRes = await fetch(
+          `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
 
-      const botResponse = `Based on your query "${messageToSend}", here are some phone recommendations:\n\n${recommendationsText}\n\n💡 Tip: Click on a phone to see more details.`;
+        if (!phonesRes.ok) {
+          const err = await phonesRes.json();
+          throw new Error(err.detail || "Failed to fetch phones");
+        }
 
-      setChatHistory((prev) => {
-        const updatedHistory = [...prev];
-        updatedHistory[updatedHistory.length - 1].bot = botResponse;
-        updatedHistory[updatedHistory.length - 1].phones = Array.isArray(recommendations) ? recommendations : [];
-        return updatedHistory;
-      });
+        const phoneData = await phonesRes.json();
+
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1].bot =
+            "Based on your query, here are some recommendations:";
+          updated[updated.length - 1].phones = Array.isArray(phoneData)
+            ? phoneData
+            : [];
+          return updated;
+        });
+      } else {
+        // For chat, qa, or comparison
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1].bot = result.data;
+          return updated;
+        });
+      }
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "An unknown error occurred.";
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       setError(errorMessage);
       setChatHistory((prev) => {
-        const updatedHistory = [...prev];
-        updatedHistory[updatedHistory.length - 1].bot = `Sorry, there was an error: ${errorMessage}`;
-        return updatedHistory;
+        const updated = [...prev];
+        updated[updated.length - 1].bot =
+          `Sorry, something went wrong: ${errorMessage}`;
+        return updated;
       });
-      
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
+  const handleSuggestionClick = (query: string) => {
     setShowWelcome(false);
-    handleSendMessage(suggestion);
+    handleSendMessage(query);
   };
 
   return (
     <div
-      className={`flex items-center justify-center min-h-screen ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"} overflow-x-hidden`}
+      className={`flex items-center justify-center min-h-screen ${
+        darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"
+      }`}
     >
       <div
-        className={`w-full max-w-3xl mx-auto my-8 rounded-3xl shadow-2xl ${darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"} border flex flex-col overflow-x-hidden`}
+        className={`w-full max-w-3xl mx-auto my-8 rounded-3xl shadow-2xl ${
+          darkMode
+            ? "bg-[#232323] border-gray-800"
+            : "bg-white border-[#eae4da]"
+        } border flex flex-col`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-8 py-6 border-b rounded-t-3xl ${darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"}`}
+          className={`flex items-center justify-between px-8 py-6 border-b rounded-t-3xl ${
+            darkMode
+              ? "bg-[#232323] border-gray-800"
+              : "bg-white border-[#eae4da]"
+          }`}
         >
           <div className="flex items-center space-x-2">
             <span className="font-bold text-2xl text-brand">ePick Chat</span>
@@ -163,14 +174,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
           </div>
           <button
             className="px-4 py-2 rounded-full text-sm font-semibold bg-brand text-white shadow-md hover:opacity-90 transition"
-            onClick={() => setChatHistory([])}
+            onClick={() => {
+              setChatHistory([]);
+              setShowWelcome(true);
+            }}
           >
             New chat
           </button>
         </div>
+
         {/* Chat Area */}
         <div ref={chatContainerRef} className="px-6 py-4 space-y-6 pb-32">
-          {/* Show chat history as a normal conversation */}
           <div className="flex flex-col space-y-4">
             {chatHistory.map((chat, index) => (
               <div key={index}>
@@ -181,34 +195,51 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                     </div>
                   </div>
                 )}
-                {/* If this bot message has phone recommendations, show the card/chart/table as the bot's reply */}
+
+                {/* Handle phone recommendation with card + chart + table */}
                 {chat.bot && chat.phones && chat.phones.length > 0 ? (
                   <div className="flex justify-start">
                     <div
-                      className={`rounded-2xl px-0 py-0 max-w-2xl shadow-md text-base whitespace-pre-wrap border w-full overflow-x-auto ${darkMode ? 'bg-[#181818] text-gray-100 border-gray-700' : 'bg-[#f7f3ef] text-gray-900 border-[#eae4da]'}`}
+                      className={`rounded-2xl px-0 py-0 max-w-2xl shadow-md text-base whitespace-pre-wrap border w-full overflow-x-auto ${
+                        darkMode
+                          ? "bg-[#181818] text-gray-100 border-gray-700"
+                          : "bg-[#f7f3ef] text-gray-900 border-[#eae4da]"
+                      }`}
                     >
                       <div className="space-y-6 p-4">
-                        {/* Top phone card */}
+                        {/* Top Phone Card */}
                         <div
                           className={`rounded-2xl shadow-lg p-6 flex flex-col md:flex-row items-center gap-6 mx-auto w-full max-w-md 
-                          ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border`}
+                    ${
+                      darkMode
+                        ? "bg-gray-900 border-gray-700"
+                        : "bg-[#fff7f0] border-[#eae4da]"
+                    } border`}
                         >
                           <img
                             src={chat.phones[0].img_url}
                             alt={chat.phones[0].name}
-                            className={`w-28 h-36 object-contain rounded-xl ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-[#eae4da]"} border`}
+                            className={`w-28 h-36 object-contain rounded-xl ${
+                              darkMode
+                                ? "bg-gray-800 border-gray-700"
+                                : "bg-white border-[#eae4da]"
+                            } border`}
                           />
                           <div className="flex-1 flex flex-col gap-2">
                             <div className="text-lg font-bold text-brand">
                               {chat.phones[0].name}
                             </div>
                             <div
-                              className={`text-xl font-extrabold ${darkMode ? "text-[#e2b892]" : "text-[#6b4b2b]"}`}
+                              className={`text-xl font-extrabold ${
+                                darkMode ? "text-[#e2b892]" : "text-[#6b4b2b]"
+                              }`}
                             >
                               {chat.phones[0].price}
                             </div>
                             <div
-                              className={`grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}
+                              className={`grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 ${
+                                darkMode ? "text-gray-300" : "text-gray-900"
+                              }`}
                             >
                               <div>
                                 <span className="font-semibold">Display:</span>{" "}
@@ -222,8 +253,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                                 <span className="font-semibold">
                                   Processor:
                                 </span>{" "}
-                                {chat.phones[0].chipset ||
-                                  chat.phones[0].cpu}
+                                {chat.phones[0].chipset || chat.phones[0].cpu}
                               </div>
                               <div>
                                 <span className="font-semibold">RAM:</span>{" "}
@@ -245,7 +275,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                             </div>
                           </div>
                         </div>
-                        {/* Bar chart for device scores */}
+
+                        {/* Device Score Chart */}
                         <div
                           className={`rounded-2xl shadow p-2 sm:p-4 mx-auto w-full max-w-xs sm:max-w-md md:max-w-lg 
     ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border overflow-x-auto`}
@@ -359,8 +390,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
-
-                        {/* Table of specifications */}
+                        {/* Specification Table */}
                         <div
                           className={`rounded-2xl shadow p-4 ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border`}
                         >
@@ -432,20 +462,29 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                   chat.bot && (
                     <div className="flex justify-start">
                       <div
-                        className={`rounded-2xl px-5 py-3 max-w-xs shadow-md text-base whitespace-pre-wrap border ${darkMode ? "bg-[#181818] text-gray-100 border-gray-700" : "bg-[#f7f3ef] text-gray-900 border-[#eae4da]"}`}
+                        className={`rounded-2xl px-5 py-3 max-w-xs shadow-md text-base whitespace-pre-wrap border ${
+                          darkMode
+                            ? "bg-[#181818] text-gray-100 border-gray-700"
+                            : "bg-[#f7f3ef] text-gray-900 border-[#eae4da]"
+                        }`}
                       >
                         {chat.bot}
                       </div>
                     </div>
                   )
                 )}
-                {/* Show suggestions only for the welcome message */}
+
+                {/* Welcome Suggestions */}
                 {index === 0 && showWelcome && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     {SUGGESTED_QUERIES.map((suggestion) => (
                       <button
                         key={suggestion}
-                        className={`px-4 py-2 rounded-full border text-sm font-medium transition ${darkMode ? "bg-[#181818] border-gray-700 text-gray-200 hover:bg-brand hover:text-white" : "bg-[#f7f3ef] border-[#eae4da] text-gray-900 hover:bg-brand hover:text-white"}`}
+                        className={`px-4 py-2 rounded-full border text-sm font-medium transition ${
+                          darkMode
+                            ? "bg-[#181818] border-gray-700 text-gray-200 hover:bg-brand hover:text-white"
+                            : "bg-[#f7f3ef] border-[#eae4da] text-gray-900 hover:bg-brand hover:text-white"
+                        }`}
                         onClick={() => handleSuggestionClick(suggestion)}
                         disabled={isLoading}
                       >
@@ -458,32 +497,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
             ))}
           </div>
         </div>
-        {/* Fixed Input Area at the bottom of the viewport */}
+
+        {/* Chat Input */}
         <div className="fixed bottom-0 left-0 w-full flex justify-center z-30 pb-4 pointer-events-none">
-          <div
-            className={`w-full max-w-xl mx-auto px-2 sm:px-4 pointer-events-auto`}
-          >
+          <div className="w-full max-w-xl mx-auto px-2 sm:px-4 pointer-events-auto">
             <div
-              className={`flex items-center bg-white dark:bg-[#232323] border ${darkMode ? "border-gray-700" : "border-[#eae4da]"} shadow-lg rounded-2xl py-2 px-3 sm:py-3 sm:px-5 mb-2 transition-all duration-200`}
+              className={`flex items-center bg-white dark:bg-[#232323] border ${
+                darkMode ? "border-gray-700" : "border-[#eae4da]"
+              } shadow-lg rounded-2xl py-2 px-3 sm:py-3 sm:px-5 mb-2`}
             >
               <input
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSendMessage();
-                  }
-                }}
-                className={`flex-1 bg-transparent text-base focus:outline-none placeholder-gray-400 ${darkMode ? "text-white" : "text-gray-900"}`}
+                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                className={`flex-1 bg-transparent text-base focus:outline-none placeholder-gray-400 ${
+                  darkMode ? "text-white" : "text-gray-900"
+                }`}
                 placeholder="Type your message..."
                 disabled={isLoading}
               />
               <button
                 onClick={() => handleSendMessage()}
                 disabled={isLoading || !message.trim()}
-                className="ml-2 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-transparent text-brand hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand transition disabled:text-gray-400 disabled:cursor-not-allowed"
-                style={{ minWidth: 44, minHeight: 44 }}
+                className="ml-2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-transparent text-brand hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand transition disabled:text-gray-400 disabled:cursor-not-allowed"
                 aria-label="Send"
               >
                 {isLoading ? (
@@ -500,12 +537,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                       r="10"
                       stroke="currentColor"
                       strokeWidth="4"
-                    ></circle>
+                    />
                     <path
                       className="opacity-75"
                       fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                 ) : (
                   <svg
