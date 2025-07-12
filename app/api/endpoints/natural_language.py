@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import httpx
 import os
 import re
+import numpy as np
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone
@@ -51,45 +52,80 @@ def extract_phone_names_from_query(query: str) -> List[str]:
 def extract_feature_from_query(query: str) -> str:
     """Extract feature name from query"""
     features = {
-        "refresh rate": "refresh_rate_hz",
-        "refresh_rate": "refresh_rate_hz",
-        "screen size": "screen_size_inches",
-        "display size": "screen_size_inches",
+        # Display features
+        "refresh rate": "refresh_rate_numeric",
+        "refresh_rate": "refresh_rate_numeric",
+        "screen size": "screen_size_numeric",
+        "display size": "screen_size_numeric",
+        "ppi": "ppi_numeric",
+        "pixel density": "ppi_numeric",
+        
+        # Battery features
         "battery": "battery_capacity_numeric",
         "battery capacity": "battery_capacity_numeric",
+        "fast charging": "has_fast_charging",
+        "wireless charging": "has_wireless_charging",
+        "charging": "quick_charging",
+        "battery type": "battery_type",
+        
+        # Camera features
         "camera": "primary_camera_mp",
         "primary camera": "primary_camera_mp",
         "selfie camera": "selfie_camera_mp",
         "front camera": "selfie_camera_mp",
+        "camera count": "camera_count",
+        "camera score": "camera_score",
+        
+        # Performance features
         "ram": "ram_gb",
         "storage": "storage_gb",
-        "price": "price_original",
         "chipset": "chipset",
         "processor": "chipset",
         "cpu": "cpu",
         "gpu": "gpu",
+        "performance score": "performance_score",
+        
+        # Price features
+        "price": "price_original",
+        "price category": "price_category",
+        "budget": "price_original",
+        
+        # Display features
         "display type": "display_type",
         "screen protection": "screen_protection",
+        "display score": "display_score",
+        
+        # Camera setup
         "camera setup": "camera_setup",
-        "battery type": "battery_type",
-        "charging": "quick_charging",
-        "wireless charging": "has_wireless_charging",
-        "fast charging": "has_fast_charging",
+        
+        # Security features
         "fingerprint": "fingerprint_sensor",
         "face unlock": "face_unlock",
+        "security score": "security_score",
+        
+        # Software features
         "operating system": "operating_system",
         "os": "operating_system",
+        
+        # Design features
         "weight": "weight",
         "thickness": "thickness",
         "colors": "colors",
         "waterproof": "waterproof",
         "ip rating": "ip_rating",
+        
+        # Connectivity features
         "bluetooth": "bluetooth",
         "nfc": "nfc",
         "usb": "usb",
         "sim": "sim_slot",
+        "connectivity score": "connectivity_score",
         "5g": "network",
-        "4g": "network"
+        "4g": "network",
+        
+        # Overall scores
+        "overall score": "overall_device_score",
+        "device score": "overall_device_score"
     }
     
     query_lower = query.lower()
@@ -122,86 +158,136 @@ def generate_qa_response(db: Session, query: str) -> str:
     
     # Format the response based on the feature
     feature_display_names = {
-        "refresh_rate_hz": "refresh rate",
-        "screen_size_inches": "screen size",
+        "refresh_rate_numeric": "refresh rate",
+        "screen_size_numeric": "screen size",
+        "ppi_numeric": "pixel density",
         "battery_capacity_numeric": "battery capacity",
         "primary_camera_mp": "primary camera",
         "selfie_camera_mp": "selfie camera",
+        "camera_count": "camera count",
+        "camera_score": "camera score",
         "ram_gb": "RAM",
         "storage_gb": "storage",
         "price_original": "price",
+        "price_category": "price category",
         "weight": "weight",
-        "thickness": "thickness"
+        "thickness": "thickness",
+        "display_score": "display score",
+        "battery_score": "battery score",
+        "performance_score": "performance score",
+        "security_score": "security score",
+        "connectivity_score": "connectivity score",
+        "overall_device_score": "overall device score"
     }
     
     display_name = feature_display_names.get(feature, feature)
     
-    if feature == "refresh_rate_hz":
+    if feature == "refresh_rate_numeric":
         return f"The {phone_name} has a {feature_value}Hz refresh rate."
-    elif feature == "screen_size_inches":
+    elif feature == "screen_size_numeric":
         return f"The {phone_name} has a {feature_value}-inch screen."
+    elif feature == "ppi_numeric":
+        return f"The {phone_name} has a {feature_value} PPI display."
     elif feature == "battery_capacity_numeric":
         return f"The {phone_name} has a {feature_value}mAh battery."
     elif feature in ["primary_camera_mp", "selfie_camera_mp"]:
         return f"The {phone_name} has a {feature_value}MP {display_name}."
+    elif feature == "camera_count":
+        return f"The {phone_name} has {feature_value} cameras."
+    elif feature == "camera_score":
+        return f"The {phone_name} has a camera score of {feature_value:.1f}/10."
     elif feature in ["ram_gb", "storage_gb"]:
         return f"The {phone_name} has {feature_value}GB {display_name}."
     elif feature == "price_original":
         return f"The {phone_name} costs ৳{feature_value:,.0f}."
+    elif feature == "price_category":
+        return f"The {phone_name} is in the {feature_value} price category."
+    elif feature in ["display_score", "battery_score", "performance_score", "security_score", "connectivity_score", "overall_device_score"]:
+        return f"The {phone_name} has a {display_name} of {feature_value:.1f}/10."
+    elif feature in ["has_fast_charging", "has_wireless_charging"]:
+        return f"The {phone_name} {'supports' if feature_value else 'does not support'} {display_name}."
     else:
         return f"The {phone_name} has {feature_value} for {display_name}."
 
-def generate_comparison_response(db: Session, query: str) -> str:
-    """Generate a response for comparison queries"""
-    phone_names = extract_phone_names_from_query(query)
+def generate_comparison_response(db: Session, query: str) -> dict:
+    """Generate a structured response for comparison queries (2-5 phones, normalized features for charting)"""
+    # Extract phone names (split by vs, comma, and, etc.)
+    query_clean = query.lower().replace(' vs ', ',').replace(' and ', ',').replace(' & ', ',')
+    phone_names = [n.strip() for n in re.split(r',|/|\\|\|', query_clean) if n.strip()]
+    phone_names = [n for n in phone_names if n and not n.isdigit()]
+    phone_names = phone_names[:5]
     
-    if len(phone_names) < 2:
-        return "I couldn't identify two phones to compare. Please mention both phone names."
-    
-    phones = phone_crud.get_phones_by_names(db, phone_names)
-    
+    # Fuzzy match phones
+    phones = phone_crud.get_phones_by_fuzzy_names(db, phone_names, limit=5)
     if len(phones) < 2:
-        return f"I couldn't find information about one or both phones: {', '.join(phone_names)}"
+        return {"error": f"I couldn't find information about two or more phones: {', '.join(phone_names)}"}
+
+    # Key features for comparison
+    features = [
+        ("ram_gb", "RAM (GB)"),
+        ("storage_gb", "Storage (GB)"),
+        ("primary_camera_mp", "Primary Camera (MP)"),
+        ("selfie_camera_mp", "Selfie Camera (MP)"),
+        ("camera_score", "Camera Score"),
+        ("chipset", "Chipset"),
+        ("screen_size_numeric", "Screen Size (in)", True),
+        ("refresh_rate_numeric", "Refresh Rate (Hz)", True),
+        ("ppi_numeric", "PPI", True),
+        ("display_score", "Display Score"),
+        ("battery_capacity_numeric", "Battery (mAh)"),
+        ("has_fast_charging", "Fast Charging", True),
+        ("has_wireless_charging", "Wireless Charging", True),
+        ("battery_score", "Battery Score"),
+        ("performance_score", "Performance Score"),
+        ("price_original", "Price (৳)", True),
+        ("overall_device_score", "Overall Score")
+    ]
+    # Only keep features that exist for at least one phone
+    selected_features = []
+    for f in features:
+        key = f[0]
+        if any(getattr(p, key, None) is not None for p in phones):
+            selected_features.append(f)
     
-    phone1, phone2 = phones[0], phones[1]
-    
-    # Compare key features
-    comparison = f"Here's a comparison between {phone1.name} and {phone2.name}:\n\n"
-    
-    # Price comparison
-    if phone1.price_original and phone2.price_original:
-        price_diff = phone1.price_original - phone2.price_original
-        if price_diff > 0:
-            comparison += f"💰 Price: {phone2.name} is ৳{price_diff:,.0f} cheaper\n"
+    # Normalize numeric features for 100% stacked chart
+    chart_features = []
+    for f in selected_features:
+        key, label = f[0], f[1]
+        values = [getattr(p, key, None) for p in phones]
+        # If all values are None or not numeric, skip
+        if all(v is None or isinstance(v, str) for v in values):
+            continue
+        # For boolean, convert to 0/1
+        if all(isinstance(v, (bool, type(None))) for v in values):
+            norm = [int(bool(v)) if v is not None else 0 for v in values]
         else:
-            comparison += f"💰 Price: {phone1.name} is ৳{abs(price_diff):,.0f} cheaper\n"
+            # Numeric normalization
+            arr = np.array([float(v) if v is not None else 0 for v in values])
+            total = arr.sum()
+            norm = list((arr / total * 100) if total > 0 else np.zeros_like(arr))
+        chart_features.append({
+            "key": key,
+            "label": label,
+            "raw": values,
+            "percent": norm
+        })
     
-    # Display comparison
-    if phone1.screen_size_inches and phone2.screen_size_inches:
-        comparison += f"📱 Screen: {phone1.name} ({phone1.screen_size_inches}\") vs {phone2.name} ({phone2.screen_size_inches}\")\n"
+    # Prepare phone info
+    phone_infos = []
+    brand_colors = ["#6b4b2b", "#e2b892", "#232323", "#eae4da", "#f7f3ef"]
+    for idx, p in enumerate(phones):
+        phone_infos.append({
+            "name": p.name,
+            "brand": p.brand,
+            "img_url": getattr(p, "img_url", None),
+            "color": brand_colors[idx % len(brand_colors)]
+        })
     
-    # Camera comparison
-    if phone1.primary_camera_mp and phone2.primary_camera_mp:
-        if phone1.primary_camera_mp > phone2.primary_camera_mp:
-            comparison += f"📸 Camera: {phone1.name} has better camera ({phone1.primary_camera_mp}MP vs {phone2.primary_camera_mp}MP)\n"
-        else:
-            comparison += f"📸 Camera: {phone2.name} has better camera ({phone2.primary_camera_mp}MP vs {phone1.primary_camera_mp}MP)\n"
-    
-    # Battery comparison
-    if phone1.battery_capacity_numeric and phone2.battery_capacity_numeric:
-        if phone1.battery_capacity_numeric > phone2.battery_capacity_numeric:
-            comparison += f"🔋 Battery: {phone1.name} has larger battery ({phone1.battery_capacity_numeric}mAh vs {phone2.battery_capacity_numeric}mAh)\n"
-        else:
-            comparison += f"🔋 Battery: {phone2.name} has larger battery ({phone2.battery_capacity_numeric}mAh vs {phone1.battery_capacity_numeric}mAh)\n"
-    
-    # Performance comparison
-    if phone1.overall_device_score and phone2.overall_device_score:
-        if phone1.overall_device_score > phone2.overall_device_score:
-            comparison += f"⚡ Performance: {phone1.name} has better overall score ({phone1.overall_device_score:.1f} vs {phone2.overall_device_score:.1f})\n"
-        else:
-            comparison += f"⚡ Performance: {phone2.name} has better overall score ({phone2.overall_device_score:.1f} vs {phone1.overall_device_score:.1f})\n"
-    
-    return comparison
+    return {
+        "type": "comparison",
+        "phones": phone_infos,
+        "features": chart_features
+    }
 
 @router.post("/query")
 async def process_natural_language_query(
@@ -307,27 +393,32 @@ async def process_natural_language_query(
                 min_price=filters.get("min_price"),
                 max_price=filters.get("max_price"),
                 brand=filters.get("brand"),
-                min_refresh_rate_hz=filters.get("min_refresh_rate_hz"),
-                max_refresh_rate_hz=filters.get("max_refresh_rate_hz"),
-                min_screen_size_inches=filters.get("min_screen_size_inches"),
-                max_screen_size_inches=filters.get("max_screen_size_inches"),
+                            min_refresh_rate_numeric=filters.get("min_refresh_rate_numeric"),
+            max_refresh_rate_numeric=filters.get("max_refresh_rate_numeric"),
+            min_screen_size_numeric=filters.get("min_screen_size_numeric"),
+            max_screen_size_numeric=filters.get("max_screen_size_numeric"),
                 min_battery_capacity_numeric=filters.get("min_battery_capacity_numeric"),
                 max_battery_capacity_numeric=filters.get("max_battery_capacity_numeric"),
                 min_primary_camera_mp=filters.get("min_primary_camera_mp"),
                 max_primary_camera_mp=filters.get("max_primary_camera_mp"),
-                min_selfie_camera_mp=filters.get("min_selfie_camera_mp"),
-                max_selfie_camera_mp=filters.get("max_selfie_camera_mp"),
-                has_fast_charging=filters.get("has_fast_charging"),
-                has_wireless_charging=filters.get("has_wireless_charging"),
-                is_popular_brand=filters.get("is_popular_brand"),
-                is_new_release=filters.get("is_new_release"),
-                is_upcoming=filters.get("is_upcoming"),
-                display_type=filters.get("display_type"),
-                camera_setup=filters.get("camera_setup"),
-                battery_type=filters.get("battery_type"),
-                chipset=filters.get("chipset"),
-                operating_system=filters.get("operating_system"),
-                limit=filters.get("limit")
+                            min_selfie_camera_mp=filters.get("min_selfie_camera_mp"),
+            max_selfie_camera_mp=filters.get("max_selfie_camera_mp"),
+            min_camera_count=filters.get("min_camera_count"),
+            max_camera_count=filters.get("max_camera_count"),
+            has_fast_charging=filters.get("has_fast_charging"),
+            has_wireless_charging=filters.get("has_wireless_charging"),
+            is_popular_brand=filters.get("is_popular_brand"),
+            is_new_release=filters.get("is_new_release"),
+            is_upcoming=filters.get("is_upcoming"),
+            display_type=filters.get("display_type"),
+            camera_setup=filters.get("camera_setup"),
+            battery_type=filters.get("battery_type"),
+            chipset=filters.get("chipset"),
+            operating_system=filters.get("operating_system"),
+            price_category=filters.get("price_category"),
+            min_ppi_numeric=filters.get("min_ppi_numeric"),
+            max_ppi_numeric=filters.get("max_ppi_numeric"),
+            limit=filters.get("limit")
             )
 
             print(f"Found {len(recommendations)} recommendations")

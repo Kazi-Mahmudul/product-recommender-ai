@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  Legend,
 } from "recharts";
 
 interface ChatMessage {
@@ -30,10 +31,30 @@ const SUGGESTED_QUERIES = [
   "New release phones 2025",
   "Phones with good camera under 50,000",
   "What is the refresh rate of iPhone 15?",
+  "Phones with high camera score",
+  "Budget phones with good performance",
+  "What is the screen size of iPhone 15?",
+  "Phones with fast charging support",
 ];
 
 const API_BASE_URL = "https://pickbd-ai.onrender.com";
 const GEMINI_API_URL = "https://gemini-api-wm3b.onrender.com";
+
+// Helper: Check if a message is a comparison response
+function isComparisonResponse(bot: any): bot is { type: string; phones: any[]; features: any[] } {
+  return bot && typeof bot === "object" && bot.type === "comparison" && Array.isArray(bot.phones) && Array.isArray(bot.features);
+}
+
+// Helper: Generate summary text for comparison
+function generateComparisonSummary(phones: any[], features: any[]) {
+  if (!phones || !features) return "";
+  let summary = "";
+  features.forEach((f) => {
+    const maxIdx = f.percent.indexOf(Math.max(...f.percent));
+    summary += `${phones[maxIdx].name} leads in ${f.label}. `;
+  });
+  return summary;
+}
 
 const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
   const location = useLocation();
@@ -495,6 +516,56 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                     </div>
                   )
                 )}
+
+                {chat.bot && typeof chat.bot === "object" &&
+                  (chat.bot as any).type === "comparison" &&
+                  Array.isArray((chat.bot as any).phones) &&
+                  Array.isArray((chat.bot as any).features) && (
+                    <div className="my-8">
+                      <div className="w-full h-96">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={(chat.bot as any).features.map((f: any) => {
+                              const obj: any = { feature: f.label };
+                              (chat.bot as any).phones.forEach((p: any, idx: number) => {
+                                obj[p.name] = f.percent[idx];
+                                obj[`${p.name}_raw`] = f.raw[idx];
+                              });
+                              return obj;
+                            })}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+                          >
+                            <XAxis dataKey="feature" tick={{ fontWeight: 600, fontSize: 14 }} />
+                            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                            <Tooltip
+                              formatter={(value: any, name: string, props: any) => {
+                                const raw = props.payload[`${name}_raw`];
+                                return [`${value.toFixed(1)}% (${raw ?? "N/A"})`, name];
+                              }}
+                            />
+                            <Legend />
+                            {(chat.bot as any).phones.map((p: any, idx: number) => (
+                              <Bar
+                                key={p.name}
+                                dataKey={p.name}
+                                stackId="a"
+                                fill={p.color}
+                                radius={[20, 20, 20, 20]}
+                                isAnimationActive={true}
+                              >
+                                {(chat.bot as any).features.map((_: any, i: number) => (
+                                  <Cell key={`cell-${i}`} fill={p.color} />
+                                ))}
+                              </Bar>
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-4 text-center text-base font-semibold text-brand">
+                        {generateComparisonSummary((chat.bot as any).phones, (chat.bot as any).features)}
+                      </div>
+                    </div>
+                  )}
 
                 {/* Welcome Suggestions */}
                 {index === 0 && showWelcome && (

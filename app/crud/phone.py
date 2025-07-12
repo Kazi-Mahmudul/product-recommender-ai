@@ -5,6 +5,7 @@ import logging
 
 from app.models.phone import Phone
 from app.schemas.phone import PhoneCreate
+from rapidfuzz import process, fuzz
 
 logger = logging.getLogger(__name__)
 
@@ -156,16 +157,18 @@ def get_smart_recommendations(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     brand: Optional[str] = None,
-    min_refresh_rate_hz: Optional[int] = None,
-    max_refresh_rate_hz: Optional[int] = None,
-    min_screen_size_inches: Optional[float] = None,
-    max_screen_size_inches: Optional[float] = None,
+    min_refresh_rate_numeric: Optional[int] = None,
+    max_refresh_rate_numeric: Optional[int] = None,
+    min_screen_size_numeric: Optional[float] = None,
+    max_screen_size_numeric: Optional[float] = None,
     min_battery_capacity_numeric: Optional[int] = None,
     max_battery_capacity_numeric: Optional[int] = None,
     min_primary_camera_mp: Optional[float] = None,
     max_primary_camera_mp: Optional[float] = None,
     min_selfie_camera_mp: Optional[float] = None,
     max_selfie_camera_mp: Optional[float] = None,
+    min_camera_count: Optional[int] = None,
+    max_camera_count: Optional[int] = None,
     has_fast_charging: Optional[bool] = None,
     has_wireless_charging: Optional[bool] = None,
     is_popular_brand: Optional[bool] = None,
@@ -176,6 +179,9 @@ def get_smart_recommendations(
     battery_type: Optional[str] = None,
     chipset: Optional[str] = None,
     operating_system: Optional[str] = None,
+    price_category: Optional[str] = None,
+    min_ppi_numeric: Optional[float] = None,
+    max_ppi_numeric: Optional[float] = None,
     limit: Optional[int] = None
 ):
     """Get smart phone recommendations based on scores and specifications"""
@@ -228,14 +234,14 @@ def get_smart_recommendations(
         query = query.filter(func.lower(Phone.brand) == func.lower(brand))
     
     # Display filters
-    if min_refresh_rate_hz is not None:
-        query = query.filter(Phone.refresh_rate_hz >= min_refresh_rate_hz)
-    if max_refresh_rate_hz is not None:
-        query = query.filter(Phone.refresh_rate_hz <= max_refresh_rate_hz)
-    if min_screen_size_inches is not None:
-        query = query.filter(Phone.screen_size_inches >= min_screen_size_inches)
-    if max_screen_size_inches is not None:
-        query = query.filter(Phone.screen_size_inches <= max_screen_size_inches)
+    if min_refresh_rate_numeric is not None:
+        query = query.filter(Phone.refresh_rate_numeric >= min_refresh_rate_numeric)
+    if max_refresh_rate_numeric is not None:
+        query = query.filter(Phone.refresh_rate_numeric <= max_refresh_rate_numeric)
+    if min_screen_size_numeric is not None:
+        query = query.filter(Phone.screen_size_numeric >= min_screen_size_numeric)
+    if max_screen_size_numeric is not None:
+        query = query.filter(Phone.screen_size_numeric <= max_screen_size_numeric)
     if display_type is not None:
         query = query.filter(func.lower(Phone.display_type).contains(func.lower(display_type)))
     
@@ -248,6 +254,10 @@ def get_smart_recommendations(
         query = query.filter(Phone.selfie_camera_mp >= min_selfie_camera_mp)
     if max_selfie_camera_mp is not None:
         query = query.filter(Phone.selfie_camera_mp <= max_selfie_camera_mp)
+    if min_camera_count is not None:
+        query = query.filter(Phone.camera_count >= min_camera_count)
+    if max_camera_count is not None:
+        query = query.filter(Phone.camera_count <= max_camera_count)
     if camera_setup is not None:
         query = query.filter(func.lower(Phone.camera_setup).contains(func.lower(camera_setup)))
     
@@ -268,6 +278,16 @@ def get_smart_recommendations(
         query = query.filter(func.lower(Phone.chipset).contains(func.lower(chipset)))
     if operating_system is not None:
         query = query.filter(func.lower(Phone.operating_system).contains(func.lower(operating_system)))
+    
+    # Price category filter
+    if price_category is not None:
+        query = query.filter(func.lower(Phone.price_category) == func.lower(price_category))
+    
+    # PPI filter
+    if min_ppi_numeric is not None:
+        query = query.filter(Phone.ppi_numeric >= min_ppi_numeric)
+    if max_ppi_numeric is not None:
+        query = query.filter(Phone.ppi_numeric <= max_ppi_numeric)
     
     # Status filters
     if is_popular_brand is not None:
@@ -346,3 +366,19 @@ def get_stats(db: Session):
     """
     # Placeholder for stats logic
     return {"message": "Statistics not implemented yet."}
+
+def get_all_phone_names(db: Session):
+    """Return all phone names in the database."""
+    return [row[0] for row in db.query(Phone.name).all()]
+
+def get_phones_by_fuzzy_names(db: Session, names: list, limit: int = 5, score_cutoff: int = 80):
+    """Return best-matching phones for a list of names using fuzzy matching."""
+    all_names = get_all_phone_names(db)
+    matched_phones = []
+    for name in names:
+        match, score, _ = process.extractOne(name, all_names, scorer=fuzz.token_sort_ratio)
+        if score >= score_cutoff:
+            phone = get_phone_by_name_or_model(db, match)
+            if phone:
+                matched_phones.append(phone)
+    return matched_phones[:limit]
