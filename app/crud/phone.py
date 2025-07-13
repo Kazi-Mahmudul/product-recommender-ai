@@ -9,6 +9,114 @@ from rapidfuzz import process, fuzz
 
 logger = logging.getLogger(__name__)
 
+def phone_to_dict(phone: Phone) -> Dict[str, Any]:
+    """Convert SQLAlchemy Phone object to dictionary for JSON serialization"""
+    return {
+        "id": phone.id,
+        "name": phone.name,
+        "brand": phone.brand,
+        "model": phone.model,
+        "price": phone.price,
+        "url": phone.url,
+        "img_url": phone.img_url,
+        "display_type": phone.display_type,
+        "screen_size_inches": phone.screen_size_inches,
+        "display_resolution": phone.display_resolution,
+        "pixel_density_ppi": phone.pixel_density_ppi,
+        "refresh_rate_hz": phone.refresh_rate_hz,
+        "screen_protection": phone.screen_protection,
+        "display_brightness": phone.display_brightness,
+        "aspect_ratio": phone.aspect_ratio,
+        "hdr_support": phone.hdr_support,
+        "chipset": phone.chipset,
+        "cpu": phone.cpu,
+        "gpu": phone.gpu,
+        "ram": phone.ram,
+        "ram_type": phone.ram_type,
+        "internal_storage": phone.internal_storage,
+        "storage_type": phone.storage_type,
+        "camera_setup": phone.camera_setup,
+        "primary_camera_resolution": phone.primary_camera_resolution,
+        "selfie_camera_resolution": phone.selfie_camera_resolution,
+        "primary_camera_video_recording": phone.primary_camera_video_recording,
+        "selfie_camera_video_recording": phone.selfie_camera_video_recording,
+        "primary_camera_ois": phone.primary_camera_ois,
+        "primary_camera_aperture": phone.primary_camera_aperture,
+        "selfie_camera_aperture": phone.selfie_camera_aperture,
+        "camera_features": phone.camera_features,
+        "autofocus": phone.autofocus,
+        "flash": phone.flash,
+        "settings": phone.settings,
+        "zoom": phone.zoom,
+        "shooting_modes": phone.shooting_modes,
+        "video_fps": phone.video_fps,
+        "battery_type": phone.battery_type,
+        "capacity": phone.capacity,
+        "quick_charging": phone.quick_charging,
+        "wireless_charging": phone.wireless_charging,
+        "reverse_charging": phone.reverse_charging,
+        "build": phone.build,
+        "weight": phone.weight,
+        "thickness": phone.thickness,
+        "colors": phone.colors,
+        "waterproof": phone.waterproof,
+        "ip_rating": phone.ip_rating,
+        "ruggedness": phone.ruggedness,
+        "network": phone.network,
+        "speed": phone.speed,
+        "sim_slot": phone.sim_slot,
+        "volte": phone.volte,
+        "bluetooth": phone.bluetooth,
+        "wlan": phone.wlan,
+        "gps": phone.gps,
+        "nfc": phone.nfc,
+        "usb": phone.usb,
+        "usb_otg": phone.usb_otg,
+        "fingerprint_sensor": phone.fingerprint_sensor,
+        "finger_sensor_type": phone.finger_sensor_type,
+        "finger_sensor_position": phone.finger_sensor_position,
+        "face_unlock": phone.face_unlock,
+        "light_sensor": phone.light_sensor,
+        "infrared": phone.infrared,
+        "fm_radio": phone.fm_radio,
+        "operating_system": phone.operating_system,
+        "os_version": phone.os_version,
+        "user_interface": phone.user_interface,
+        "status": phone.status,
+        "made_by": phone.made_by,
+        "release_date": phone.release_date,
+        "price_original": phone.price_original,
+        "price_category": phone.price_category,
+        "storage_gb": phone.storage_gb,
+        "ram_gb": phone.ram_gb,
+        "price_per_gb": phone.price_per_gb,
+        "price_per_gb_ram": phone.price_per_gb_ram,
+        "screen_size_numeric": phone.screen_size_numeric,
+        "resolution_width": phone.resolution_width,
+        "resolution_height": phone.resolution_height,
+        "ppi_numeric": phone.ppi_numeric,
+        "refresh_rate_numeric": phone.refresh_rate_numeric,
+        "camera_count": phone.camera_count,
+        "primary_camera_mp": phone.primary_camera_mp,
+        "selfie_camera_mp": phone.selfie_camera_mp,
+        "battery_capacity_numeric": phone.battery_capacity_numeric,
+        "has_fast_charging": phone.has_fast_charging,
+        "has_wireless_charging": phone.has_wireless_charging,
+        "charging_wattage": phone.charging_wattage,
+        "battery_score": phone.battery_score,
+        "security_score": phone.security_score,
+        "connectivity_score": phone.connectivity_score,
+        "is_popular_brand": phone.is_popular_brand,
+        "release_date_clean": phone.release_date_clean.isoformat() if phone.release_date_clean else None,
+        "is_new_release": phone.is_new_release,
+        "age_in_months": phone.age_in_months,
+        "is_upcoming": phone.is_upcoming,
+        "overall_device_score": phone.overall_device_score,
+        "performance_score": phone.performance_score,
+        "display_score": phone.display_score,
+        "camera_score": phone.camera_score
+    }
+
 def get_phones(
     db: Session, 
     skip: int = 0, 
@@ -183,7 +291,7 @@ def get_smart_recommendations(
     min_ppi_numeric: Optional[float] = None,
     max_ppi_numeric: Optional[float] = None,
     limit: Optional[int] = None
-):
+) -> List[Dict[str, Any]]:
     """Get smart phone recommendations based on scores and specifications"""
     query = db.query(Phone)
     
@@ -302,8 +410,8 @@ def get_smart_recommendations(
     
     results = query.all()
     if limit is not None:
-        return results[:limit]
-    return results
+        return [phone_to_dict(p) for p in results[:limit]]
+    return [phone_to_dict(p) for p in results]
 
 # Placeholder functions
 def get_price_history(db: Session, phone_id: int):
@@ -340,7 +448,7 @@ def get_phone_by_name_or_model(db: Session, name: str) -> Optional[Phone]:
         (func.lower(Phone.brand).contains(func.lower(name)))
     ).first()
 
-def get_phones_by_names(db: Session, names: List[str]) -> List[Phone]:
+def get_phones_by_names(db: Session, names: List[str]) -> List[Dict[str, Any]]:
     """
     Get multiple phones by names for comparison
     """
@@ -348,7 +456,7 @@ def get_phones_by_names(db: Session, names: List[str]) -> List[Phone]:
     for name in names:
         phone = get_phone_by_name_or_model(db, name)
         if phone:
-            phones.append(phone)
+            phones.append(phone_to_dict(phone))
     return phones
 
 def get_phone_feature_value(db: Session, phone_name: str, feature: str) -> Optional[Any]:
@@ -385,7 +493,7 @@ def get_phones_by_fuzzy_names(db: Session, names: list, limit: int = 5, score_cu
         if score >= score_cutoff:
             phone = get_phone_by_name_or_model(db, match)
             if phone:
-                matched_phones.append(phone)
+                matched_phones.append(phone_to_dict(phone))
             else:
                 print(f"Matched name '{match}' not found in DB as Phone object.")
         else:

@@ -153,9 +153,58 @@ def generate_qa_response(db: Session, query: str) -> str:
     if not phone:
         return f"Sorry, I couldn't find information about {phone_name} in our database."
     
-    feature_value = getattr(phone, feature, None)
+    # Convert to dict if it's a SQLAlchemy object
+    if hasattr(phone, '__table__'):  # SQLAlchemy object
+        phone_dict = phone_crud.phone_to_dict(phone)
+        feature_value = phone_dict.get(feature)
+    else:
+        feature_value = getattr(phone, feature, None)
+    
     if feature_value is None:
         return f"Sorry, I don't have information about the {feature} for {phone_name}."
+
+def generate_comparison_summary(phones: List[Dict], features: List[Dict]) -> str:
+    """Generate a summary of the comparison highlighting key differences"""
+    if not phones or not features:
+        return "Comparison completed."
+    
+    summary_parts = []
+    
+    # Find the phone with highest price
+    price_feature = next((f for f in features if f["key"] == "price_original"), None)
+    if price_feature:
+        max_price_idx = price_feature["raw"].index(max(price_feature["raw"]))
+        min_price_idx = price_feature["raw"].index(min(price_feature["raw"]))
+        summary_parts.append(f"{phones[max_price_idx]['name']} is the most expensive, while {phones[min_price_idx]['name']} is the most affordable.")
+    
+    # Find the phone with highest RAM
+    ram_feature = next((f for f in features if f["key"] == "ram_gb"), None)
+    if ram_feature:
+        max_ram_idx = ram_feature["raw"].index(max(ram_feature["raw"]))
+        summary_parts.append(f"{phones[max_ram_idx]['name']} has the highest RAM capacity.")
+    
+    # Find the phone with highest camera
+    camera_feature = next((f for f in features if f["key"] == "primary_camera_mp"), None)
+    if camera_feature:
+        max_camera_idx = camera_feature["raw"].index(max(camera_feature["raw"]))
+        summary_parts.append(f"{phones[max_camera_idx]['name']} has the highest main camera resolution.")
+    
+    # Find the phone with highest battery
+    battery_feature = next((f for f in features if f["key"] == "battery_capacity_numeric"), None)
+    if battery_feature:
+        max_battery_idx = battery_feature["raw"].index(max(battery_feature["raw"]))
+        summary_parts.append(f"{phones[max_battery_idx]['name']} has the largest battery capacity.")
+    
+    # Find the phone with highest display score
+    display_feature = next((f for f in features if f["key"] == "display_score"), None)
+    if display_feature:
+        max_display_idx = display_feature["raw"].index(max(display_feature["raw"]))
+        summary_parts.append(f"{phones[max_display_idx]['name']} has the best display quality.")
+    
+    if summary_parts:
+        return " ".join(summary_parts)
+    else:
+        return "Comparison completed."
     
     # Format the response based on the feature
     feature_display_names = {
@@ -227,38 +276,28 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
     if len(phones) < 2:
         return {"error": f"I couldn't find information about two or more phones: {', '.join(phone_names)}"}
 
-    # Key features for comparison
+    # Key features for comparison - only numeric columns for better comparison
     features = [
-        ("ram_gb", "RAM (GB)"),
-        ("storage_gb", "Storage (GB)"),
-        ("primary_camera_mp", "Primary Camera (MP)"),
-        ("selfie_camera_mp", "Selfie Camera (MP)"),
-        ("camera_score", "Camera Score"),
-        ("chipset", "Chipset"),
-        ("screen_size_numeric", "Screen Size (in)", True),
-        ("refresh_rate_numeric", "Refresh Rate (Hz)", True),
-        ("ppi_numeric", "PPI", True),
-        ("display_score", "Display Score"),
-        ("battery_capacity_numeric", "Battery (mAh)"),
-        ("has_fast_charging", "Fast Charging", True),
-        ("has_wireless_charging", "Wireless Charging", True),
-        ("battery_score", "Battery Score"),
-        ("performance_score", "Performance Score"),
-        ("price_original", "Price (৳)", True),
-        ("overall_device_score", "Overall Score")
+        ("price_original", "Price"),
+        ("ram_gb", "RAM"),
+        ("storage_gb", "Storage"),
+        ("primary_camera_mp", "Main Camera"),
+        ("selfie_camera_mp", "Front Camera"),
+        ("display_score", "Display"),
+        ("battery_capacity_numeric", "Battery")
     ]
     # Only keep features that exist for at least one phone
     selected_features = []
     for f in features:
         key = f[0]
-        if any(getattr(p, key, None) is not None for p in phones):
+        if any(p.get(key) is not None for p in phones):
             selected_features.append(f)
     
     # Normalize numeric features for 100% stacked chart
     chart_features = []
     for f in selected_features:
         key, label = f[0], f[1]
-        values = [getattr(p, key, None) for p in phones]
+        values = [p.get(key) for p in phones]
         # If all values are None or not numeric, skip
         if all(v is None or isinstance(v, str) for v in values):
             continue
@@ -277,21 +316,25 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
             "percent": norm
         })
     
-    # Prepare phone info
+    # Prepare phone info with lighter colors
     phone_infos = []
-    brand_colors = ["#6b4b2b", "#e2b892", "#232323", "#eae4da", "#f7f3ef"]
+    brand_colors = ["#4A90E2", "#7ED321", "#F5A623", "#D0021B", "#9013FE"]  # Lighter, more vibrant colors
     for idx, p in enumerate(phones):
         phone_infos.append({
-            "name": p.name,
-            "brand": p.brand,
-            "img_url": getattr(p, "img_url", None),
+            "name": p.get("name"),
+            "brand": p.get("brand"),
+            "img_url": p.get("img_url"),
             "color": brand_colors[idx % len(brand_colors)]
         })
+    
+    # Generate comparison summary
+    summary = generate_comparison_summary(phones, chart_features)
     
     return {
         "type": "comparison",
         "phones": phone_infos,
-        "features": chart_features
+        "features": chart_features,
+        "summary": summary
     }
 
 @router.post("/query")
@@ -374,7 +417,7 @@ async def process_natural_language_query(
                     phone = db.query(PhoneModel).filter(PhoneModel.model.ilike(f"%{filters['name']}%"))
                     results = phone.all()
                     logging.warning(f"Full spec fallback by model results count: {len(results)}")
-            return JSONResponse(content=[r.__dict__ for r in results])
+            return JSONResponse(content=[phone_crud.phone_to_dict(r) for r in results])
 
         try:
             # Use the parsed filters to get recommendations

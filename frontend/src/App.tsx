@@ -46,8 +46,6 @@ interface Phone {
   internal_storage: string;
   storage_type: string;
   camera_setup: string;
-  primary_camera_resolution: string;
-  selfie_camera_resolution: string;
   primary_camera_video_recording: string;
   selfie_camera_video_recording: string;
   primary_camera_ois: string;
@@ -153,8 +151,8 @@ const formatFieldName = (field: string): string => {
     internal_storage: 'Internal Storage',
     storage_type: 'Storage Type',
     camera_setup: 'Camera Setup',
-    primary_camera_resolution: 'Primary Camera Resolution',
-    selfie_camera_resolution: 'Selfie Camera Resolution',
+    primary_camera_mp: 'Primary Camera (MP)',
+    selfie_camera_mp: 'Selfie Camera (MP)',
     primary_camera_video_recording: 'Primary Camera Video Recording',
     selfie_camera_video_recording: 'Selfie Camera Video Recording',
     primary_camera_ois: 'Primary Camera OIS',
@@ -210,8 +208,8 @@ const formatFieldName = (field: string): string => {
 const fullSpecFields = [
   'id', 'name', 'brand', 'model', 'price', 'display_type', 'screen_size_inches', 'display_resolution', 'pixel_density_ppi',
   'refresh_rate_hz', 'screen_protection', 'display_brightness', 'aspect_ratio', 'hdr_support', 'chipset', 'cpu', 'gpu',
-  'ram', 'ram_type', 'internal_storage', 'storage_type', 'camera_setup', 'primary_camera_resolution',
-  'selfie_camera_resolution', 'primary_camera_video_recording', 'selfie_camera_video_recording', 'primary_camera_ois',
+  'ram', 'ram_type', 'internal_storage', 'storage_type',   'camera_setup', 'primary_camera_mp',
+  'selfie_camera_mp', 'primary_camera_video_recording', 'selfie_camera_video_recording', 'primary_camera_ois',
   'primary_camera_aperture', 'selfie_camera_aperture', 'camera_features', 'autofocus', 'flash', 'settings', 'zoom',
   'shooting_modes', 'video_fps', 'battery_type', 'capacity', 'quick_charging', 'wireless_charging', 'reverse_charging',
   'build', 'weight', 'thickness', 'colors', 'waterproof', 'ip_rating', 'ruggedness', 'network', 'speed', 'sim_slot',
