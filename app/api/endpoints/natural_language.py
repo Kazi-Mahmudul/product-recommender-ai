@@ -138,8 +138,13 @@ def extract_feature_from_query(query: str) -> str:
 
 def generate_qa_response(db: Session, query: str) -> str:
     """Generate a response for QA queries"""
+    print(f"🔍 Processing QA query: {query}")
+    
     phone_names = extract_phone_names_from_query(query)
     feature = extract_feature_from_query(query)
+    
+    print(f"📱 Extracted phone names: {phone_names}")
+    print(f"🔧 Extracted feature: {feature}")
     
     if not phone_names:
         return "I couldn't identify a specific phone in your query. Could you please mention the phone name?"
@@ -149,6 +154,9 @@ def generate_qa_response(db: Session, query: str) -> str:
     
     phone_name = phone_names[0]
     phone = phone_crud.get_phone_by_name_or_model(db, phone_name)
+    
+    print(f"🔍 Looking for phone: {phone_name}")
+    print(f"📱 Found phone: {phone is not None}")
     
     if not phone:
         return f"Sorry, I couldn't find information about {phone_name} in our database."
@@ -160,8 +168,66 @@ def generate_qa_response(db: Session, query: str) -> str:
     else:
         feature_value = getattr(phone, feature, None)
     
+    print(f"🔧 Feature value for {feature}: {feature_value}")
+    
     if feature_value is None:
         return f"Sorry, I don't have information about the {feature} for {phone_name}."
+
+    # Format the response based on the feature
+    feature_display_names = {
+        "refresh_rate_numeric": "refresh rate",
+        "screen_size_numeric": "screen size",
+        "ppi_numeric": "pixel density",
+        "battery_capacity_numeric": "battery capacity",
+        "primary_camera_mp": "primary camera",
+        "selfie_camera_mp": "selfie camera",
+        "camera_count": "camera count",
+        "camera_score": "camera score",
+        "ram_gb": "RAM",
+        "storage_gb": "storage",
+        "price_original": "price",
+        "price_category": "price category",
+        "weight": "weight",
+        "thickness": "thickness",
+        "display_score": "display score",
+        "battery_score": "battery score",
+        "performance_score": "performance score",
+        "security_score": "security score",
+        "connectivity_score": "connectivity score",
+        "overall_device_score": "overall device score"
+    }
+    
+    display_name = feature_display_names.get(feature, feature)
+    
+    if feature == "refresh_rate_numeric":
+        response = f"The {phone_name} has a {feature_value}Hz refresh rate."
+    elif feature == "screen_size_numeric":
+        response = f"The {phone_name} has a {feature_value}-inch screen."
+    elif feature == "ppi_numeric":
+        response = f"The {phone_name} has a {feature_value} PPI display."
+    elif feature == "battery_capacity_numeric":
+        response = f"The {phone_name} has a {feature_value}mAh battery."
+    elif feature in ["primary_camera_mp", "selfie_camera_mp"]:
+        response = f"The {phone_name} has a {feature_value}MP {display_name}."
+    elif feature == "camera_count":
+        response = f"The {phone_name} has {feature_value} cameras."
+    elif feature == "camera_score":
+        response = f"The {phone_name} has a camera score of {feature_value:.1f}/10."
+    elif feature in ["ram_gb", "storage_gb"]:
+        response = f"The {phone_name} has {feature_value}GB {display_name}."
+    elif feature == "price_original":
+        response = f"The {phone_name} costs ৳{feature_value:,.0f}."
+    elif feature == "price_category":
+        response = f"The {phone_name} is in the {feature_value} price category."
+    elif feature in ["display_score", "battery_score", "performance_score", "security_score", "connectivity_score", "overall_device_score"]:
+        response = f"The {phone_name} has a {display_name} of {feature_value:.1f}/10."
+    elif feature in ["has_fast_charging", "has_wireless_charging"]:
+        response = f"The {phone_name} {'supports' if feature_value else 'does not support'} {display_name}."
+    else:
+        response = f"The {phone_name} has {feature_value} for {display_name}."
+    
+    print(f"✅ QA Response: {response}")
+    return response
 
 def generate_comparison_summary(phones: List[Dict], features: List[Dict]) -> str:
     """Generate a summary of the comparison highlighting key differences"""
@@ -205,59 +271,6 @@ def generate_comparison_summary(phones: List[Dict], features: List[Dict]) -> str
         return " ".join(summary_parts)
     else:
         return "Comparison completed."
-    
-    # Format the response based on the feature
-    feature_display_names = {
-        "refresh_rate_numeric": "refresh rate",
-        "screen_size_numeric": "screen size",
-        "ppi_numeric": "pixel density",
-        "battery_capacity_numeric": "battery capacity",
-        "primary_camera_mp": "primary camera",
-        "selfie_camera_mp": "selfie camera",
-        "camera_count": "camera count",
-        "camera_score": "camera score",
-        "ram_gb": "RAM",
-        "storage_gb": "storage",
-        "price_original": "price",
-        "price_category": "price category",
-        "weight": "weight",
-        "thickness": "thickness",
-        "display_score": "display score",
-        "battery_score": "battery score",
-        "performance_score": "performance score",
-        "security_score": "security score",
-        "connectivity_score": "connectivity score",
-        "overall_device_score": "overall device score"
-    }
-    
-    display_name = feature_display_names.get(feature, feature)
-    
-    if feature == "refresh_rate_numeric":
-        return f"The {phone_name} has a {feature_value}Hz refresh rate."
-    elif feature == "screen_size_numeric":
-        return f"The {phone_name} has a {feature_value}-inch screen."
-    elif feature == "ppi_numeric":
-        return f"The {phone_name} has a {feature_value} PPI display."
-    elif feature == "battery_capacity_numeric":
-        return f"The {phone_name} has a {feature_value}mAh battery."
-    elif feature in ["primary_camera_mp", "selfie_camera_mp"]:
-        return f"The {phone_name} has a {feature_value}MP {display_name}."
-    elif feature == "camera_count":
-        return f"The {phone_name} has {feature_value} cameras."
-    elif feature == "camera_score":
-        return f"The {phone_name} has a camera score of {feature_value:.1f}/10."
-    elif feature in ["ram_gb", "storage_gb"]:
-        return f"The {phone_name} has {feature_value}GB {display_name}."
-    elif feature == "price_original":
-        return f"The {phone_name} costs ৳{feature_value:,.0f}."
-    elif feature == "price_category":
-        return f"The {phone_name} is in the {feature_value} price category."
-    elif feature in ["display_score", "battery_score", "performance_score", "security_score", "connectivity_score", "overall_device_score"]:
-        return f"The {phone_name} has a {display_name} of {feature_value:.1f}/10."
-    elif feature in ["has_fast_charging", "has_wireless_charging"]:
-        return f"The {phone_name} {'supports' if feature_value else 'does not support'} {display_name}."
-    else:
-        return f"The {phone_name} has {feature_value} for {display_name}."
 
 def generate_comparison_response(db: Session, query: str, phone_names: list = None) -> dict:
     """Generate a structured response for comparison queries (2-5 phones, normalized features for charting)"""
