@@ -4,8 +4,28 @@ const dotenv = require("dotenv");
 const path = require("path");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Load environment variables from root .env file
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+// Load environment variables from multiple possible locations
+const envPaths = [
+  path.resolve(__dirname, "../../.env"),  // Root directory
+  path.resolve(__dirname, ".env"),        // Current directory
+  path.resolve(__dirname, "../.env"),     // Parent directory
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  try {
+    dotenv.config({ path: envPath });
+    console.log(`✅ Loaded environment from: ${envPath}`);
+    envLoaded = true;
+    break;
+  } catch (error) {
+    console.log(`⚠️ Could not load from: ${envPath}`);
+  }
+}
+
+if (!envLoaded) {
+  console.log("ℹ️ No .env file found, using environment variables from deployment platform");
+}
 
 const app = express();
 app.use(cors());
@@ -13,13 +33,17 @@ app.use(express.json());
 
 // Check if GOOGLE_API_KEY is available
 if (!process.env.GOOGLE_API_KEY) {
-  console.error("❌ GOOGLE_API_KEY is missing in your .env file.");
+  console.error("❌ GOOGLE_API_KEY is missing. Please set it in your deployment environment variables.");
+  console.error("This can be done in Render dashboard under Environment Variables section.");
+  console.error("Or copy the .env file to the gemini_service directory.");
   process.exit(1);
 }
 
 // Initialize Google Generative AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.0-flash`);
 
 // Health check endpoints
 app.get("/", (req, res) => {
@@ -44,6 +68,10 @@ function cleanJsonResponse(text) {
 // Main Gemini prompt-based parser
 async function parseQuery(query) {
   try {
+    console.log(`[${new Date().toISOString()}] 🔹 Sending query to Gemini: "${query}"`);
+    console.log(`[${new Date().toISOString()}] 🔹 Using API key: ${process.env.GOOGLE_API_KEY ? 'Present' : 'Missing'}`);
+    console.log(`[${new Date().toISOString()}] 🔹 API key length: ${process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.length : 0}`);
+    
     const prompt = `You are a powerful and versatile smart assistant for ePick, a smartphone recommendation platform.
 Your job is to detect the user's intent and respond with a JSON object.
 
@@ -159,16 +187,45 @@ Only return valid JSON — no markdown formatting. User query: ${query}`;
       throw new Error(`Unexpected response type: ${parsed.type}`);
     }
 
+    console.log(`[${new Date().toISOString()}] ✅ Successfully parsed response type: ${parsed.type}`);
     return parsed;
+    
   } catch (error) {
     console.error(
       `[${new Date().toISOString()}] ❌ Error parsing Gemini response:`,
       error
     );
-    return {
-      type: "chat",
-      data: "Sorry, I couldn’t understand that. Can you please rephrase your question?",
-    };
+    console.error(
+      `[${new Date().toISOString()}] ❌ Error details:`,
+      {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    );
+    
+    // Provide more specific error messages based on the error type
+    if (error.message.includes('API_KEY') || error.message.includes('authentication')) {
+      return {
+        type: "chat",
+        data: "I'm having trouble with my AI service configuration. Please contact support.",
+      };
+    } else if (error.message.includes('quota') || error.message.includes('limit') || error.message.includes('rate')) {
+      return {
+        type: "chat",
+        data: "I'm experiencing high usage right now. Please try again in a moment.",
+      };
+    } else if (error.message.includes('JSON') || error.message.includes('parse')) {
+      return {
+        type: "chat",
+        data: "I'm having trouble understanding your request. Could you try rephrasing it?",
+      };
+    } else {
+      return {
+        type: "chat",
+        data: "Sorry, I couldn't understand that. Can you please rephrase your question?",
+      };
+    }
   }
 }
 

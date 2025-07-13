@@ -17,8 +17,8 @@ services:
   - type: web
     name: gemini-api
     env: node
-    buildCommand: cd backend/grok_service && npm install
-    startCommand: cd backend/grok_service && npm start
+    buildCommand: cd backend/gemini_service && npm install && cp ../../.env .env 2>/dev/null || echo "No .env file to copy"
+    startCommand: cd backend/gemini_service && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -26,7 +26,7 @@ services:
         value: 3000
       - key: GOOGLE_API_KEY
         sync: false
-    healthCheckPath: /health
+    healthCheckPath: /
     autoDeploy: true
 
 databases:
