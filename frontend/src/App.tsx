@@ -12,6 +12,9 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import VerifyPage from './pages/VerifyPage';
 import ChatPage from './pages/ChatPage';
+import PhonesPage from './pages/PhonesPage';
+import PhoneDetailsPage from './pages/PhoneDetailsPage';
+import ComparePage from './pages/ComparePage';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -468,6 +471,9 @@ function App() {
         <Route path="/signup" element={<SignupPage darkMode={darkMode} />} />
         <Route path="/verify" element={<VerifyPage darkMode={darkMode} />} />
         <Route path="/chat" element={<ChatPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
+        <Route path="/phones" element={<PhonesPage />} />
+        <Route path="/phones/:id" element={<PhoneDetailsPage />} />
+        <Route path="/compare" element={<ComparePage />} />
       </Routes>
       {location.pathname !== '/chat' && <Footer />}
     </div>

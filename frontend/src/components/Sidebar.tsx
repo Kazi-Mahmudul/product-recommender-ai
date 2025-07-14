@@ -36,6 +36,14 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, user }) => {
               Chat
             </button>
           </li>
+          <li>
+            <button
+              className={`w-full text-left px-2 py-2 rounded ${isActive('/phones') ? 'text-brand font-bold border-l-4 border-brand bg-brand/10 dark:bg-[#2d2320]' : ''}`}
+              onClick={() => { onClose(); navigate('/phones'); }}
+            >
+              Phones
+            </button>
+          </li>
           {!user && (
             <>
               <li>

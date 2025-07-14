@@ -66,6 +66,18 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick, darkMode, setDarkMode }) =
             Chat
           </Link>
         </li>
+        <li>
+          <Link
+            to="/phones"
+            className={
+              isActive('/phones')
+                ? 'text-brand font-bold border-b-2 border-brand pb-1'
+                : 'hover:text-brand transition-colors'
+            }
+          >
+            Phones
+          </Link>
+        </li>
       </ul>
       <div className="flex items-center space-x-4 relative">
         <button
