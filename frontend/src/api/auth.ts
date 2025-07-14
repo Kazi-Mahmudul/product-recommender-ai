@@ -1,4 +1,4 @@
-const API_BASE = `${process.env.REACT_APP_API_BASE }/api/v1/auth`;
+const API_BASE = `${process.env.REACT_APP_API_BASE}/api/v1/auth`;
 
 export async function signup(email: string, password: string, confirmPassword: string, first_name: string, last_name: string) {
   const res = await fetch(`${API_BASE}/signup`, {

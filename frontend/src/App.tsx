@@ -221,7 +221,8 @@ const fullSpecFields = [
   'user_interface', 'status', 'made_by', 'release_date'
 ]; // Used for full specification table
 // API configuration
-const API_BASE_URL = 'https://pickbd-ai.onrender.com';
+const API_BASE_URL = process.env.REACT_APP_API_BASE || "http://localhost:8000";
+const GEMINI_API_URL = process.env.REACT_APP_GEMINI_API || "http://localhost:3000";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);

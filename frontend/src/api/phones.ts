@@ -1,5 +1,6 @@
 // phones.ts - API utility for fetching phones
 
+// API_BASE is loaded from .env (REACT_APP_API_BASE) via process.env in Create React App
 const API_BASE = process.env.REACT_APP_API_BASE || "/api";
 
 export interface Phone {

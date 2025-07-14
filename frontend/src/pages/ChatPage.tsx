@@ -38,8 +38,8 @@ const SUGGESTED_QUERIES = [
   "Phones with fast charging support",
 ];
 
-const API_BASE_URL = "https://pickbd-ai.onrender.com";
-const GEMINI_API_URL = "https://gemini-api-wm3b.onrender.com";
+const API_BASE_URL = process.env.REACT_APP_API_BASE;
+const GEMINI_API_URL = process.env.REACT_APP_GEMINI_API;
 
 // Helper: Check if a message is a comparison response
 function isComparisonResponse(bot: any): bot is { type: string; phones: any[]; features: any[] } {

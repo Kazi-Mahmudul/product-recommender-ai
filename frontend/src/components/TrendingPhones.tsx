@@ -59,7 +59,7 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
   useEffect(() => {
     const fetchPhones = async () => {
       try {
-        const res = await axios.get('https://pickbd-ai.onrender.com/api/v1/phones/');
+        const res = await axios.get(`${process.env.REACT_APP_API_BASE}/api/v1/phones/`);
         const items = res.data.items || [];
         const filtered = items.filter((phone: Phone) =>
           phone.is_popular_brand === true &&
