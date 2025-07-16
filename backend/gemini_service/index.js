@@ -229,6 +229,83 @@ Only return valid JSON — no markdown formatting. User query: ${query}`;
   }
 }
 
+// POST endpoint to generate AI summary
+app.post("/", async (req, res) => {
+  const { prompt } = req.body;
+  const requestId = Math.random().toString(36).substring(7);
+
+  console.log(`[${new Date().toISOString()}] 🟡 [${requestId}] Incoming summary request`);
+  console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Request body keys: ${Object.keys(req.body)}`);
+  console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Prompt length: ${prompt ? prompt.length : 0} characters`);
+
+  if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
+    console.warn(`[${new Date().toISOString()}] ⚠️ [${requestId}] Invalid prompt provided`);
+    return res.status(400).json({ 
+      error: "A valid prompt string is required.",
+      requestId: requestId
+    });
+  }
+
+  try {
+    console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Sending to Gemini AI...`);
+    console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Prompt preview: "${prompt.substring(0, 200)}..."`);
+    
+    const startTime = Date.now();
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const summary = response.text();
+    const duration = Date.now() - startTime;
+
+    console.log(`[${new Date().toISOString()}] ✅ [${requestId}] Generated summary in ${duration}ms`);
+    console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Summary length: ${summary.length} characters`);
+    console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Summary preview: "${summary.substring(0, 150)}..."`);
+    
+    res.json({ 
+      summary, 
+      result: summary,
+      requestId: requestId,
+      processingTime: duration
+    });
+  } catch (error) {
+    const duration = Date.now() - (req.startTime || Date.now());
+    console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Failed to generate summary after ${duration}ms`);
+    console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Error type: ${error.name}`);
+    console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Error message: ${error.message}`);
+    
+    // Provide more specific error responses based on error type
+    if (error.message.includes('API_KEY') || error.message.includes('authentication')) {
+      console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Authentication error with Gemini API`);
+      res.status(503).json({ 
+        error: "AI service authentication failed. Please contact support.",
+        requestId: requestId,
+        type: "authentication_error"
+      });
+    } else if (error.message.includes('quota') || error.message.includes('limit') || error.message.includes('rate')) {
+      console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Rate limit or quota exceeded`);
+      res.status(429).json({ 
+        error: "AI service is experiencing high usage. Please try again in a moment.",
+        requestId: requestId,
+        type: "rate_limit_error"
+      });
+    } else if (error.message.includes('timeout') || error.message.includes('TIMEOUT')) {
+      console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Request timeout`);
+      res.status(504).json({ 
+        error: "AI service request timed out. Please try again.",
+        requestId: requestId,
+        type: "timeout_error"
+      });
+    } else {
+      console.error(`[${new Date().toISOString()}] ❌ [${requestId}] Unexpected error:`, error.stack);
+      res.status(500).json({ 
+        error: "Internal server error occurred while generating summary",
+        requestId: requestId,
+        type: "internal_error",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+});
+
 // POST endpoint to process user query
 app.post("/parse-query", async (req, res) => {
   const { query } = req.body;
