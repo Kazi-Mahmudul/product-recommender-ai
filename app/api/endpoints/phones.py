@@ -1,11 +1,15 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
+import time
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone, PhoneList
+from app.schemas.recommendation import SmartRecommendation
 from app.core.database import get_db
 from app.models.phone import Phone as PhoneModel
+from app.services.recommendation_service import RecommendationService
+from app.core.monitoring import track_execution_time
 
 router = APIRouter()
 
@@ -68,6 +72,48 @@ def get_smart_recommendations(
         min_battery_score=min_battery_score,
         max_price=max_price
     )
+    return recommendations
+
+@router.get("/{phone_id}/recommendations", response_model=List[SmartRecommendation])
+@track_execution_time("get_phone_recommendations_endpoint", "api_response_times")
+def get_phone_recommendations(
+    phone_id: int,
+    limit: int = 8,
+    response: Response = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get smart recommendations for a specific phone
+    
+    This endpoint returns a list of recommended phones based on the specified phone ID.
+    The recommendations are generated using multiple matching algorithms including:
+    - Price proximity matching
+    - Specification similarity
+    - Purpose-based score matching
+    - AI-powered similarity analysis
+    
+    Each recommendation includes:
+    - Phone details
+    - Similarity score
+    - Highlight labels
+    - Badges
+    - Match reasons
+    """
+    # Check if phone exists
+    target_phone = phone_crud.get_phone(db, phone_id=phone_id)
+    if target_phone is None:
+        raise HTTPException(status_code=404, detail=f"Phone with ID {phone_id} not found")
+    
+    # Generate recommendations using the recommendation service
+    recommendation_service = RecommendationService(db)
+    recommendations = recommendation_service.get_smart_recommendations(phone_id, limit=limit)
+    
+    # Set cache headers (24 hours)
+    if response:
+        cache_time = 24 * 60 * 60  # 24 hours in seconds
+        response.headers["Cache-Control"] = f"public, max-age={cache_time}"
+        response.headers["ETag"] = f"phone-{phone_id}-recommendations-{int(time.time() / cache_time)}"
+    
     return recommendations
 
 @router.get("/name/{phone_name}", response_model=Phone)

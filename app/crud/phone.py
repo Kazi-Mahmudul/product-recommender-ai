@@ -9,9 +9,34 @@ from rapidfuzz import process, fuzz
 
 logger = logging.getLogger(__name__)
 
-def phone_to_dict(phone: Phone) -> Dict[str, Any]:
-    """Convert SQLAlchemy Phone object to dictionary for JSON serialization"""
-    return {
+def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[str, Any]:
+    """
+    Convert SQLAlchemy Phone object to dictionary for JSON serialization
+    
+    Args:
+        phone: Phone object to convert
+        include_optimized_images: Whether to include optimized image URLs
+        
+    Returns:
+        Dictionary representation of the phone
+    """
+    # Import here to avoid circular imports
+    from app.services.image_optimizer import ImageOptimizer
+    
+    # Add optimized image URLs if requested
+    optimized_images = {}
+    if include_optimized_images and phone.img_url:
+        try:
+            optimized_images = {
+                "img_url_card": ImageOptimizer.get_optimized_phone_image(phone.img_url, "card"),
+                "img_url_thumbnail": ImageOptimizer.get_optimized_phone_image(phone.img_url, "thumbnail"),
+                "img_url_detail": ImageOptimizer.get_optimized_phone_image(phone.img_url, "detail"),
+                "img_url_list": ImageOptimizer.get_optimized_phone_image(phone.img_url, "list"),
+            }
+        except Exception as e:
+            logger.error(f"Error generating optimized image URLs: {str(e)}")
+    
+    result = {
         "id": phone.id,
         "name": phone.name,
         "brand": phone.brand,
@@ -19,6 +44,7 @@ def phone_to_dict(phone: Phone) -> Dict[str, Any]:
         "price": phone.price,
         "url": phone.url,
         "img_url": phone.img_url,
+        **optimized_images,
         "display_type": phone.display_type,
         "screen_size_inches": phone.screen_size_inches,
         "display_resolution": phone.display_resolution,
@@ -210,6 +236,12 @@ def create_phone(db: Session, phone: PhoneCreate) -> Phone:
         db.commit()
         db.refresh(db_phone)
         logger.info(f"Created phone: {db_phone.name} with ID {db_phone.id}")
+        
+        # Invalidate recommendation cache for all phones
+        # We import here to avoid circular imports
+        from app.services.cache_invalidation import CacheInvalidationService
+        CacheInvalidationService.invalidate_phone_recommendations()
+        
         return db_phone
     except Exception as e:
         db.rollback()
@@ -235,6 +267,11 @@ def create_phones_batch(db: Session, phones: List[Dict[str, Any]]) -> List[Phone
         for phone in db_phones:
             db.refresh(phone)
             logger.info(f"Created phone: {phone.name} with ID {phone.id}")
+        
+        # Invalidate recommendation cache for all phones
+        # We import here to avoid circular imports
+        from app.services.cache_invalidation import CacheInvalidationService
+        CacheInvalidationService.invalidate_phone_recommendations()
         
         return db_phones
     except Exception as e:

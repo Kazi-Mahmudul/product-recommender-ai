@@ -1,0 +1,121 @@
+import React from 'react';
+
+interface RecommendationFallbackProps {
+  error: Error | string | null;
+  resetError?: () => void;
+  retry?: () => void;
+  isNetworkError?: boolean;
+  noRecommendations?: boolean;
+}
+
+/**
+ * Fallback UI component for the SmartRecommendations component
+ * Displays different messages based on the error type
+ * 
+ * Accessibility features:
+ * - Semantic HTML structure with proper headings
+ * - ARIA roles and labels for screen readers
+ * - Accessible buttons with clear actions
+ * - Descriptive error messages
+ */
+const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
+  error,
+  resetError,
+  retry,
+  isNetworkError = false,
+  noRecommendations = false,
+}) => {
+  const handleRetry = () => {
+    if (resetError) resetError();
+    if (retry) retry();
+  };
+
+  // No recommendations available
+  if (noRecommendations) {
+    return (
+      <div 
+        className="flex flex-col items-center justify-center py-8 px-4"
+        role="region"
+        aria-labelledby="no-recommendations-heading"
+      >
+        <div className="text-5xl mb-4" role="img" aria-label="No recommendations">
+          🔍
+        </div>
+        <h3 
+          id="no-recommendations-heading"
+          className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
+          No recommendations available
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+          We couldn't find any similar phones that match this device's specifications.
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+          Try checking back later as our phone database is regularly updated.
+        </p>
+      </div>
+    );
+  }
+
+  // Network error
+  if (isNetworkError) {
+    return (
+      <div 
+        className="flex flex-col items-center justify-center py-8 px-4"
+        role="alert"
+        aria-labelledby="network-error-heading"
+      >
+        <div className="text-5xl mb-4" role="img" aria-label="Network error">
+          📶
+        </div>
+        <h3 
+          id="network-error-heading"
+          className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
+          Network connection issue
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+          Please check your internet connection and try again.
+        </p>
+        <button
+          onClick={handleRetry}
+          className="px-4 py-2 bg-brand text-white rounded-md hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+          aria-label="Retry loading recommendations"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
+  // Generic error
+  return (
+    <div 
+      className="flex flex-col items-center justify-center py-8 px-4"
+      role="alert"
+      aria-labelledby="error-heading"
+    >
+      <div className="text-5xl mb-4" role="img" aria-label="Error">
+        ⚠️
+      </div>
+      <h3 
+        id="error-heading"
+        className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2"
+      >
+        Something went wrong
+      </h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+        {error instanceof Error ? error.message : error || 'An unexpected error occurred'}
+      </p>
+      <button
+        onClick={handleRetry}
+        className="px-4 py-2 bg-brand text-white rounded-md hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+        aria-label="Try loading recommendations again"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+};
+
+export default RecommendationFallback;

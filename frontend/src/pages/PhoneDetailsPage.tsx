@@ -5,8 +5,11 @@ import HeroSection from "../components/FullSpecs/HeroSection";
 import DeviceScoresChart from "../components/FullSpecs/DeviceScoresChart";
 import FullSpecsAccordion from "../components/FullSpecs/FullSpecsAccordion";
 import ProsCons from "../components/FullSpecs/ProsCons";
-import SimilarPhones from "../components/FullSpecs/SimilarPhones";
-import { fetchGeminiSummary, fetchGeminiProsCons, fetchGeminiSimilarPhones } from "../api/gemini";
+import SmartRecommendations from "../components/FullSpecs/SmartRecommendations";
+import {
+  fetchGeminiSummary,
+  fetchGeminiProsCons
+} from "../api/gemini";
 
 const PhoneDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,8 +22,8 @@ const PhoneDetailsPage: React.FC = () => {
   const [pros, setPros] = useState<string[]>([]);
   const [cons, setCons] = useState<string[]>([]);
   const [loadingProsCons, setLoadingProsCons] = useState(false);
-  const [similarPhones, setSimilarPhones] = useState<Phone[]>([]);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [prosConsError, setProsConsError] = useState<string | null>(null);
+  // SmartRecommendations component handles its own state
 
   useEffect(() => {
     if (!id) return;
@@ -84,32 +87,25 @@ Generate a similar tagline that captures this phone's unique strengths:`;
 
   const handleProsCons = async () => {
     setLoadingProsCons(true);
+    setProsConsError(null);
     try {
       const result = await fetchGeminiProsCons(phone);
       setPros(result.pros || []);
       setCons(result.cons || []);
-    } catch {
+      setProsConsError(null);
+    } catch (e) {
       setPros(["Great camera", "Fast charging", "AMOLED panel"]);
       setCons(["No wireless charging", "Bloatware"]);
+      setProsConsError(
+        e instanceof Error
+          ? e.message || "Failed to generate pros and cons."
+          : "Failed to generate pros and cons."
+      );
     }
     setLoadingProsCons(false);
   };
 
-  const handleSimilarPhones = async () => {
-    setLoadingSimilar(true);
-    try {
-      const similarNames = await fetchGeminiSimilarPhones(phone);
-      // Map names to phones (in real app, fetch by name from backend, here just fake)
-      setSimilarPhones(similarNames.map((name: string, idx: number) => ({
-        ...phone,
-        id: phone.id * 10 + idx,
-        name,
-      })));
-    } catch {
-      setSimilarPhones([]);
-    }
-    setLoadingSimilar(false);
-  };
+  // SmartRecommendations component handles its own data fetching and state management
 
   // Compare button handler (example, should use context/store in real app)
   const handleAddToCompare = () => {
@@ -145,17 +141,14 @@ Generate a similar tagline that captures this phone's unique strengths:`;
           pros={pros}
           cons={cons}
           loading={loadingProsCons}
+          error={prosConsError || undefined}
           onGenerate={handleProsCons}
         />
       </div>
 
-      {/* 7. SIMILAR PHONES / ALTERNATIVES SECTION */}
+      {/* 7. SMART RECOMMENDATIONS SECTION */}
       <div className="mb-6">
-        <SimilarPhones
-          phones={similarPhones}
-          loading={loadingSimilar}
-          onRegenerate={handleSimilarPhones}
-        />
+        {phone && <SmartRecommendations phoneId={phone.id} />}
       </div>
     </div>
   );

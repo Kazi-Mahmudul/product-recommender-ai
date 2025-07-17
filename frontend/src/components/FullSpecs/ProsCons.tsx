@@ -4,21 +4,98 @@ interface ProsConsProps {
   pros: string[];
   cons: string[];
   loading: boolean;
+  error?: string;
   onGenerate: () => void;
 }
 
-const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, onGenerate }) => (
-  <div className="rounded-2xl shadow p-4 border bg-white border-brand dark:bg-gray-900 dark:border-gray-700">
-    <div className="font-semibold mb-2 text-brand">Pros & Cons
-      <button onClick={onGenerate} className="ml-2 px-3 py-1 bg-brand text-white rounded-full text-xs font-semibold hover:opacity-90 transition">
-        {loading ? "Generating..." : "Regenerate"}
+const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGenerate }) => (
+  <section
+    className="pros-cons-container rounded-2xl shadow-lg p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
+    aria-labelledby="pros-cons-header"
+  >
+    {/* Header */}
+    <div className="flex items-center justify-between mb-4">
+      <h2 id="pros-cons-header" className="font-bold text-lg md:text-xl flex items-center gap-2 text-gray-900 dark:text-gray-100">
+        <span role="img" aria-label="AI">🤖</span> AI-Generated Analysis
+      </h2>
+      <button
+        onClick={onGenerate}
+        className="ml-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-60"
+        aria-busy={loading}
+        aria-label={loading ? 'Generating pros and cons' : 'Regenerate pros and cons'}
+        disabled={loading}
+      >
+        {loading ? (
+          <span className="flex items-center gap-2">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+            Analyzing...
+          </span>
+        ) : (
+          <span>Regenerate</span>
+        )}
       </button>
     </div>
-    <div className="flex gap-8">
-      <ul className="text-green-700 dark:text-green-400 text-sm list-disc ml-5 flex-1">{pros.map((p, i) => <li key={i}>{p}</li>)}</ul>
-      <ul className="text-red-600 dark:text-red-400 text-sm list-disc ml-5 flex-1">{cons.map((c, i) => <li key={i}>{c}</li>)}</ul>
+    {/* Error State */}
+    {error && (
+      <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-2 animate-shake" role="alert">
+        <span role="img" aria-label="Error">❌</span>
+        <span>{error}</span>
+        <button
+          onClick={onGenerate}
+          className="ml-auto px-3 py-1 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition"
+        >Retry</button>
+      </div>
+    )}
+    {/* Loading State */}
+    {loading && !error && (
+      <div className="flex flex-col md:flex-row gap-6 animate-pulse" aria-live="polite">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-3/4"></div>
+          <div className="h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-2/3"></div>
+          <div className="h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-1/2"></div>
+        </div>
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-red-100 dark:bg-red-900 rounded w-3/4"></div>
+          <div className="h-4 bg-red-100 dark:bg-red-900 rounded w-2/3"></div>
+        </div>
+      </div>
+    )}
+    {/* Content */}
+    {!loading && !error && (
+      <div className="pros-cons-content flex flex-col md:flex-row gap-8 transition-all duration-300">
+        {/* Pros */}
+        <div className="pros-section flex-1 bg-emerald-50 dark:bg-emerald-900 rounded-xl p-4 transition-all duration-300">
+          <div className="font-semibold text-emerald-700 dark:text-emerald-300 mb-2 flex items-center gap-1">
+            <span role="img" aria-label="Pros">✅</span> PROS
+          </div>
+          <ul className="text-emerald-800 dark:text-emerald-100 text-sm space-y-2 list-disc ml-5">
+            {pros.length > 0 ? pros.map((p, i) => (
+              <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-emerald-100 dark:hover:bg-emerald-800 hover:scale-[1.02] rounded px-2 py-1">
+                {p}
+              </li>
+            )) : <li className="italic text-gray-400">No pros available.</li>}
+          </ul>
+        </div>
+        {/* Cons */}
+        <div className="cons-section flex-1 bg-red-50 dark:bg-red-900 rounded-xl p-4 transition-all duration-300">
+          <div className="font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-1">
+            <span role="img" aria-label="Cons">❌</span> CONS
+          </div>
+          <ul className="text-red-800 dark:text-red-100 text-sm space-y-2 list-disc ml-5">
+            {cons.length > 0 ? cons.map((c, i) => (
+              <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-red-100 dark:hover:bg-red-800 hover:scale-[1.02] rounded px-2 py-1">
+                {c}
+              </li>
+            )) : <li className="italic text-gray-400">No cons available.</li>}
+          </ul>
+        </div>
+      </div>
+    )}
+    {/* Footer note */}
+    <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
+      <span role="img" aria-label="Info">ℹ️</span> This analysis is generated by AI based on the phone's specifications and market context.
     </div>
-  </div>
+  </section>
 );
 
 export default ProsCons;

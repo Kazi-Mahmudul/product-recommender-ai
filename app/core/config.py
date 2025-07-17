@@ -19,6 +19,13 @@ class Settings(BaseSettings):
         "https://pickbd-ai.onrender.com"
     ]
     
+    # Redis cache settings
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+    REDIS_ENABLED: bool = os.getenv("REDIS_ENABLED", "True").lower() == "true"
+    
     # Gemini service settings
     GEMINI_SERVICE_URL: str = os.getenv(
         "GEMINI_SERVICE_URL",
@@ -38,6 +45,9 @@ class Settings(BaseSettings):
     EMAIL_PASS: str = os.getenv("EMAIL_PASS", "")
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@pickbd.com")
     EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+    
+    # Monitoring settings
+    MONITORING_API_KEY: str = os.getenv("MONITORING_API_KEY", "")
 
     class Config:
         case_sensitive = True
