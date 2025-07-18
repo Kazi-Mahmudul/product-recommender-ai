@@ -113,9 +113,18 @@ class RecommendationService:
             
             # Convert to final results with highlights and badges
             final_results = []
-            for candidate in ranked_recommendations[:limit]:
-                result = self._create_recommendation_result(target_phone, candidate)
-                final_results.append(result)
+            skipped = 0
+            for candidate in ranked_recommendations:
+                if len(final_results) >= limit:
+                    break
+                try:
+                    result = self._create_recommendation_result(target_phone, candidate)
+                    final_results.append(result)
+                except Exception as e:
+                    skipped += 1
+                    logger.warning(f"Skipping invalid recommendation: {e}")
+            if skipped > 0:
+                logger.info(f"Skipped {skipped} invalid recommendations due to serialization issues.")
             
             # Cache the results
             Cache.json_set(cache_key, [result.dict() for result in final_results], ttl=86400)  # 24 hours
@@ -343,56 +352,36 @@ class RecommendationService:
     ) -> RecommendationResult:
         """Create final recommendation result with highlights and badges"""
         try:
-            # Create a basic phone dictionary with essential fields first
-            # This ensures we at least have the core phone data even if other parts fail
-            # Ensure all required fields have default values to prevent null errors
-            basic_phone_dict = {
-                "id": getattr(candidate.phone, 'id', 0),
-                "brand": getattr(candidate.phone, 'brand', "Unknown"),
-                "name": getattr(candidate.phone, 'name', f"Phone {getattr(candidate.phone, 'id', 0)}"),
-                "model": getattr(candidate.phone, 'model', "Unknown Model"),
-                "price": getattr(candidate.phone, 'price', ""),
-                "price_original": getattr(candidate.phone, 'price_original', 0),
-                "img_url": getattr(candidate.phone, 'img_url', "https://via.placeholder.com/300x300?text=No+Image"),
-            }
-            
+            # Always use phone_to_dict for serialization
+            try:
+                phone_dict = phone_to_dict(candidate.phone)
+                # Defensive: skip if id is not a positive integer
+                if not isinstance(phone_dict.get("id"), int) or phone_dict["id"] <= 0:
+                    logger.error(f"Skipping recommendation: phone_to_dict returned invalid id for phone: {candidate.phone}")
+                    raise ValueError("Invalid phone id")
+            except Exception as dict_error:
+                logger.error(f"Error converting phone to dict: {str(dict_error)}. Skipping this recommendation.")
+                raise
+
             # Try to generate highlights, badges, and match reasons
-            # If any of these fail, use empty lists as fallback
             try:
                 highlights = self._generate_highlights(target_phone, candidate.phone)
             except Exception as highlight_error:
                 logger.error(f"Error generating highlights: {str(highlight_error)}")
                 highlights = []
-                
+
             try:
                 badges = self._generate_badges(candidate.phone)
             except Exception as badge_error:
                 logger.error(f"Error generating badges: {str(badge_error)}")
                 badges = []
-                
+
             try:
                 match_reasons = self._generate_match_reasons(candidate.similarity_metrics)
             except Exception as reason_error:
                 logger.error(f"Error generating match reasons: {str(reason_error)}")
                 match_reasons = []
-            
-            # Special handling for mock objects in tests
-            if hasattr(candidate.phone, '_mock_name') and hasattr(candidate.phone, '_mock_methods'):
-                # For mock objects, use the basic dictionary we created
-                phone_dict = basic_phone_dict
-            else:
-                # For real objects, try to use the phone_to_dict function
-                # If it fails, fall back to our basic dictionary
-                try:
-                    phone_dict = phone_to_dict(candidate.phone)
-                    # Ensure phone_dict is not None
-                    if phone_dict is None:
-                        logger.error("phone_to_dict returned None, using basic dictionary instead")
-                        phone_dict = basic_phone_dict
-                except Exception as dict_error:
-                    logger.error(f"Error converting phone to dict: {str(dict_error)}")
-                    phone_dict = basic_phone_dict
-            
+
             return RecommendationResult(
                 phone=phone_dict,
                 similarity_score=candidate.similarity_metrics.overall_similarity,
@@ -402,48 +391,9 @@ class RecommendationService:
                 similarity_metrics=candidate.similarity_metrics
             )
         except Exception as e:
-            logger.error(f"Error creating recommendation result: {str(e)}")
-            # Return a result with at least the phone ID and basic info
-            try:
-                phone_id = getattr(candidate.phone, 'id', 0)
-                phone_brand = getattr(candidate.phone, 'brand', "Unknown")
-                phone_name = getattr(candidate.phone, 'name', f"Phone {phone_id}")
-                
-                return RecommendationResult(
-                    phone={
-                        "id": phone_id,
-                        "brand": phone_brand,
-                        "name": phone_name,
-                        "model": getattr(candidate.phone, 'model', "Unknown Model"),
-                        "price": getattr(candidate.phone, 'price', ""),
-                        "price_original": getattr(candidate.phone, 'price_original', 0),
-                        "img_url": getattr(candidate.phone, 'img_url', "https://via.placeholder.com/300x300?text=No+Image"),
-                    },
-                    similarity_score=candidate.similarity_metrics.overall_similarity,
-                    highlights=[],
-                    badges=[],
-                    match_reasons=[],
-                    similarity_metrics=candidate.similarity_metrics
-                )
-            except:
-                # Last resort fallback if we can't even get the phone ID
-                logger.error("Critical error creating recommendation result, using empty fallback")
-                return RecommendationResult(
-                    phone={
-                        "id": 0, 
-                        "brand": "Unknown", 
-                        "name": "Unknown Phone",
-                        "model": "Unknown Model",
-                        "price": "",
-                        "price_original": 0,
-                        "img_url": "https://via.placeholder.com/300x300?text=No+Image"
-                    },
-                    similarity_score=0.0,
-                    highlights=[],
-                    badges=[],
-                    match_reasons=[],
-                    similarity_metrics=candidate.similarity_metrics
-                )
+            logger.error(f"Error creating recommendation result: {str(e)}. Recommendation will be skipped.")
+            # Instead of returning a fallback with id=0, raise to skip this recommendation
+            raise
     
     def _generate_highlights(self, target_phone: Phone, candidate_phone: Phone) -> List[str]:
         """Generate highlight labels for the candidate phone"""

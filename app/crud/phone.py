@@ -12,13 +12,8 @@ logger = logging.getLogger(__name__)
 def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[str, Any]:
     """
     Convert SQLAlchemy Phone object to dictionary for JSON serialization
-    
-    Args:
-        phone: Phone object to convert
-        include_optimized_images: Whether to include optimized image URLs
-        
-    Returns:
-        Dictionary representation of the phone
+    Ensures 'id' is present and is an integer > 0 if possible.
+    Logs the output for debugging.
     """
     # Import here to avoid circular imports
     from app.services.image_optimizer import ImageOptimizer
@@ -37,7 +32,7 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
             logger.error(f"Error generating optimized image URLs: {str(e)}")
     
     result = {
-        "id": getattr(phone, 'id', 0),
+        "id": int(getattr(phone, 'id', 0)) if getattr(phone, 'id', None) is not None else 0,
         "name": getattr(phone, 'name', None) or "Unknown Phone",
         "brand": getattr(phone, 'brand', None) or "Unknown",
         "model": getattr(phone, 'model', None) or "Unknown Model",
@@ -142,6 +137,12 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
         "display_score": phone.display_score,
         "camera_score": phone.camera_score
     }
+    # Defensive: If id is not a positive integer, log a warning
+    if not isinstance(result["id"], int) or result["id"] <= 0:
+        logger.warning(f"phone_to_dict: Invalid or missing id for phone: {getattr(phone, 'name', None)} (raw id: {getattr(phone, 'id', None)})")
+    # Log the output for debugging
+    logger.debug(f"phone_to_dict output: {result}")
+    return result
 
 def get_phones(
     db: Session, 

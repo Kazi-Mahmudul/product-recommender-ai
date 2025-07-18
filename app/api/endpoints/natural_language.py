@@ -485,12 +485,16 @@ async def process_natural_language_query(
                 limit=filters.get("limit")
             )
 
-            print(f"Found {len(recommendations)} recommendations")
+            # Filter out invalid recommendations (no phone or id <= 0)
+            valid_recommendations = [rec for rec in recommendations if rec.get('phone') and isinstance(rec['phone'].get('id'), int) and rec['phone']['id'] > 0]
+            skipped = len(recommendations) - len(valid_recommendations)
+            if skipped > 0:
+                print(f"Filtered out {skipped} invalid recommendations before returning response.")
 
             # If limit is not specified in the query but we have results, return top 5 by default
-            if filters.get("limit") is None and recommendations:
-                return JSONResponse(content=recommendations[:5])
-            return JSONResponse(content=recommendations)
+            if filters.get("limit") is None and valid_recommendations:
+                return JSONResponse(content=valid_recommendations[:5])
+            return JSONResponse(content=valid_recommendations)
         except Exception as e:
             print(f"Database error: {e}")
             return JSONResponse(content={"error": "I'm having trouble accessing the phone database right now. Please try again in a moment."}, status_code=500)
