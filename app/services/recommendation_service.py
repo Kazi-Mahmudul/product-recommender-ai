@@ -345,13 +345,15 @@ class RecommendationService:
         try:
             # Create a basic phone dictionary with essential fields first
             # This ensures we at least have the core phone data even if other parts fail
+            # Ensure all required fields have default values to prevent null errors
             basic_phone_dict = {
-                "id": candidate.phone.id,
+                "id": getattr(candidate.phone, 'id', 0),
                 "brand": getattr(candidate.phone, 'brand', "Unknown"),
-                "name": getattr(candidate.phone, 'name', f"Phone {candidate.phone.id}"),
-                "model": getattr(candidate.phone, 'model', ""),
+                "name": getattr(candidate.phone, 'name', f"Phone {getattr(candidate.phone, 'id', 0)}"),
+                "model": getattr(candidate.phone, 'model', "Unknown Model"),
                 "price": getattr(candidate.phone, 'price', ""),
                 "price_original": getattr(candidate.phone, 'price_original', 0),
+                "img_url": getattr(candidate.phone, 'img_url', "https://via.placeholder.com/300x300?text=No+Image"),
             }
             
             # Try to generate highlights, badges, and match reasons
@@ -383,6 +385,10 @@ class RecommendationService:
                 # If it fails, fall back to our basic dictionary
                 try:
                     phone_dict = phone_to_dict(candidate.phone)
+                    # Ensure phone_dict is not None
+                    if phone_dict is None:
+                        logger.error("phone_to_dict returned None, using basic dictionary instead")
+                        phone_dict = basic_phone_dict
                 except Exception as dict_error:
                     logger.error(f"Error converting phone to dict: {str(dict_error)}")
                     phone_dict = basic_phone_dict
@@ -399,7 +405,7 @@ class RecommendationService:
             logger.error(f"Error creating recommendation result: {str(e)}")
             # Return a result with at least the phone ID and basic info
             try:
-                phone_id = candidate.phone.id
+                phone_id = getattr(candidate.phone, 'id', 0)
                 phone_brand = getattr(candidate.phone, 'brand', "Unknown")
                 phone_name = getattr(candidate.phone, 'name', f"Phone {phone_id}")
                 
@@ -408,7 +414,10 @@ class RecommendationService:
                         "id": phone_id,
                         "brand": phone_brand,
                         "name": phone_name,
-                        "model": getattr(candidate.phone, 'model', ""),
+                        "model": getattr(candidate.phone, 'model', "Unknown Model"),
+                        "price": getattr(candidate.phone, 'price', ""),
+                        "price_original": getattr(candidate.phone, 'price_original', 0),
+                        "img_url": getattr(candidate.phone, 'img_url', "https://via.placeholder.com/300x300?text=No+Image"),
                     },
                     similarity_score=candidate.similarity_metrics.overall_similarity,
                     highlights=[],
@@ -420,7 +429,15 @@ class RecommendationService:
                 # Last resort fallback if we can't even get the phone ID
                 logger.error("Critical error creating recommendation result, using empty fallback")
                 return RecommendationResult(
-                    phone={"id": 0, "brand": "", "model": ""},
+                    phone={
+                        "id": 0, 
+                        "brand": "Unknown", 
+                        "name": "Unknown Phone",
+                        "model": "Unknown Model",
+                        "price": "",
+                        "price_original": 0,
+                        "img_url": "https://via.placeholder.com/300x300?text=No+Image"
+                    },
                     similarity_score=0.0,
                     highlights=[],
                     badges=[],
@@ -430,13 +447,117 @@ class RecommendationService:
     
     def _generate_highlights(self, target_phone: Phone, candidate_phone: Phone) -> List[str]:
         """Generate highlight labels for the candidate phone"""
-        # Use the HighlightGenerator to generate highlights
-        return self.highlight_generator.generate_highlights(target_phone, candidate_phone, limit=2)
+        try:
+            # Log phone attributes to help diagnose issues
+            logger.debug(f"Generating highlights for target phone ID {target_phone.id} and candidate phone ID {candidate_phone.id}")
+            
+            # Check if phones have the necessary attributes for highlight generation
+            target_has_display_score = hasattr(target_phone, 'display_score') and target_phone.display_score is not None
+            candidate_has_display_score = hasattr(candidate_phone, 'display_score') and candidate_phone.display_score is not None
+            
+            target_has_battery_score = hasattr(target_phone, 'battery_score') and target_phone.battery_score is not None
+            candidate_has_battery_score = hasattr(candidate_phone, 'battery_score') and candidate_phone.battery_score is not None
+            
+            target_has_camera_score = hasattr(target_phone, 'camera_score') and target_phone.camera_score is not None
+            candidate_has_camera_score = hasattr(candidate_phone, 'camera_score') and candidate_phone.camera_score is not None
+            
+            target_has_performance_score = hasattr(target_phone, 'performance_score') and target_phone.performance_score is not None
+            candidate_has_performance_score = hasattr(candidate_phone, 'performance_score') and candidate_phone.performance_score is not None
+            
+            # Log attribute availability
+            logger.debug(f"Target phone has display_score: {target_has_display_score}, battery_score: {target_has_battery_score}, camera_score: {target_has_camera_score}, performance_score: {target_has_performance_score}")
+            logger.debug(f"Candidate phone has display_score: {candidate_has_display_score}, battery_score: {candidate_has_battery_score}, camera_score: {candidate_has_camera_score}, performance_score: {candidate_has_performance_score}")
+            
+            # Use the HighlightGenerator to generate highlights
+            highlights = self.highlight_generator.generate_highlights(target_phone, candidate_phone, limit=2)
+            
+            # If no highlights were generated, provide default highlights
+            if not highlights:
+                logger.debug("No highlights generated by HighlightGenerator, using default highlights")
+                # Generate default highlights based on phone attributes
+                default_highlights = []
+                
+                # Check for RAM difference
+                if hasattr(candidate_phone, 'ram_gb') and hasattr(target_phone, 'ram_gb'):
+                    if candidate_phone.ram_gb and target_phone.ram_gb and candidate_phone.ram_gb > target_phone.ram_gb:
+                        default_highlights.append("🧠 More RAM")
+                
+                # Check for storage difference
+                if hasattr(candidate_phone, 'storage_gb') and hasattr(target_phone, 'storage_gb'):
+                    if candidate_phone.storage_gb and target_phone.storage_gb and candidate_phone.storage_gb > target_phone.storage_gb:
+                        default_highlights.append("💾 More Storage")
+                
+                # Check for battery capacity difference
+                if hasattr(candidate_phone, 'battery_capacity_numeric') and hasattr(target_phone, 'battery_capacity_numeric'):
+                    if candidate_phone.battery_capacity_numeric and target_phone.battery_capacity_numeric and candidate_phone.battery_capacity_numeric > target_phone.battery_capacity_numeric:
+                        default_highlights.append("⚡ Larger Battery")
+                
+                # Add a generic highlight if nothing specific was found
+                if not default_highlights:
+                    default_highlights.append("🔥 Similar Specs")
+                
+                return default_highlights[:2]  # Limit to 2 highlights
+            
+            logger.debug(f"Generated highlights: {highlights}")
+            return highlights
+        except Exception as e:
+            logger.error(f"Error generating highlights: {str(e)}", exc_info=True)
+            return ["🔥 Similar Specs"]  # Return a generic highlight as fallback
     
     def _generate_badges(self, phone: Phone) -> List[str]:
         """Generate badges for the phone"""
-        # Use the BadgeGenerator to generate badges
-        return self.badge_generator.generate_badges(phone)
+        try:
+            # Log phone attributes to help diagnose issues
+            logger.debug(f"Generating badges for phone ID {phone.id}, brand: {phone.brand}, model: {phone.model}")
+            
+            # Check if phone has the necessary attributes for badge generation
+            has_price_original = hasattr(phone, 'price_original') and phone.price_original is not None
+            has_is_popular_brand = hasattr(phone, 'is_popular_brand') and phone.is_popular_brand is not None
+            has_overall_device_score = hasattr(phone, 'overall_device_score') and phone.overall_device_score is not None
+            has_battery_score = hasattr(phone, 'battery_score') and phone.battery_score is not None
+            has_camera_score = hasattr(phone, 'camera_score') and phone.camera_score is not None
+            has_is_new_release = hasattr(phone, 'is_new_release') and phone.is_new_release is not None
+            
+            # Log attribute availability
+            logger.debug(f"Phone has price_original: {has_price_original}, is_popular_brand: {has_is_popular_brand}, overall_device_score: {has_overall_device_score}")
+            logger.debug(f"Phone has battery_score: {has_battery_score}, camera_score: {has_camera_score}, is_new_release: {has_is_new_release}")
+            
+            # Use the BadgeGenerator to generate badges
+            badges = self.badge_generator.generate_badges(phone)
+            
+            # If no badges were generated, provide default badges
+            if not badges:
+                logger.debug("No badges generated by BadgeGenerator, using default badges")
+                default_badges = []
+                
+                # Check for price category
+                if has_price_original and phone.price_original > 0:
+                    if phone.price_original > 60000:
+                        default_badges.append("Premium")
+                    elif phone.price_original < 25000:
+                        default_badges.append("Budget")
+                    else:
+                        default_badges.append("Mid-range")
+                
+                # Check for brand popularity
+                if has_is_popular_brand and phone.is_popular_brand:
+                    default_badges.append("Popular")
+                
+                # Check for new release
+                if has_is_new_release and phone.is_new_release:
+                    default_badges.append("New Launch")
+                
+                # Add a generic badge if nothing specific was found
+                if not default_badges:
+                    default_badges.append("Recommended")
+                
+                return default_badges[:2]  # Limit to 2 badges
+            
+            logger.debug(f"Generated badges: {badges}")
+            return badges
+        except Exception as e:
+            logger.error(f"Error generating badges: {str(e)}", exc_info=True)
+            return ["Recommended"]  # Return a generic badge as fallback
     
     def _generate_match_reasons(self, metrics: SimilarityMetrics) -> List[str]:
         """
@@ -451,41 +572,56 @@ class RecommendationService:
         Returns:
             List of match reason strings
         """
-        reasons = []
-        
-        # Price similarity reasons
-        if metrics.price_similarity > 0.95:
-            reasons.append("Very similar price point")
-        elif metrics.price_similarity > 0.85:
-            reasons.append("Similar price range")
-        elif metrics.price_similarity > 0.7:
-            reasons.append("Comparable price category")
-        
-        # Score similarity reasons
-        if metrics.score_similarity > 0.9:
-            reasons.append("Excellent performance match")
-        elif metrics.score_similarity > 0.8:
-            reasons.append("Similar performance profile")
-        elif metrics.score_similarity > 0.7:
-            reasons.append("Comparable performance category")
-        
-        # Spec similarity reasons
-        if metrics.spec_similarity > 0.9:
-            reasons.append("Nearly identical specifications")
-        elif metrics.spec_similarity > 0.8:
-            reasons.append("Very similar specifications")
-        elif metrics.spec_similarity > 0.7:
-            reasons.append("Similar specifications")
-        
-        # AI similarity reasons
-        if metrics.ai_similarity > 0.9:
-            reasons.append("AI-detected strong match")
-        elif metrics.ai_similarity > 0.8:
-            reasons.append("AI-detected similar usage profile")
-        
-        # Overall similarity as fallback
-        if not reasons and metrics.overall_similarity > 0.6:
-            reasons.append("Good overall match")
-        
-        # Limit to top 3 reasons for clarity
-        return reasons[:3]
+        try:
+            # Log the similarity metrics to help diagnose issues
+            logger.debug(f"Generating match reasons with metrics: price_similarity={metrics.price_similarity:.2f}, "
+                         f"spec_similarity={metrics.spec_similarity:.2f}, score_similarity={metrics.score_similarity:.2f}, "
+                         f"ai_similarity={metrics.ai_similarity:.2f}, overall_similarity={metrics.overall_similarity:.2f}")
+            
+            reasons = []
+            
+            # Price similarity reasons
+            if metrics.price_similarity > 0.95:
+                reasons.append("Very similar price point")
+            elif metrics.price_similarity > 0.85:
+                reasons.append("Similar price range")
+            elif metrics.price_similarity > 0.7:
+                reasons.append("Comparable price category")
+            
+            # Score similarity reasons
+            if metrics.score_similarity > 0.9:
+                reasons.append("Excellent performance match")
+            elif metrics.score_similarity > 0.8:
+                reasons.append("Similar performance profile")
+            elif metrics.score_similarity > 0.7:
+                reasons.append("Comparable performance category")
+            
+            # Spec similarity reasons
+            if metrics.spec_similarity > 0.9:
+                reasons.append("Nearly identical specifications")
+            elif metrics.spec_similarity > 0.8:
+                reasons.append("Very similar specifications")
+            elif metrics.spec_similarity > 0.7:
+                reasons.append("Similar specifications")
+            
+            # AI similarity reasons
+            if metrics.ai_similarity > 0.9:
+                reasons.append("AI-detected strong match")
+            elif metrics.ai_similarity > 0.8:
+                reasons.append("AI-detected similar usage profile")
+            
+            # Overall similarity as fallback
+            if not reasons and metrics.overall_similarity > 0.6:
+                reasons.append("Good overall match")
+            
+            # If still no reasons, add a generic reason
+            if not reasons:
+                reasons.append("Recommended alternative")
+            
+            logger.debug(f"Generated match reasons: {reasons}")
+            
+            # Limit to top 3 reasons for clarity
+            return reasons[:3]
+        except Exception as e:
+            logger.error(f"Error generating match reasons: {str(e)}", exc_info=True)
+            return ["Recommended alternative"]  # Return a generic reason as fallback

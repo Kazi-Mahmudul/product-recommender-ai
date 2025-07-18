@@ -34,24 +34,40 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
 
   // Handle click event
   const handleClick = () => {
-    onClick(phone.id);
+    onClick(phone?.id || 0);
   };
 
   // Handle mouse enter event for prefetching
   const handleMouseEnter = () => {
-    onMouseEnter(phone.id);
+    onMouseEnter(phone?.id || 0);
+  };
+  
+  // Ensure phone object has all required properties with fallbacks
+  const safePhone = {
+    id: phone?.id || 0,
+    brand: phone?.brand || "Unknown",
+    name: phone?.name || "Unknown Phone",
+    model: phone?.model || "Unknown Model",
+    price: phone?.price || "",
+    price_original: phone?.price_original || 0,
+    img_url: phone?.img_url || "https://via.placeholder.com/300x300?text=No+Image",
+    primary_camera_mp: phone?.primary_camera_mp,
+    battery_capacity_numeric: phone?.battery_capacity_numeric,
+    ram_gb: phone?.ram_gb,
+    storage_gb: phone?.storage_gb,
+    screen_size_inches: phone?.screen_size_inches,
   };
   
   // Create accessible description for screen readers
   const getAccessibleDescription = () => {
     const specs = [];
-    if (phone.primary_camera_mp) specs.push(`${phone.primary_camera_mp} megapixel camera`);
-    if (phone.battery_capacity_numeric) specs.push(`${phone.battery_capacity_numeric} mAh battery`);
-    if (phone.ram_gb) specs.push(`${phone.ram_gb} gigabytes of RAM`);
-    if (phone.storage_gb) specs.push(`${phone.storage_gb} gigabytes of storage`);
-    if (phone.screen_size_inches) specs.push(`${phone.screen_size_inches} inch screen`);
+    if (safePhone.primary_camera_mp) specs.push(`${safePhone.primary_camera_mp} megapixel camera`);
+    if (safePhone.battery_capacity_numeric) specs.push(`${safePhone.battery_capacity_numeric} mAh battery`);
+    if (safePhone.ram_gb) specs.push(`${safePhone.ram_gb} gigabytes of RAM`);
+    if (safePhone.storage_gb) specs.push(`${safePhone.storage_gb} gigabytes of storage`);
+    if (safePhone.screen_size_inches) specs.push(`${safePhone.screen_size_inches} inch screen`);
     
-    return `${phone.brand} ${phone.name}. Price: ${phone.price}. ${specs.join(', ')}. ${highlights.join(', ')}`;
+    return `${safePhone.brand} ${safePhone.name}. Price: ${safePhone.price}. ${specs.join(', ')}. ${highlights.join(', ')}`;
   };
 
   return (
@@ -71,9 +87,9 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       onMouseEnter={handleMouseEnter}
       tabIndex={0}
       role="button"
-      aria-label={`View details for ${phone.brand} ${phone.name}`}
-      aria-describedby={`card-desc-${phone.id}`}
-      data-testid={`recommendation-card-${phone.id}`}
+      aria-label={`View details for ${safePhone.brand} ${safePhone.name}`}
+      aria-describedby={`card-desc-${safePhone.id}`}
+      data-testid={`recommendation-card-${safePhone.id}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault(); // Prevent page scroll on space
@@ -86,10 +102,13 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       <div className="relative w-full flex justify-center mb-2">
         <div className="relative">
           <img
-            src={phone.img_url || "/phone.png"}
-            alt={phone.name}
+            src={safePhone.img_url}
+            alt={safePhone.name}
             className="w-24 h-32 object-contain rounded bg-white p-2 border border-gray-100"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = "https://via.placeholder.com/300x300?text=No+Image";
+            }}
           />
           
           {/* Badges */}
@@ -97,7 +116,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
             <div className="absolute top-0 right-0 flex flex-col items-end">
               {badges.map((badge, idx) => (
                 <span
-                  key={`badge-${phone.id}-${idx}-${badge.replace(/\s+/g, '-')}`}
+                  key={`badge-${safePhone.id}-${idx}-${badge.replace(/\s+/g, '-')}`}
                   className="inline-block bg-brand text-white text-xs px-2 py-0.5 rounded-full mb-1 shadow-sm transform -translate-x-1 translate-y-1"
                 >
                   {badge}
@@ -111,43 +130,43 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       {/* Phone name with brand accent */}
       <div className="w-full text-center">
         <div className="text-xs text-brand font-medium mb-0.5">
-          {phone.brand}
+          {safePhone.brand}
         </div>
         <h3 className="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 h-10">
-          {phone.name}
+          {safePhone.name}
         </h3>
       </div>
 
       {/* Phone price with styling */}
       <div className="text-sm font-semibold text-brand my-1">
-        {phone.price}
+        {safePhone.price}
       </div>
 
       {/* Key specs tags with icons */}
       <div className="flex flex-wrap justify-center gap-1 mb-2 w-full">
-        {phone.primary_camera_mp && (
+        {safePhone.primary_camera_mp && (
           <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="camera">📸</span> {phone.primary_camera_mp}MP
+            <span role="img" aria-label="camera">📸</span> {safePhone.primary_camera_mp}MP
           </span>
         )}
-        {phone.battery_capacity_numeric && (
+        {safePhone.battery_capacity_numeric && (
           <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="battery">🔋</span> {phone.battery_capacity_numeric}mAh
+            <span role="img" aria-label="battery">🔋</span> {safePhone.battery_capacity_numeric}mAh
           </span>
         )}
-        {phone.ram_gb && (
+        {safePhone.ram_gb && (
           <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="memory">💾</span> {phone.ram_gb}GB
+            <span role="img" aria-label="memory">💾</span> {safePhone.ram_gb}GB
           </span>
         )}
-        {phone.storage_gb && (
+        {safePhone.storage_gb && (
           <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="storage">💽</span> {phone.storage_gb}GB
+            <span role="img" aria-label="storage">💽</span> {safePhone.storage_gb}GB
           </span>
         )}
-        {phone.screen_size_inches && (
+        {safePhone.screen_size_inches && (
           <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="display">📱</span> {phone.screen_size_inches}"
+            <span role="img" aria-label="display">📱</span> {safePhone.screen_size_inches}"
           </span>
         )}
       </div>
@@ -157,7 +176,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
         <div className="w-full mt-1 space-y-1.5">
           {highlights.map((highlight, idx) => (
             <div
-              key={`highlight-${phone.id}-${idx}-${highlight.substring(0, 10).replace(/\s+/g, '-')}`}
+              key={`highlight-${safePhone.id}-${idx}-${highlight.substring(0, 10).replace(/\s+/g, '-')}`}
               className="text-xs bg-brand/10 dark:bg-brand/20 rounded-lg px-2.5 py-1.5 text-center font-medium text-brand dark:text-brand-light"
             >
               {highlight}
@@ -168,7 +187,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       
       {/* Hidden description for screen readers */}
       <span 
-        id={`card-desc-${phone.id}`} 
+        id={`card-desc-${safePhone.id}`} 
         className="sr-only"
       >
         {getAccessibleDescription()}

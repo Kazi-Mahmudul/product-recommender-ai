@@ -177,9 +177,9 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     );
   };
 
-  // Filter out recommendations with invalid phone IDs
+  // Filter out recommendations with invalid phone IDs or null phones
   const validRecommendations = recommendations.filter(
-    (rec) => rec.phone && rec.phone.id && rec.phone.id > 0
+    (rec) => rec && rec.phone && rec.phone.id && rec.phone.id > 0
   );
 
   return (
@@ -264,17 +264,24 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
           >
             {validRecommendations.map((recommendation, index) => (
               <div
-                key={`recommendation-${recommendation.phone.id}-${index}`}
+                key={`recommendation-${recommendation?.phone?.id || index}-${index}`}
                 className="
                   md:min-w-0 md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] xl:w-[calc(25%-1rem)]
                 "
               >
                 <RecommendationCard
                   ref={(el) => (cardRefs.current[index] = el)}
-                  phone={recommendation.phone}
-                  highlights={recommendation.highlights || []}
-                  badges={recommendation.badges || []}
-                  similarityScore={recommendation.similarityScore}
+                  phone={recommendation?.phone || {
+                    id: 0,
+                    brand: "Unknown",
+                    name: "Unknown Phone",
+                    model: "Unknown Model",
+                    price: "",
+                    url: ""
+                  }}
+                  highlights={recommendation?.highlights || []}
+                  badges={recommendation?.badges || []}
+                  similarityScore={recommendation?.similarityScore || 0}
                   onClick={handleCardClick}
                   onMouseEnter={handleCardHover}
                   index={index}

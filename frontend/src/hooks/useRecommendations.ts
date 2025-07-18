@@ -149,15 +149,24 @@ export const useRecommendations = (phoneId: number | string) => {
 
         // Check if we have any valid recommendations after filtering
         if (validRecommendations.length === 0 && data.length > 0) {
-          console.warn("All recommendations had invalid phone IDs. Original data:", data);
-          setError("No valid recommendations found. Please try a different phone.");
+          console.warn(
+            "All recommendations had invalid phone IDs. Original data:",
+            data
+          );
+          setError(
+            "No valid recommendations found. Please try a different phone."
+          );
         } else {
           setRecommendations(validRecommendations);
           setRetryCount(0); // Reset retry count on success
 
           // Store in cache using our cache manager
           const cacheKey = getRecommendationsCacheKey(phoneId);
-          setCacheItem(cacheKey, validRecommendations, CACHE_TTL.RECOMMENDATIONS);
+          setCacheItem(
+            cacheKey,
+            validRecommendations,
+            CACHE_TTL.RECOMMENDATIONS
+          );
 
           // Periodically clean up expired items
           clearExpiredItems();

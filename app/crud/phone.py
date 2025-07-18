@@ -37,13 +37,13 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
             logger.error(f"Error generating optimized image URLs: {str(e)}")
     
     result = {
-        "id": phone.id,
-        "name": phone.name,
-        "brand": phone.brand,
-        "model": phone.model,
-        "price": phone.price,
-        "url": phone.url,
-        "img_url": phone.img_url,
+        "id": getattr(phone, 'id', 0),
+        "name": getattr(phone, 'name', None) or "Unknown Phone",
+        "brand": getattr(phone, 'brand', None) or "Unknown",
+        "model": getattr(phone, 'model', None) or "Unknown Model",
+        "price": getattr(phone, 'price', None) or "",
+        "url": getattr(phone, 'url', None) or "",
+        "img_url": getattr(phone, 'img_url', None) or "https://via.placeholder.com/300x300?text=No+Image",
         **optimized_images,
         "display_type": phone.display_type,
         "screen_size_inches": phone.screen_size_inches,
