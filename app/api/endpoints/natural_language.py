@@ -383,6 +383,22 @@ async def process_natural_language_query(
                 if result.get("type") == "recommendation":
                     filters = result.get("filters", {})
                     print(f"Processing recommendation with filters: {filters}")
+                    # --- FALLBACK: Extract price constraints from query if missing ---
+                    if not filters.get("max_price"):
+                        match = re.search(r"(?:under|below|less than|up to|maximum|<=|<)\s*([0-9,]+)", query, re.IGNORECASE)
+                        if match:
+                            price = float(match.group(1).replace(",", ""))
+                            filters["max_price"] = price
+                            print(f"[Fallback] Extracted max_price from query: {price}")
+                    if not filters.get("min_price"):
+                        match = re.search(r"(?:over|above|more than|at least|minimum|>=|>)\s*([0-9,]+)", query, re.IGNORECASE)
+                        if match:
+                            price = float(match.group(1).replace(",", ""))
+                            filters["min_price"] = price
+                            print(f"[Fallback] Extracted min_price from query: {price}")
+                    print(f"[DEBUG] Final filters for recommendation: {filters}")
+                    
+                    # Proceed with recommendation processing here instead of after the if/elif blocks
                 elif result.get("type") == "qa":
                     print("Processing QA query")
                     return JSONResponse(content={"type": "qa", "data": generate_qa_response(db, query)})
@@ -484,13 +500,29 @@ async def process_natural_language_query(
                 max_ppi_numeric=filters.get("max_ppi_numeric"),
                 limit=filters.get("limit")
             )
+            print(f"[DEBUG] Recommendations found: {len(recommendations)}")
 
-            # Filter out invalid recommendations (no phone or id <= 0)
-            valid_recommendations = [rec for rec in recommendations if rec.get('phone') and isinstance(rec['phone'].get('id'), int) and rec['phone']['id'] > 0]
-            skipped = len(recommendations) - len(valid_recommendations)
+            # Format recommendations properly
+            formatted_recommendations = []
+            for phone_data in recommendations:
+                formatted_recommendations.append({
+                    "phone": phone_data,
+                    "score": phone_data.get("overall_device_score", 0),
+                    "match_reason": f"Matches your search criteria"
+                })
+            
+            print(f"[DEBUG] Formatted recommendations: {len(formatted_recommendations)}")
+            
+            # Filter out invalid recommendations (no id or id <= 0)
+            valid_recommendations = [rec for rec in formatted_recommendations if rec["phone"] and isinstance(rec["phone"].get("id"), int) and rec["phone"]["id"] > 0]
+            skipped = len(formatted_recommendations) - len(valid_recommendations)
             if skipped > 0:
                 print(f"Filtered out {skipped} invalid recommendations before returning response.")
 
+            # If no recommendations found, return a helpful message
+            if not valid_recommendations:
+                return JSONResponse(content={"type": "chat", "data": "I couldn't find any phones matching your criteria. Try adjusting your search parameters."})
+                
             # If limit is not specified in the query but we have results, return top 5 by default
             if filters.get("limit") is None and valid_recommendations:
                 return JSONResponse(content=valid_recommendations[:5])
