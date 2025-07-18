@@ -186,14 +186,14 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     <ErrorBoundary fallback={renderErrorBoundaryFallback}>
       <div
         ref={recommendationsRef}
-        className={`rounded-2xl shadow p-4 border bg-white border-brand dark:bg-gray-900 dark:border-gray-700 ${className}`}
+        className={`rounded-2xl shadow-md p-6 border bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700 ${className}`}
         role="region"
         aria-labelledby="recommendations-heading"
       >
-        <div className="font-semibold mb-2 flex justify-between items-center text-brand">
+        <div className="mb-4 flex justify-between items-center">
           <h2
             id="recommendations-heading"
-            className="text-base font-semibold m-0"
+            className="text-lg font-semibold text-gray-800 dark:text-white m-0"
           >
             Smart Recommendations
           </h2>
@@ -205,7 +205,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
             )}
             <button
               onClick={handleRetry}
-              className="ml-2 px-3 py-1 bg-brand text-white rounded-full text-xs font-semibold hover:opacity-90 transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              className="ml-2 px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 rounded-full text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
               disabled={loading || isRetrying}
               aria-label="Refresh recommendations"
             >
@@ -256,7 +256,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         {!loading && !error && validRecommendations.length > 0 && (
           <div
             ref={containerRef}
-            className="flex flex-nowrap md:flex-wrap gap-4 overflow-x-auto md:overflow-x-visible pb-2"
+            className="flex flex-nowrap md:flex-wrap gap-4 overflow-x-auto md:overflow-x-visible pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
             role="region"
             aria-label="Phone recommendations"
             onKeyDown={handleKeyDown}
@@ -266,7 +266,8 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
               <div
                 key={`recommendation-${recommendation?.phone?.id || index}-${index}`}
                 className="
-                  md:min-w-0 md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] xl:w-[calc(25%-1rem)]
+                  min-w-[200px] flex-shrink-0
+                  md:min-w-0 md:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]
                 "
               >
                 <RecommendationCard

@@ -1,5 +1,6 @@
 ﻿import { forwardRef } from 'react';
 import { Phone } from '../../api/phones';
+import { selectPrimaryBadge, Badge } from '../../utils/badgeSelector';
 
 // Define the props interface for the RecommendationCard component
 interface RecommendationCardProps {
@@ -42,6 +43,12 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
     onMouseEnter(phone?.id || 0);
   };
   
+  // Select the primary badge using our badge selector utility
+  const primaryBadge = selectPrimaryBadge({
+    phone,
+    badges
+  });
+  
   // Ensure phone object has all required properties with fallbacks
   const safePhone = {
     id: phone?.id || 0,
@@ -79,9 +86,9 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
         bg-white dark:bg-gray-800 rounded-xl p-3
         flex flex-col items-center shadow-sm hover:shadow-md
         transition-all duration-300 cursor-pointer
-        transform hover:scale-[1.02] hover:bg-brand/5
+        transform hover:scale-[1.02] hover:bg-gray-50 dark:hover:bg-gray-750
         border border-gray-100 dark:border-gray-700
-        focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900
+        focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 dark:focus:ring-offset-gray-900
       "
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
@@ -98,30 +105,35 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       }}
       style={{ order: index }} // For keyboard navigation order
     >
-      {/* Phone image with badges overlay */}
+      {/* Phone image with single badge overlay */}
       <div className="relative w-full flex justify-center mb-2">
         <div className="relative">
           <img
             src={safePhone.img_url}
             alt={safePhone.name}
-            className="w-24 h-32 object-contain rounded bg-white p-2 border border-gray-100"
+            className="w-24 h-32 object-contain rounded-lg bg-white p-2 border border-gray-100 dark:border-gray-700"
             loading="lazy"
             onError={(e) => {
               e.currentTarget.src = "https://via.placeholder.com/300x300?text=No+Image";
             }}
           />
           
-          {/* Badges */}
-          {badges.length > 0 && (
-            <div className="absolute top-0 right-0 flex flex-col items-end">
-              {badges.map((badge, idx) => (
-                <span
-                  key={`badge-${safePhone.id}-${idx}-${badge.replace(/\s+/g, '-')}`}
-                  className="inline-block bg-brand text-white text-xs px-2 py-0.5 rounded-full mb-1 shadow-sm transform -translate-x-1 translate-y-1"
-                >
-                  {badge}
-                </span>
-              ))}
+          {/* Single Primary Badge */}
+          {primaryBadge && (
+            <div className="absolute top-0 left-0 right-0 flex justify-center">
+              <span
+                className={`
+                  inline-block text-xs px-3 py-1 rounded-full shadow-sm font-medium transform -translate-y-2
+                  ${primaryBadge.type === 'value' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 
+                    primaryBadge.type === 'feature' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
+                    'bg-amber-50 text-amber-700 border border-amber-100'}
+                  dark:${primaryBadge.type === 'value' ? 'bg-blue-900/30 text-blue-300 border-blue-800/50' : 
+                    primaryBadge.type === 'feature' ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/50' : 
+                    'bg-amber-900/30 text-amber-300 border-amber-800/50'}
+                `}
+              >
+                {primaryBadge.label}
+              </span>
             </div>
           )}
         </div>
@@ -129,7 +141,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
 
       {/* Phone name with brand accent */}
       <div className="w-full text-center">
-        <div className="text-xs text-brand font-medium mb-0.5">
+        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-0.5">
           {safePhone.brand}
         </div>
         <h3 className="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 h-10">
@@ -138,50 +150,55 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       </div>
 
       {/* Phone price with styling */}
-      <div className="text-sm font-semibold text-brand my-1">
+      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 my-1">
         {safePhone.price}
       </div>
 
-      {/* Key specs tags with icons */}
-      <div className="flex flex-wrap justify-center gap-1 mb-2 w-full">
+      {/* Key specs tags with icons - cleaner design */}
+      <div className="grid grid-cols-2 gap-2 mb-3 w-full">
         {safePhone.primary_camera_mp && (
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="camera">📸</span> {safePhone.primary_camera_mp}MP
-          </span>
+          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {safePhone.primary_camera_mp}MP
+          </div>
         )}
         {safePhone.battery_capacity_numeric && (
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="battery">🔋</span> {safePhone.battery_capacity_numeric}mAh
-          </span>
+          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {safePhone.battery_capacity_numeric}mAh
+          </div>
         )}
         {safePhone.ram_gb && (
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="memory">💾</span> {safePhone.ram_gb}GB
-          </span>
+          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+            {safePhone.ram_gb}GB
+          </div>
         )}
         {safePhone.storage_gb && (
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="storage">💽</span> {safePhone.storage_gb}GB
-          </span>
-        )}
-        {safePhone.screen_size_inches && (
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <span role="img" aria-label="display">📱</span> {safePhone.screen_size_inches}"
-          </span>
+          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+            {safePhone.storage_gb}GB
+          </div>
         )}
       </div>
 
-      {/* Highlights with modern styling */}
+      {/* Single Primary Highlight with modern styling */}
       {highlights.length > 0 && (
-        <div className="w-full mt-1 space-y-1.5">
-          {highlights.map((highlight, idx) => (
-            <div
-              key={`highlight-${safePhone.id}-${idx}-${highlight.substring(0, 10).replace(/\s+/g, '-')}`}
-              className="text-xs bg-brand/10 dark:bg-brand/20 rounded-lg px-2.5 py-1.5 text-center font-medium text-brand dark:text-brand-light"
-            >
-              {highlight}
-            </div>
-          ))}
+        <div className="w-full mt-1">
+          <div
+            className="text-xs bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2 text-center font-medium text-gray-700 dark:text-gray-200 border border-gray-100 dark:border-gray-600"
+          >
+            {highlights[0]}
+          </div>
         </div>
       )}
       

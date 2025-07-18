@@ -265,7 +265,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
             // Recommendation response with phone data
             updated[updated.length - 1].bot =
               "Based on your query, here are some recommendations:";
-            updated[updated.length - 1].phones = phoneData;
+            // Extract phone objects from the recommendation response
+            updated[updated.length - 1].phones = phoneData.map(item => item.phone || item);
           } else if (phoneData.type === "qa" || phoneData.type === "chat") {
             // QA or chat response
             updated[updated.length - 1].bot = phoneData.data;
@@ -398,8 +399,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                     } border`}
                         >
                           <img
-                            src={chat.phones[0]?.img_url || "https://via.placeholder.com/300x300?text=No+Image"}
-                            alt={chat.phones[0]?.name || "Phone"}
+                            src={chat.phones[0].img_url}
+                            alt={chat.phones[0].name}
                             className={`w-28 h-36 object-contain rounded-xl ${
                               darkMode
                                 ? "bg-gray-800 border-gray-700"
@@ -408,14 +409,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                           />
                           <div className="flex-1 flex flex-col gap-2">
                             <div className="text-lg font-bold text-brand">
-                              {chat.phones[0]?.name || "Unknown Phone"}
+                              {chat.phones[0].name}
                             </div>
                             <div
                               className={`text-xl font-extrabold ${
                                 darkMode ? "text-[#e2b892]" : "text-[#6b4b2b]"
                               }`}
                             >
-                              {chat.phones[0]?.price || "N/A"}
+                              {chat.phones[0].price}
                             </div>
                             <div
                               className={`grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 ${
@@ -424,33 +425,34 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                             >
                               <div>
                                 <span className="font-semibold">Display:</span>{" "}
-                                {chat.phones[0]?.display_type || "N/A"}
+                                {chat.phones[0].display_type}
                               </div>
                               <div>
                                 <span className="font-semibold">Screen:</span>{" "}
-                                {chat.phones[0]?.screen_size_numeric ? `${chat.phones[0].screen_size_numeric} inches` : "N/A"}
+                                {chat.phones[0].screen_size_numeric} inches
                               </div>
                               <div>
                                 <span className="font-semibold">
                                   Processor:
                                 </span>{" "}
-                                {chat.phones[0]?.chipset || chat.phones[0]?.cpu || "N/A"}
+                                {chat.phones[0].chipset || chat.phones[0].cpu}
                               </div>
                               <div>
                                 <span className="font-semibold">RAM:</span>{" "}
-                                {chat.phones[0]?.ram || "N/A"}
+                                {chat.phones[0].ram}
                               </div>
                               <div>
                                 <span className="font-semibold">Storage:</span>{" "}
-                                {chat.phones[0]?.internal_storage || "N/A"}
+                                {chat.phones[0].internal_storage}
                               </div>
                               <div>
                                 <span className="font-semibold">Camera:</span>{" "}
-                                {chat.phones[0]?.primary_camera_mp ? `${chat.phones[0].primary_camera_mp}MP` : "N/A"} / {chat.phones[0]?.selfie_camera_mp ? `${chat.phones[0].selfie_camera_mp}MP` : "N/A"}
+                                {chat.phones[0].primary_camera_mp}MP /{" "}
+                                {chat.phones[0].selfie_camera_mp}MP
                               </div>
                               <div>
                                 <span className="font-semibold">Battery:</span>{" "}
-                                {chat.phones[0]?.battery_capacity_numeric ? `${chat.phones[0].battery_capacity_numeric} mAh` : "N/A"}
+                                {chat.phones[0].battery_capacity_numeric} mAh
                               </div>
                             </div>
                           </div>
@@ -609,25 +611,25 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                                     }
                                   >
                                     <td className="px-2 py-1 font-semibold">
-                                      {phone.name || "Unknown Phone"}
+                                      {phone.name}
                                     </td>
-                                    <td className="px-2 py-1">{phone.brand || "Unknown"}</td>
-                                    <td className="px-2 py-1">{phone.price || "N/A"}</td>
+                                    <td className="px-2 py-1">{phone.brand}</td>
+                                    <td className="px-2 py-1">{phone.price}</td>
                                     <td className="px-2 py-1">
-                                      {phone.chipset || phone.cpu || "N/A"}
+                                      {phone.chipset || phone.cpu}
                                     </td>
-                                    <td className="px-2 py-1">{phone.ram || "N/A"}</td>
+                                    <td className="px-2 py-1">{phone.ram}</td>
                                     <td className="px-2 py-1">
-                                      {phone.internal_storage || "N/A"}
-                                    </td>
-                                    <td className="px-2 py-1">
-                                      {phone.primary_camera_mp ? `${phone.primary_camera_mp}MP` : "N/A"}
+                                      {phone.internal_storage}
                                     </td>
                                     <td className="px-2 py-1">
-                                      {phone.selfie_camera_mp ? `${phone.selfie_camera_mp}MP` : "N/A"}
+                                      {phone.primary_camera_mp}MP
                                     </td>
                                     <td className="px-2 py-1">
-                                      {phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric} mAh` : "N/A"}
+                                      {phone.selfie_camera_mp}MP
+                                    </td>
+                                    <td className="px-2 py-1">
+                                      {phone.battery_capacity_numeric} mAh
                                     </td>
                                   </tr>
                                 ))}
