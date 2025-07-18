@@ -193,9 +193,9 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         <div className="mb-4 flex justify-between items-center">
           <h2
             id="recommendations-heading"
-            className="text-lg font-semibold text-gray-800 dark:text-white m-0"
+            className="text-lg font-bold text-gray-800 dark:text-white m-0"
           >
-            Smart Recommendations
+            Alternatives Worth Checking
           </h2>
           <div className="flex items-center">
             {isRetrying && (

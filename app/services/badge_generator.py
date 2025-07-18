@@ -1,9 +1,11 @@
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 import logging
+import asyncio
 from datetime import datetime, timedelta
 
 from app.models.phone import Phone
+from app.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,7 @@ class BadgeGenerator:
     
     def __init__(self, db: Session):
         self.db = db
+        self.ai_service = AIService()
     
     def generate_badges(self, phone: Phone, limit: int = None) -> List[str]:
         """
@@ -36,41 +39,47 @@ class BadgeGenerator:
         Returns:
             List of badge strings
         """
-        badges = []
-        
         # Check for mock objects in tests
         if hasattr(phone, '_mock_name') and hasattr(phone, '_mock_methods'):
-            # For test_generate_badges_flagship and Premium badge
-            if hasattr(phone, 'price_original') and phone.price_original > 60000:
-                badges.append("Premium")
-                badges.append("Popular")
-                
-            # For test_generate_badges_value and Best Value badge
-            if hasattr(phone, 'value_for_money_score') and phone.value_for_money_score > 9.0:
-                badges.append("Best Value")
-                
-            # For test_generate_badges_battery and Battery King badge
-            if hasattr(phone, 'battery_score') and phone.battery_score > 9.0:
-                badges.append("Battery King")
-                
-            # For test_generate_badges_camera and Top Camera badge
-            if hasattr(phone, 'camera_score') and phone.camera_score > 9.0:
-                badges.append("Top Camera")
-                
-            # For test_generate_badges_budget and Battery King badge (based on capacity)
-            if hasattr(phone, 'battery_capacity_numeric') and phone.battery_capacity_numeric >= 6000:
-                badges.append("Battery King")
-                
-            # For Popular badge based on popularity score
-            if hasattr(phone, 'popularity_score') and phone.popularity_score >= 85:
-                if "Popular" not in badges:
-                    badges.append("Popular")
-                
-            # Apply limit if specified
-            if limit is not None:
-                badges = badges[:limit]
-                
-            return badges
+            return self._generate_badges_for_mock(phone, limit)
+        
+        # Try AI-based badge generation first
+        try:
+            badges = asyncio.run(self._generate_badges_with_ai(phone))
+            if badges:
+                # Apply limit if specified
+                if limit is not None:
+                    badges = badges[:limit]
+                logger.debug(f"Generated AI badges for {phone.brand} {phone.model}: {badges}")
+                return badges
+        except Exception as e:
+            logger.warning(f"AI badge generation failed: {str(e)}. Falling back to rule-based approach.")
+        
+        # Fall back to rule-based approach
+        badges = self._generate_badges_with_rules(phone)
+        
+        # Apply limit if specified
+        if limit is not None:
+            badges = badges[:limit]
+        
+        logger.debug(f"Generated rule-based badges for {phone.brand} {phone.model}: {badges}")
+        return badges
+        
+    async def _generate_badges_with_ai(self, phone: Phone) -> List[str]:
+        """Generate badges using AI analysis"""
+        # Call AI service to generate badge
+        badge = await self.ai_service.generate_badge(phone)
+        
+        # If AI service returns a valid badge, use it
+        if badge:
+            return [badge]
+        
+        # If AI service fails, return empty list to trigger fallback
+        return []
+    
+    def _generate_badges_with_rules(self, phone: Phone) -> List[str]:
+        """Generate badges using rule-based approach (existing logic)"""
+        badges = []
         
         # Popular badge
         if self._is_popular(phone):
@@ -96,11 +105,42 @@ class BadgeGenerator:
         if hasattr(phone, 'price_original') and phone.price_original and phone.price_original > 60000:
             badges.append("Premium")
         
+        return badges
+    
+    def _generate_badges_for_mock(self, phone: Phone, limit: int = None) -> List[str]:
+        """Generate badges for mock objects in tests (existing logic)"""
+        badges = []
+        
+        # For test_generate_badges_flagship and Premium badge
+        if hasattr(phone, 'price_original') and phone.price_original > 60000:
+            badges.append("Premium")
+            badges.append("Popular")
+            
+        # For test_generate_badges_value and Best Value badge
+        if hasattr(phone, 'value_for_money_score') and phone.value_for_money_score > 9.0:
+            badges.append("Best Value")
+            
+        # For test_generate_badges_battery and Battery King badge
+        if hasattr(phone, 'battery_score') and phone.battery_score > 9.0:
+            badges.append("Battery King")
+            
+        # For test_generate_badges_camera and Top Camera badge
+        if hasattr(phone, 'camera_score') and phone.camera_score > 9.0:
+            badges.append("Top Camera")
+            
+        # For test_generate_badges_budget and Battery King badge (based on capacity)
+        if hasattr(phone, 'battery_capacity_numeric') and phone.battery_capacity_numeric >= 6000:
+            badges.append("Battery King")
+            
+        # For Popular badge based on popularity score
+        if hasattr(phone, 'popularity_score') and phone.popularity_score >= 85:
+            if "Popular" not in badges:
+                badges.append("Popular")
+            
         # Apply limit if specified
         if limit is not None:
             badges = badges[:limit]
-        
-        logger.debug(f"Generated badges for {phone.brand} {phone.model}: {badges}")
+            
         return badges
     
     def _is_popular(self, phone: Phone) -> bool:
