@@ -29,10 +29,35 @@ const PhoneDetailsPage: React.FC = () => {
     if (!id) return;
     setLoading(true);
     fetchPhoneById(id)
-      .then(setPhone)
+      .then((phoneData) => {
+        setPhone(phoneData);
+        // Once we have the phone data, generate pros and cons automatically
+        generateProsCons(phoneData);
+      })
       .catch(() => setError("Failed to load phone details."))
       .finally(() => setLoading(false));
   }, [id]);
+  
+  // Function to generate pros and cons
+  const generateProsCons = async (phoneData: Phone) => {
+    setLoadingProsCons(true);
+    setProsConsError(null);
+    try {
+      const result = await fetchGeminiProsCons(phoneData);
+      setPros(result.pros || []);
+      setCons(result.cons || []);
+      setProsConsError(null);
+    } catch (e) {
+      setPros(["Great camera", "Fast charging", "AMOLED panel"]);
+      setCons(["No wireless charging", "Bloatware"]);
+      setProsConsError(
+        e instanceof Error
+          ? e.message || "Failed to generate pros and cons."
+          : "Failed to generate pros and cons."
+      );
+    }
+    setLoadingProsCons(false);
+  };
 
   if (loading) {
     return (

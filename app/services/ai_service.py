@@ -222,7 +222,7 @@ class AIService:
         # Determine phone category based on price
         category = self._determine_phone_category(phone)
         
-        # Create prompt with enhanced context and guidelines
+        # Create prompt with enhanced context and guidelines for more diverse badge generation
         prompt = f"""Analyze this smartphone's specifications and determine the most appropriate badge from the following options:
 
 AVAILABLE BADGES:
@@ -232,6 +232,16 @@ AVAILABLE BADGES:
 - "Battery King" - For phones with exceptional battery capacity (5000mAh+) or battery score (9.0+)
 - "Top Camera" - For phones with outstanding camera capabilities (high MP count, multiple cameras, camera score 9.0+)
 - "Premium" - For high-end flagship phones with top-tier specifications and price points (typically 60,000+ BDT)
+- "Gaming Beast" - For phones with powerful processors, high RAM, and features optimized for gaming
+- "Selfie Expert" - For phones with exceptional front camera capabilities
+- "Compact Champion" - For smaller phones with good specs and portability
+- "Display Marvel" - For phones with exceptional display quality, high refresh rates, or resolution
+- "Storage King" - For phones with large storage capacity or expandable storage options
+- "Performance Pro" - For phones with high-performance processors and smooth operation
+- "Budget Hero" - For affordable phones that offer great features at a low price point
+- "Multimedia Master" - For phones with excellent audio-visual capabilities for media consumption
+- "Flagship Killer" - For mid-range phones that offer flagship-like features at lower prices
+- "Design Icon" - For phones with exceptional build quality, materials, or aesthetic design
 
 PHONE CATEGORY: {category.upper()}
 
@@ -243,6 +253,9 @@ BADGE SELECTION GUIDELINES:
 2. For {category} phones, prioritize badges that highlight their key selling points in this segment
 3. Consider the target audience for this phone category when selecting the badge
 4. If multiple badges could apply, choose the one that would be most meaningful to potential buyers
+5. Be creative and specific - avoid generic badges when a more specific one would better highlight the phone's strengths
+6. Consider the phone's unique selling points compared to other phones in the same category
+7. For phones with multiple strengths, choose the badge that represents the most distinctive feature
 
 Return only the name of the single most appropriate badge from the list above, with no additional text or explanation.
 """
@@ -556,7 +569,17 @@ Each highlight should be on a new line with no additional text or explanation.
             "new launch": "New Launch",
             "battery king": "Battery King",
             "top camera": "Top Camera",
-            "premium": "Premium"
+            "premium": "Premium",
+            "gaming beast": "Gaming Beast",
+            "selfie expert": "Selfie Expert",
+            "compact champion": "Compact Champion",
+            "display marvel": "Display Marvel",
+            "storage king": "Storage King",
+            "performance pro": "Performance Pro",
+            "budget hero": "Budget Hero",
+            "multimedia master": "Multimedia Master",
+            "flagship killer": "Flagship Killer",
+            "design icon": "Design Icon"
         }
         
         # Check for exact matches first

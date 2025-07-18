@@ -38,10 +38,10 @@ const categoryFields = [
     icon: icons.Display,
     fields: [
       { key: "display_type", label: "Display Type" },
-      { key: "screen_size_inches", label: "Screen Size (inches)" },
+      { key: "screen_size_numeric", label: "Screen Size (inches)" },
       { key: "display_resolution", label: "Resolution" },
-      { key: "pixel_density_ppi", label: "Pixel Density (PPI)" },
-      { key: "refresh_rate_hz", label: "Refresh Rate (Hz)" },
+      { key: "ppi_numeric", label: "Pixel Density (PPI)" },
+      { key: "refresh_rate_numeric", label: "Refresh Rate (Hz)" },
       { key: "screen_protection", label: "Screen Protection" },
       { key: "display_brightness", label: "Brightness" },
       { key: "aspect_ratio", label: "Aspect Ratio" },
@@ -85,7 +85,6 @@ const categoryFields = [
     icon: icons.Battery,
     fields: [
       { key: "battery_type", label: "Battery Type" },
-      { key: "capacity", label: "Capacity" },
       { key: "battery_capacity_numeric", label: "Capacity (mAh)" },
       { key: "quick_charging", label: "Quick Charging" },
       { key: "wireless_charging", label: "Wireless Charging" },
@@ -102,10 +101,8 @@ const categoryFields = [
     fields: [
       { key: "ram", label: "RAM" },
       { key: "ram_type", label: "RAM Type" },
-      { key: "ram_gb", label: "RAM (GB)" },
       { key: "internal_storage", label: "Storage" },
       { key: "storage_type", label: "Storage Type" },
-      { key: "storage_gb", label: "Storage (GB)" },
     ],
   },
   {
