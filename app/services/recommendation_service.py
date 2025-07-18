@@ -343,23 +343,49 @@ class RecommendationService:
     ) -> RecommendationResult:
         """Create final recommendation result with highlights and badges"""
         try:
-            # Placeholder implementations for highlights and badges
-            # These will be enhanced in later tasks
-            highlights = self._generate_highlights(target_phone, candidate.phone)
-            badges = self._generate_badges(candidate.phone)
-            match_reasons = self._generate_match_reasons(candidate.similarity_metrics)
+            # Create a basic phone dictionary with essential fields first
+            # This ensures we at least have the core phone data even if other parts fail
+            basic_phone_dict = {
+                "id": candidate.phone.id,
+                "brand": getattr(candidate.phone, 'brand', "Unknown"),
+                "name": getattr(candidate.phone, 'name', f"Phone {candidate.phone.id}"),
+                "model": getattr(candidate.phone, 'model', ""),
+                "price": getattr(candidate.phone, 'price', ""),
+                "price_original": getattr(candidate.phone, 'price_original', 0),
+            }
+            
+            # Try to generate highlights, badges, and match reasons
+            # If any of these fail, use empty lists as fallback
+            try:
+                highlights = self._generate_highlights(target_phone, candidate.phone)
+            except Exception as highlight_error:
+                logger.error(f"Error generating highlights: {str(highlight_error)}")
+                highlights = []
+                
+            try:
+                badges = self._generate_badges(candidate.phone)
+            except Exception as badge_error:
+                logger.error(f"Error generating badges: {str(badge_error)}")
+                badges = []
+                
+            try:
+                match_reasons = self._generate_match_reasons(candidate.similarity_metrics)
+            except Exception as reason_error:
+                logger.error(f"Error generating match reasons: {str(reason_error)}")
+                match_reasons = []
             
             # Special handling for mock objects in tests
             if hasattr(candidate.phone, '_mock_name') and hasattr(candidate.phone, '_mock_methods'):
-                # For mock objects, create a simple dictionary with required fields
-                phone_dict = {
-                    "id": candidate.phone.id if hasattr(candidate.phone, 'id') else 0,
-                    "brand": candidate.phone.brand if hasattr(candidate.phone, 'brand') else "",
-                    "model": candidate.phone.model if hasattr(candidate.phone, 'model') else ""
-                }
+                # For mock objects, use the basic dictionary we created
+                phone_dict = basic_phone_dict
             else:
-                # For real objects, use the phone_to_dict function
-                phone_dict = phone_to_dict(candidate.phone)
+                # For real objects, try to use the phone_to_dict function
+                # If it fails, fall back to our basic dictionary
+                try:
+                    phone_dict = phone_to_dict(candidate.phone)
+                except Exception as dict_error:
+                    logger.error(f"Error converting phone to dict: {str(dict_error)}")
+                    phone_dict = basic_phone_dict
             
             return RecommendationResult(
                 phone=phone_dict,
@@ -371,15 +397,36 @@ class RecommendationService:
             )
         except Exception as e:
             logger.error(f"Error creating recommendation result: {str(e)}")
-            # Return a minimal valid result to avoid breaking the flow
-            return RecommendationResult(
-                phone={"id": 0, "brand": "", "model": ""},
-                similarity_score=0.0,
-                highlights=[],
-                badges=[],
-                match_reasons=[],
-                similarity_metrics=candidate.similarity_metrics
-            )
+            # Return a result with at least the phone ID and basic info
+            try:
+                phone_id = candidate.phone.id
+                phone_brand = getattr(candidate.phone, 'brand', "Unknown")
+                phone_name = getattr(candidate.phone, 'name', f"Phone {phone_id}")
+                
+                return RecommendationResult(
+                    phone={
+                        "id": phone_id,
+                        "brand": phone_brand,
+                        "name": phone_name,
+                        "model": getattr(candidate.phone, 'model', ""),
+                    },
+                    similarity_score=candidate.similarity_metrics.overall_similarity,
+                    highlights=[],
+                    badges=[],
+                    match_reasons=[],
+                    similarity_metrics=candidate.similarity_metrics
+                )
+            except:
+                # Last resort fallback if we can't even get the phone ID
+                logger.error("Critical error creating recommendation result, using empty fallback")
+                return RecommendationResult(
+                    phone={"id": 0, "brand": "", "model": ""},
+                    similarity_score=0.0,
+                    highlights=[],
+                    badges=[],
+                    match_reasons=[],
+                    similarity_metrics=candidate.similarity_metrics
+                )
     
     def _generate_highlights(self, target_phone: Phone, candidate_phone: Phone) -> List[str]:
         """Generate highlight labels for the candidate phone"""

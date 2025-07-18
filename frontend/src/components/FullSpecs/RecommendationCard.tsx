@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+﻿import { forwardRef } from 'react';
 import { Phone } from '../../api/phones';
 
 // Define the props interface for the RecommendationCard component
@@ -97,7 +97,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
             <div className="absolute top-0 right-0 flex flex-col items-end">
               {badges.map((badge, idx) => (
                 <span
-                  key={idx}
+                  key={`badge-${phone.id}-${idx}-${badge.replace(/\s+/g, '-')}`}
                   className="inline-block bg-brand text-white text-xs px-2 py-0.5 rounded-full mb-1 shadow-sm transform -translate-x-1 translate-y-1"
                 >
                   {badge}
@@ -157,7 +157,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
         <div className="w-full mt-1 space-y-1.5">
           {highlights.map((highlight, idx) => (
             <div
-              key={idx}
+              key={`highlight-${phone.id}-${idx}-${highlight.substring(0, 10).replace(/\s+/g, '-')}`}
               className="text-xs bg-brand/10 dark:bg-brand/20 rounded-lg px-2.5 py-1.5 text-center font-medium text-brand dark:text-brand-light"
             >
               {highlight}

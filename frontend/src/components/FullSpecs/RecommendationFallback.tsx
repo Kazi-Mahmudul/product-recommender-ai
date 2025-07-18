@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from "react";
 
 interface RecommendationFallbackProps {
   error: Error | string | null;
@@ -6,6 +6,7 @@ interface RecommendationFallbackProps {
   retry?: () => void;
   isNetworkError?: boolean;
   noRecommendations?: boolean;
+  isInvalidPhoneId?: boolean | null | "";
 }
 
 /**
@@ -24,11 +25,43 @@ const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
   retry,
   isNetworkError = false,
   noRecommendations = false,
+  isInvalidPhoneId = false,
 }) => {
   const handleRetry = () => {
     if (resetError) resetError();
     if (retry) retry();
   };
+
+  // Check if error message indicates invalid phone ID
+  const isInvalidIdError = isInvalidPhoneId || 
+    (error && typeof error === "string" && error.includes("Invalid phone ID"));
+
+  // Invalid phone ID error
+  if (isInvalidIdError) {
+    return (
+      <div 
+        className="flex flex-col items-center justify-center py-8 px-4"
+        role="alert"
+        aria-labelledby="invalid-id-heading"
+      >
+        <div className="text-5xl mb-4" role="img" aria-label="Invalid phone ID">
+          🚫
+        </div>
+        <h3 
+          id="invalid-id-heading"
+          className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
+          Invalid Phone Reference
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+          We couldn't load recommendations because the phone reference is invalid.
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+          Please try viewing a different phone or contact support if this issue persists.
+        </p>
+      </div>
+    );
+  }
 
   // No recommendations available
   if (noRecommendations) {
@@ -105,7 +138,7 @@ const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
         Something went wrong
       </h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
-        {error instanceof Error ? error.message : error || 'An unexpected error occurred'}
+        {error instanceof Error ? error.message : error || "An unexpected error occurred"}
       </p>
       <button
         onClick={handleRetry}

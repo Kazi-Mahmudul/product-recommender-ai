@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, KeyboardEvent } from "react";
+﻿import React, { useEffect, useState, useRef, KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import useRecommendations from "../../hooks/useRecommendations";
 import usePrefetch from "../../hooks/usePrefetch";
@@ -10,7 +10,7 @@ import ErrorBoundary from "../ErrorBoundary";
 
 // Define the props interface for the SmartRecommendations component
 interface SmartRecommendationsProps {
-  phoneId: number;
+  phoneId: number | string;
   className?: string;
 }
 
@@ -28,6 +28,9 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
   phoneId,
   className = "",
 }) => {
+  // Convert phoneId to number if it's a string
+  const numericPhoneId = typeof phoneId === 'string' ? parseInt(phoneId, 10) : phoneId;
+
   // Use the recommendations hook to manage data fetching and state
   const {
     recommendations,
@@ -39,7 +42,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     refetch,
     retry,
     resetError,
-  } = useRecommendations(phoneId);
+  } = useRecommendations(numericPhoneId);
 
   // Use the prefetch hook to prefetch phone details on hover
   const { prefetchPhone } = usePrefetch();
@@ -88,11 +91,15 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
 
   // Handle card click to navigate to phone details
   const handleCardClick = (id: number) => {
+    // Skip navigation for invalid IDs
+    if (!id) return;
     navigate(`/phones/${id}`);
   };
 
   // Handle card hover to prefetch phone details
   const handleCardHover = (id: number) => {
+    // Skip prefetching for invalid IDs
+    if (!id) return;
     prefetchPhone(id);
   };
 
@@ -140,6 +147,9 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     cardRefs.current[newIndex]?.focus();
   };
 
+  // Check if error message indicates invalid phone ID
+  const isInvalidPhoneId = error && typeof error === "string" && error.includes("Invalid phone ID");
+
   // Render the error boundary fallback UI
   const renderErrorBoundaryFallback = (
     error: Error,
@@ -161,10 +171,16 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
             resetError();
           }}
           retry={handleRetry}
+          isInvalidPhoneId={isInvalidPhoneId}
         />
       </div>
     );
   };
+
+  // Filter out recommendations with invalid phone IDs
+  const validRecommendations = recommendations.filter(
+    (rec) => rec.phone && rec.phone.id && rec.phone.id > 0
+  );
 
   return (
     <ErrorBoundary fallback={renderErrorBoundaryFallback}>
@@ -214,12 +230,13 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
           </div>
         )}
 
-        {/* Error state with network detection */}
+        {/* Error state with network detection and invalid phone ID detection */}
         {error && !loading && (
           <RecommendationFallback
             error={error}
             retry={handleRetry}
             isNetworkError={isNetworkError}
+            isInvalidPhoneId={isInvalidPhoneId}
           />
         )}
 
@@ -227,7 +244,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         {!loading &&
           !error &&
           hasAttemptedLoad &&
-          recommendations.length === 0 && (
+          validRecommendations.length === 0 && (
             <RecommendationFallback
               error={null}
               retry={handleRetry}
@@ -236,7 +253,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
           )}
 
         {/* Recommendations display - Responsive Layout */}
-        {!loading && !error && recommendations.length > 0 && (
+        {!loading && !error && validRecommendations.length > 0 && (
           <div
             ref={containerRef}
             className="flex flex-nowrap md:flex-wrap gap-4 overflow-x-auto md:overflow-x-visible pb-2"
@@ -245,9 +262,9 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
             onKeyDown={handleKeyDown}
             tabIndex={-1}
           >
-            {recommendations.map((recommendation, index) => (
+            {validRecommendations.map((recommendation, index) => (
               <div
-                key={recommendation.phone.id}
+                key={`recommendation-${recommendation.phone.id}-${index}`}
                 className="
                   md:min-w-0 md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] xl:w-[calc(25%-1rem)]
                 "
@@ -255,8 +272,8 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
                 <RecommendationCard
                   ref={(el) => (cardRefs.current[index] = el)}
                   phone={recommendation.phone}
-                  highlights={recommendation.highlights}
-                  badges={recommendation.badges}
+                  highlights={recommendation.highlights || []}
+                  badges={recommendation.badges || []}
                   similarityScore={recommendation.similarityScore}
                   onClick={handleCardClick}
                   onMouseEnter={handleCardHover}

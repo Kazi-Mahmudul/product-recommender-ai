@@ -235,7 +235,7 @@ export function clearExpiredItems(
  * @param phoneId - The ID of the phone
  * @returns The cache key
  */
-export function getRecommendationsCacheKey(phoneId: number): string {
+export function getRecommendationsCacheKey(phoneId: number | string): string {
   return `phone_recommendations_${phoneId}`;
 }
 
@@ -245,7 +245,7 @@ export function getRecommendationsCacheKey(phoneId: number): string {
  * @param phoneId - The ID of the phone
  * @returns The cache key
  */
-export function getPhoneDetailsCacheKey(phoneId: number): string {
+export function getPhoneDetailsCacheKey(phoneId: number | string): string {
   return `phone_details_${phoneId}`;
 }
 

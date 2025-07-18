@@ -168,9 +168,77 @@ export async function fetchPhones({
   return { items, total: data.total };
 }
 
-// Fetch a single phone by ID
+/**
+ * Validates if a phone ID is valid for API calls
+ * @param id - The phone ID to validate
+ * @returns boolean indicating if the ID is valid
+ */
+const isValidPhoneId = (id: number | string | null | undefined): boolean => {
+  if (id === undefined || id === null) return false;
+  
+  // If it's a string, try to convert it to a number
+  const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+  
+  // Check if it's a valid number greater than 0
+  return !isNaN(numericId) && numericId > 0;
+};
+
+/**
+ * Fetch a single phone by ID with enhanced error handling
+ * @param id - The ID of the phone to fetch
+ * @returns Promise resolving to a Phone object
+ * @throws Error if the phone cannot be fetched or the ID is invalid
+ */
 export async function fetchPhoneById(id: number | string): Promise<Phone> {
-  const res = await fetch(`${API_BASE}/api/v1/phones/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch phone details");
-  return res.json();
-} 
+  // Validate phone ID before making API calls
+  if (!isValidPhoneId(id)) {
+    throw new Error(`Invalid phone ID: ${id}. Please provide a valid phone ID.`);
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/phones/${id}`);
+    
+    if (!res.ok) {
+      // Handle different HTTP error codes
+      if (res.status === 404) {
+        throw new Error(`Phone with ID ${id} not found. Please check the phone ID and try again.`);
+      } else if (res.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (res.status === 400) {
+        throw new Error('Invalid request. Please check your parameters and try again.');
+      } else if (res.status === 401) {
+        throw new Error('Authentication required. Please log in and try again.');
+      } else if (res.status === 403) {
+        throw new Error('Access denied. You do not have permission to access this resource.');
+      } else if (res.status >= 500) {
+        throw new Error('Server error. Our team has been notified. Please try again later.');
+      } else {
+        throw new Error(`Failed to fetch phone details: HTTP error ${res.status}`);
+      }
+    }
+    
+    const data = await res.json();
+    
+    // Validate the response data
+    if (!data || !data.id) {
+      throw new Error('Invalid phone data received from server.');
+    }
+    
+    return data;
+  } catch (error) {
+    // Check for network errors
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('Network error. Please check your internet connection and try again.');
+    }
+    
+    // Log the error for debugging
+    console.error('Phone fetch error:', error);
+    
+    // Re-throw the error with a more descriptive message if it's not already an Error object
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('An unexpected error occurred while fetching phone details.');
+    }
+  }
+}
