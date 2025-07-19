@@ -12,10 +12,10 @@ class PhoneBase(BaseModel):
 
     # Display
     display_type: Optional[str] = None
-    screen_size_inches: Optional[float] = None
+    screen_size_inches: Optional[str] = None  # Changed from Optional[float] to Optional[str]
     display_resolution: Optional[str] = None
-    pixel_density_ppi: Optional[int] = None
-    refresh_rate_hz: Optional[int] = None
+    pixel_density_ppi: Optional[str] = None   # Changed from Optional[int] to Optional[str]
+    refresh_rate_hz: Optional[str] = None     # Changed from Optional[int] to Optional[str]
     screen_protection: Optional[str] = None
     display_brightness: Optional[str] = None
     aspect_ratio: Optional[str] = None
@@ -46,6 +46,8 @@ class PhoneBase(BaseModel):
     zoom: Optional[str] = None
     shooting_modes: Optional[str] = None
     video_fps: Optional[str] = None
+    main_camera: Optional[str] = None  # New field
+    front_camera: Optional[str] = None  # New field
 
     # Battery
     battery_type: Optional[str] = None

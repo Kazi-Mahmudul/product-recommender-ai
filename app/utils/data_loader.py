@@ -36,7 +36,7 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         'primary_camera_video_recording', 'selfie_camera_video_recording',
         'primary_camera_ois', 'primary_camera_aperture', 'selfie_camera_aperture',
         'camera_features', 'autofocus', 'flash', 'settings', 'zoom', 'shooting_modes',
-        'video_fps',
+        'video_fps', 'main_camera', 'front_camera',
         
         # Battery
         'battery_type', 'capacity', 'quick_charging', 'wireless_charging',
@@ -85,8 +85,9 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     
     # Define numeric columns
     numeric_cols = [
-        'price_original', 'screen_size_inches', 'pixel_density_ppi',
-        'refresh_rate_hz', 'display_brightness', 'capacity', 'weight', 'thickness',
+        'price_original', 
+        # Removed: 'screen_size_inches', 'pixel_density_ppi', 'refresh_rate_hz', 
+        # 'display_brightness', 'capacity', 'weight', 'thickness',
         'storage_gb', 'ram_gb', 'price_per_gb', 'price_per_gb_ram',
         'screen_size_numeric', 'resolution_width', 'resolution_height',
         'ppi_numeric', 'refresh_rate_numeric', 'display_score',
@@ -102,8 +103,21 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         'is_new_release', 'is_upcoming'
     ]
     
+    # Explicitly define string columns that were previously numeric
+    explicit_string_cols = [
+        'screen_size_inches', 
+        'pixel_density_ppi', 
+        'refresh_rate_hz', 
+        'display_brightness', 
+        'capacity', 
+        'weight', 
+        'thickness',
+        'main_camera',
+        'front_camera'
+    ]
+    
     # All other columns are treated as strings
-    string_cols = [col for col in valid_columns if col not in numeric_cols and col not in boolean_cols]
+    string_cols = explicit_string_cols + [col for col in valid_columns if col not in numeric_cols and col not in boolean_cols and col not in explicit_string_cols]
     
     # Clean string columns
     for col in string_cols:

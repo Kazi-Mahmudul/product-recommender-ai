@@ -15,10 +15,10 @@ class Phone(Base):
     
     # Display
     display_type = Column(String(255))
-    screen_size_inches = Column(Float)
+    screen_size_inches = Column(String(255))  # Changed from Float to String
     display_resolution = Column(String(255))
-    pixel_density_ppi = Column(Integer)
-    refresh_rate_hz = Column(Integer)
+    pixel_density_ppi = Column(String(255))   # Changed from Integer to String
+    refresh_rate_hz = Column(String(255))     # Changed from Integer to String
     screen_protection = Column(String(255))
     display_brightness = Column(String(255))
     aspect_ratio = Column(String(255))
@@ -49,6 +49,8 @@ class Phone(Base):
     zoom = Column(String(255))
     shooting_modes = Column(String(1024))
     video_fps = Column(String(255))
+    main_camera = Column(String(512))  # New column
+    front_camera = Column(String(512))  # New column
 
     # Battery
     battery_type = Column(String(255))

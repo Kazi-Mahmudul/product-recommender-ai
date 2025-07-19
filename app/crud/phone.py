@@ -71,6 +71,8 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
         "zoom": phone.zoom,
         "shooting_modes": phone.shooting_modes,
         "video_fps": phone.video_fps,
+        "main_camera": phone.main_camera,
+        "front_camera": phone.front_camera,
         "battery_type": phone.battery_type,
         "capacity": phone.capacity,
         "quick_charging": phone.quick_charging,
