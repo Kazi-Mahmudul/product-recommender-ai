@@ -30,8 +30,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
   const specs = [
     { label: "Storage", value: (phone as any).internal_storage || (typeof (phone as any).storage_gb === "number" ? `${(phone as any).storage_gb} GB` : "-"), icon: specIcons.Storage },
     { label: "RAM", value: (phone as any).ram || (typeof (phone as any).ram_gb === "number" ? `${(phone as any).ram_gb} GB` : "-"), icon: specIcons.RAM },
-    { label: "Main Camera", value: (phone as any).primary_camera_mp ? `${(phone as any).primary_camera_mp} MP` : (phone as any).camera_setup || "-", icon: specIcons.MainCamera },
-    { label: "Front Camera", value: (phone as any).selfie_camera_mp ? `${(phone as any).selfie_camera_mp} MP` : "-", icon: specIcons.FrontCamera },
+    { label: "Main Camera", value: (phone as any).main_camera || ((phone as any).primary_camera_mp ? `${(phone as any).primary_camera_mp} MP` : (phone as any).camera_setup || "-"), icon: specIcons.MainCamera },
+    { label: "Front Camera", value: (phone as any).front_camera || ((phone as any).selfie_camera_mp ? `${(phone as any).selfie_camera_mp} MP` : "-"), icon: specIcons.FrontCamera },
     { label: "Display", value: (typeof (phone as any).screen_size_numeric === "number" && (phone as any).screen_size_numeric > 0) ? `${(phone as any).screen_size_numeric}"` : ((phone as any).screen_size_inches ? `${(phone as any).screen_size_inches}"` : "-"), icon: specIcons.Display },
     { label: "Battery Type", value: (phone as any).battery_type || "-", icon: specIcons.BatteryType },
     { label: "Battery Capacity", value: (typeof (phone as any).battery_capacity_numeric === "number" && (phone as any).battery_capacity_numeric > 0) ? `${(phone as any).battery_capacity_numeric} mAh` : (phone as any).capacity || "-", icon: specIcons.BatteryCapacity },
@@ -87,7 +87,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
         {/* Name, price, brand, status, release, made by, UI, OS */}
         <div className="mb-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1 break-words">{phone.name}</h1>
-          <div className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1">{phone.price}</div>
+          <div className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1">Tk. {phone.price}</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-1">
             <span><FaUser className="inline mr-1 text-gray-400" />{phone.brand}</span>
             {(phone as any).status && <span><FaCheckCircle className="inline mr-1 text-green-400" />{(phone as any).status}</span>}

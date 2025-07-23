@@ -326,18 +326,28 @@ function getCompetitorContext(phone: any, category: string): string {
  * Get photography usage context based on phone specs and category
  */
 function getPhotoUsageContext(phone: any, category: string): string {
+  const mainCamera = phone.main_camera || '';
   const cameraMP = phone.primary_camera_mp || 0;
   const hasOIS = !!phone.primary_camera_ois;
   const cameraScore = phone.camera_score || 0;
   
+  // Check if main_camera string indicates a multi-camera setup
+  const hasMultiCamera = mainCamera.includes('+') || mainCamera.includes('MP') && mainCamera.match(/\d+\s*MP/g)?.length > 1;
+  
+  // Check if main_camera string indicates high resolution
+  const hasHighResCamera = mainCamera.includes('108MP') || mainCamera.includes('64MP') || mainCamera.includes('50MP') || 
+                          mainCamera.includes('48MP') || cameraMP >= 48;
+  
   if (category === 'flagship' || category === 'premium') {
-    if (cameraScore >= 8.5 || (cameraMP >= 48 && hasOIS)) {
+    if (cameraScore >= 8.5 || hasOIS || hasMultiCamera) {
       return "High-quality photography including low-light, portrait, and zoom scenarios";
+    } else if (hasHighResCamera) {
+      return "Detailed photography with good results in most lighting conditions";
     } else {
       return "Good everyday photography with some limitations in challenging conditions";
     }
   } else if (category === 'mid-range') {
-    if (cameraMP >= 64 || cameraScore >= 7.5) {
+    if (hasMultiCamera || hasHighResCamera || cameraScore >= 7.5) {
       return "Capable everyday photography with good results in daylight";
     } else {
       return "Basic photography suitable for social media and casual use";
@@ -420,14 +430,18 @@ function generateIntelligentFallback(phone: any, category: string): { pros: stri
   const cons: string[] = [];
   
   // Camera analysis
+  const mainCamera = phone.main_camera || '';
+  const hasMultiCamera = mainCamera.includes('+') || (mainCamera.includes('MP') && mainCamera.match(/\d+\s*MP/g)?.length > 1);
+  const hasHighResCamera = mainCamera.includes('108MP') || mainCamera.includes('64MP') || mainCamera.includes('50MP') || mainCamera.includes('48MP');
+  
   if (phone.camera_score && phone.camera_score >= 8.5) {
-    pros.push(`Exceptional ${phone.primary_camera_mp || 'high-resolution'} camera system delivers outstanding photo quality even in challenging lighting conditions`);
+    pros.push(`Exceptional ${phone.main_camera || (phone.primary_camera_mp ? `${phone.primary_camera_mp}MP` : 'high-resolution')} camera system delivers outstanding photo quality even in challenging lighting conditions`);
   } else if (phone.camera_score && phone.camera_score >= 7.5) {
-    pros.push(`Excellent ${phone.primary_camera_mp || 'high-resolution'}MP camera captures detailed and vibrant photos for social media and everyday memories`);
-  } else if (phone.primary_camera_mp && phone.primary_camera_mp >= 64) {
-    pros.push(`High-resolution ${phone.primary_camera_mp}MP main camera allows for detailed photography with good cropping flexibility`);
-  } else if (phone.primary_camera_mp && phone.primary_camera_mp >= 48) {
-    pros.push(`Capable ${phone.primary_camera_mp}MP main camera delivers good photo quality in well-lit environments`);
+    pros.push(`Excellent ${phone.main_camera || (phone.primary_camera_mp ? `${phone.primary_camera_mp}MP` : 'high-resolution')} camera captures detailed and vibrant photos for social media and everyday memories`);
+  } else if (hasHighResCamera || (phone.primary_camera_mp && phone.primary_camera_mp >= 64)) {
+    pros.push(`High-resolution ${phone.main_camera || `${phone.primary_camera_mp}MP main camera`} allows for detailed photography with good cropping flexibility`);
+  } else if (hasMultiCamera || (phone.primary_camera_mp && phone.primary_camera_mp >= 48)) {
+    pros.push(`Capable ${phone.main_camera || `${phone.primary_camera_mp}MP main camera`} delivers good photo quality in well-lit environments`);
   }
   
   if (phone.primary_camera_ois) {
@@ -621,8 +635,8 @@ Category: ${phoneCategory.toUpperCase()}
 Market Context: Bangladesh smartphone market (2025)
 
 KEY SPECIFICATIONS:
-• Display: ${phone.screen_size_numeric ? `${phone.screen_size_numeric}"` : 'N/A'}${phone.display_resolution ? ` ${phone.display_resolution}` : ''}${phone.refresh_rate_numeric ? ` ${phone.refresh_rate_numeric}Hz` : ''}${phone.display_type ? ` ${phone.display_type}` : ''}
-• Camera: ${phone.primary_camera_mp ? `${phone.primary_camera_mp}MP main` : 'N/A'}${phone.selfie_camera_mp ? ` + ${phone.selfie_camera_mp}MP selfie` : ''}${phone.primary_camera_ois ? ` with OIS` : ''}${phone.camera_features ? ` (${phone.camera_features})` : ''}
+• Display: ${phone.screen_size_inches || (phone.screen_size_numeric ? `${phone.screen_size_numeric}"` : 'N/A')}${phone.display_resolution ? ` ${phone.display_resolution}` : ''}${phone.refresh_rate_hz || (phone.refresh_rate_numeric ? ` ${phone.refresh_rate_numeric}Hz` : '')}${phone.display_type ? ` ${phone.display_type}` : ''}
+• Camera: ${phone.main_camera || (phone.primary_camera_mp ? `${phone.primary_camera_mp}MP main` : 'N/A')}${phone.front_camera ? ` + ${phone.front_camera} selfie` : (phone.selfie_camera_mp ? ` + ${phone.selfie_camera_mp}MP selfie` : '')}${phone.primary_camera_ois ? ` with OIS` : ''}${phone.camera_features ? ` (${phone.camera_features})` : ''}
 • Performance: ${phone.chipset || 'N/A'}${phone.cpu ? ` (${phone.cpu})` : ''}${phone.gpu ? ` with ${phone.gpu}` : ''}
 • Memory: ${phone.ram_gb ? `${phone.ram_gb}GB RAM` : phone.ram || 'N/A'} / ${phone.storage_gb ? `${phone.storage_gb}GB storage` : phone.internal_storage || 'N/A'}${phone.expandable_storage ? ` (expandable)` : ''}
 • Battery: ${phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric}mAh` : phone.capacity || 'N/A'}${phone.has_fast_charging ? ` with ${phone.charging_wattage || 'fast'}W charging` : ''}${phone.has_wireless_charging ? ' + wireless charging' : ''}
@@ -810,11 +824,11 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
 Name: ${phone.name || 'Unknown'}
 Brand: ${phone.brand || 'Unknown'}
 Price: ${phone.price_original ? `৳${phone.price_original.toLocaleString()}` : 'N/A'}
-Display: ${phone.screen_size_numeric ? `${phone.screen_size_numeric}"` : 'N/A'} ${phone.refresh_rate_numeric ? `${phone.refresh_rate_numeric}Hz` : ''} ${phone.display_type || ''}
-Camera: ${phone.primary_camera_mp ? `${phone.primary_camera_mp}MP` : 'N/A'}
+Display: ${phone.screen_size_inches || (phone.screen_size_numeric ? `${phone.screen_size_numeric}"` : 'N/A')} ${phone.refresh_rate_hz || (phone.refresh_rate_numeric ? `${phone.refresh_rate_numeric}Hz` : '')} ${phone.display_type || ''}
+Camera: ${phone.main_camera || (phone.primary_camera_mp ? `${phone.primary_camera_mp}MP` : 'N/A')} / ${phone.front_camera || (phone.selfie_camera_mp ? `${phone.selfie_camera_mp}MP` : 'N/A')}
 Performance: ${phone.chipset || 'N/A'}
-Memory: ${phone.ram_gb ? `${phone.ram_gb}GB RAM` : 'N/A'} / ${phone.storage_gb ? `${phone.storage_gb}GB storage` : 'N/A'}
-Battery: ${phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric}mAh` : 'N/A'}
+Memory: ${phone.ram_gb ? `${phone.ram_gb}GB RAM` : phone.ram || 'N/A'} / ${phone.storage_gb ? `${phone.storage_gb}GB storage` : phone.internal_storage || 'N/A'}
+Battery: ${phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric}mAh` : phone.capacity || 'N/A'}
 
 Format your response as JSON with "pros" and "cons" arrays.`;
 

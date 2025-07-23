@@ -84,7 +84,7 @@ const PhoneDetailsPage: React.FC = () => {
 Phone Specifications:
 - Name: ${phone.name}
 - Brand: ${phone.brand}
-- Price: ${phone.price_original ? `৳${phone.price_original}` : phone.price}
+- Price: ${phone.price_original ? `BDT ${phone.price_original}` : `BDT ${phone.price}`}
 - RAM: ${phone.ram_gb ? `${phone.ram_gb}GB` : phone.ram || 'N/A'}
 - Storage: ${phone.storage_gb ? `${phone.storage_gb}GB` : phone.internal_storage || 'N/A'}
 - Display: ${phone.screen_size_numeric ? `${phone.screen_size_numeric}"` : ''} ${phone.display_resolution || ''} ${phone.refresh_rate_numeric ? `${phone.refresh_rate_numeric}Hz` : ''}

@@ -59,6 +59,8 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
     price_original: phone?.price_original || 0,
     img_url: phone?.img_url || "https://via.placeholder.com/300x300?text=No+Image",
     primary_camera_mp: phone?.primary_camera_mp,
+    main_camera: phone?.main_camera,
+    front_camera: phone?.front_camera,
     battery_capacity_numeric: phone?.battery_capacity_numeric,
     ram_gb: phone?.ram_gb,
     storage_gb: phone?.storage_gb,
@@ -68,13 +70,16 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
   // Create accessible description for screen readers
   const getAccessibleDescription = () => {
     const specs = [];
-    if (safePhone.primary_camera_mp) specs.push(`${safePhone.primary_camera_mp} megapixel camera`);
+    if (safePhone.main_camera) specs.push(`Main camera: ${safePhone.main_camera}`);
+    else if (safePhone.primary_camera_mp) specs.push(`${safePhone.primary_camera_mp} megapixel camera`);
+    
+    if (safePhone.front_camera) specs.push(`Front camera: ${safePhone.front_camera}`);
     if (safePhone.battery_capacity_numeric) specs.push(`${safePhone.battery_capacity_numeric} mAh battery`);
     if (safePhone.ram_gb) specs.push(`${safePhone.ram_gb} gigabytes of RAM`);
     if (safePhone.storage_gb) specs.push(`${safePhone.storage_gb} gigabytes of storage`);
     if (safePhone.screen_size_inches) specs.push(`${safePhone.screen_size_inches} inch screen`);
     
-    return `${safePhone.brand} ${safePhone.name}. Price: ${safePhone.price}. ${specs.join(', ')}. ${highlights.join(', ')}`;
+    return `${safePhone.brand} ${safePhone.name}. Price: BDT ${safePhone.price}. ${specs.join(', ')}. ${highlights.join(', ')}`;
   };
 
   return (
@@ -151,12 +156,20 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
 
       {/* Phone price with styling */}
       <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 my-1">
-        {safePhone.price}
+        Tk. {safePhone.price}
       </div>
 
       {/* Key specs tags with icons - cleaner design */}
       <div className="grid grid-cols-2 gap-2 mb-3 w-full">
-        {safePhone.primary_camera_mp && (
+        {safePhone.main_camera ? (
+          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {safePhone.main_camera}
+          </div>
+        ) : safePhone.primary_camera_mp && (
           <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
             <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -165,7 +178,14 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
             {safePhone.primary_camera_mp}MP
           </div>
         )}
-        {safePhone.battery_capacity_numeric && (
+        {safePhone.front_camera ? (
+          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            {safePhone.front_camera}
+          </div>
+        ) : safePhone.battery_capacity_numeric && (
           <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
             <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

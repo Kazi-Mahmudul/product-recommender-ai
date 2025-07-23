@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
 import { GoogleLogin } from '@react-oauth/google';
+import { ArrowLeft } from 'lucide-react';
 
 interface SignupPageProps { darkMode: boolean; }
 export default function SignupPage({ darkMode }: SignupPageProps) {
@@ -54,30 +55,126 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
   };
 
   return (
-    <div className="min-h-screen mx-4 flex flex-col items-center justify-center bg-[#fdfbf9] dark:bg-[#121212]">
-      <form onSubmit={handleSubmit} className="w-full max-w-md p-8 bg-white dark:bg-[#232323] rounded-xl shadow-xl flex flex-col gap-4">
-        <h2 className="text-2xl font-bold mb-2 text-center text-brand">Sign Up for ePick</h2>
-        <div className="flex items-center my-2">
-          <div className="flex-grow border-t border-gray-300"></div>
-        </div>
-        <div className="flex gap-2">
-          <input type="text" name="first_name" placeholder="First Name" value={form.first_name} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent w-1/2" />
-          <input type="text" name="last_name" placeholder="Last Name" value={form.last_name} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent w-1/2" />
-        </div>
-        <input type="email" name="email" placeholder="Email" value={form.email} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent" autoFocus />
-        <input type="password" name="password" placeholder="Password" value={form.password} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent" />
-        <input type="password" name="confirm" placeholder="Confirm Password" value={form.confirm} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent" />
-        {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-        <button type="submit" className="rounded-lg py-2 font-semibold text-white" style={{background: '#d4a88d'}} disabled={loading}>
-          {loading ? 'Signing up...' : 'Sign Up'}
-        </button>
-        <div className="text-center text-sm mt-2">
-          Already have an account?{' '}
-          <button type="button" className="text-brand hover:underline" style={{color: '#d4a88d'}} onClick={() => navigate('/login')}>
-            Login
+    <div className="min-h-screen mt-10 flex flex-col items-center justify-center bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 px-4">
+      {/* Decorative elements */}
+      <div className="absolute top-20 left-1/4 w-64 h-64 rounded-full bg-brand/10 filter blur-3xl -z-10 animate-float"></div>
+      <div className="absolute bottom-20 right-1/4 w-64 h-64 rounded-full bg-brand-darkGreen/10 filter blur-3xl -z-10 animate-float" style={{ animationDelay: '2s' }}></div>
+      
+      <div className="w-full max-w-md relative">
+        <Link to="/" className="absolute -top-12 left-0 flex items-center gap-1 text-brand hover:text-brand-darkGreen transition-colors duration-200">
+          <ArrowLeft size={18} />
+          <span>Back to Home</span>
+        </Link>
+        
+        <form onSubmit={handleSubmit} className="w-full p-8 bg-white dark:bg-neutral-900 rounded-3xl shadow-soft-lg flex flex-col gap-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-brand/5 rounded-full filter blur-3xl -z-10"></div>
+          
+          <div className="text-center mb-2">
+            <h2 className="text-2xl font-bold text-neutral-800 dark:text-white">Create Account</h2>
+            <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">Sign up for your ePick account</p>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="w-1/2">
+                <label htmlFor="first_name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">First Name</label>
+                <input 
+                  type="text" 
+                  id="first_name" 
+                  name="first_name" 
+                  placeholder="John" 
+                  value={form.first_name} 
+                  onChange={handleChange} 
+                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand/30" 
+                />
+              </div>
+              <div className="w-1/2">
+                <label htmlFor="last_name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Last Name</label>
+                <input 
+                  type="text" 
+                  id="last_name" 
+                  name="last_name" 
+                  placeholder="Doe" 
+                  value={form.last_name} 
+                  onChange={handleChange} 
+                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand/30" 
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Email</label>
+              <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                placeholder="your@email.com" 
+                value={form.email} 
+                onChange={handleChange} 
+                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand/30" 
+                autoFocus 
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Password</label>
+              <input 
+                type="password" 
+                id="password" 
+                name="password" 
+                placeholder="••••••••" 
+                value={form.password} 
+                onChange={handleChange} 
+                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand/30" 
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="confirm" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Confirm Password</label>
+              <input 
+                type="password" 
+                id="confirm" 
+                name="confirm" 
+                placeholder="••••••••" 
+                value={form.confirm} 
+                onChange={handleChange} 
+                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand/30" 
+              />
+            </div>
+          </div>
+          
+          {error && <div className="text-semantic-danger text-sm text-center bg-semantic-danger/10 py-2 px-3 rounded-lg">{error}</div>}
+          
+          <button 
+            type="submit" 
+            className="rounded-xl py-3 font-medium text-white bg-brand hover:bg-brand-darkGreen hover:text-hover-light transition-colors duration-200 shadow-sm" 
+            disabled={loading}
+          >
+            {loading ? 'Signing up...' : 'Create Account'}
           </button>
-        </div>
-      </form>
+          
+          <div className="relative flex items-center my-4">
+            <div className="flex-grow border-t border-neutral-200 dark:border-neutral-700"></div>
+            <span className="flex-shrink mx-3 text-neutral-500 dark:text-neutral-400 text-sm">or</span>
+            <div className="flex-grow border-t border-neutral-200 dark:border-neutral-700"></div>
+          </div>
+          
+          <button
+            type="button"
+            className="rounded-xl py-3 font-medium flex items-center justify-center gap-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors duration-200"
+            disabled={loading}
+          >
+            <FcGoogle className="text-xl" /> Continue with Google
+          </button>
+          
+          <div className="text-center text-sm mt-2">
+            Already have an account?{' '}
+            <button type="button" className="text-brand hover:text-brand-darkGreen transition-colors duration-200 font-medium" onClick={() => navigate('/login')}>
+              Login
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   Legend,
   LabelList,
 } from "recharts";
+import ChatPhoneRecommendation from "../components/ChatPhoneRecommendation";
 
 interface ChatMessage {
   user: string;
@@ -331,9 +332,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
 
   return (
     <div
-      className={`flex items-center justify-center min-h-screen ${
-        darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"
-      }`}
+      className={`my-8 flex items-center justify-center bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 min-h-screen`}
     >
       <div
         className={`w-full max-w-3xl mx-auto my-8 rounded-3xl shadow-2xl ${
@@ -351,7 +350,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
           }`}
         >
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-2xl text-brand">ePick Chat</span>
+            <span className="font-bold text-2xl text-brand">ePick AI</span>
             <span className="text-lg">🤖</span>
           </div>
           <button
@@ -378,7 +377,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                   </div>
                 )}
 
-                {/* Handle phone recommendation with card + chart + table */}
+                {/* Handle phone recommendation with enhanced components */}
                 {chat.bot && chat.phones && chat.phones.length > 0 ? (
                   <div className="flex justify-start">
                     <div
@@ -388,256 +387,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                           : "bg-[#f7f3ef] text-gray-900 border-[#eae4da]"
                       }`}
                     >
-                      <div className="space-y-6 p-4">
-                        {/* Top Phone Card */}
-                        <div
-                          className={`rounded-2xl shadow-lg p-6 flex flex-col md:flex-row items-center gap-6 mx-auto w-full max-w-md 
-                    ${
-                      darkMode
-                        ? "bg-gray-900 border-gray-700"
-                        : "bg-[#fff7f0] border-[#eae4da]"
-                    } border`}
-                        >
-                          <img
-                            src={chat.phones[0].img_url}
-                            alt={chat.phones[0].name}
-                            className={`w-28 h-36 object-contain rounded-xl ${
-                              darkMode
-                                ? "bg-gray-800 border-gray-700"
-                                : "bg-white border-[#eae4da]"
-                            } border`}
-                          />
-                          <div className="flex-1 flex flex-col gap-2">
-                            <div className="text-lg font-bold text-brand">
-                              {chat.phones[0].name}
-                            </div>
-                            <div
-                              className={`text-xl font-extrabold ${
-                                darkMode ? "text-[#e2b892]" : "text-[#6b4b2b]"
-                              }`}
-                            >
-                              {chat.phones[0].price}
-                            </div>
-                            <div
-                              className={`grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2 ${
-                                darkMode ? "text-gray-300" : "text-gray-900"
-                              }`}
-                            >
-                              <div>
-                                <span className="font-semibold">Display:</span>{" "}
-                                {chat.phones[0].display_type}
-                              </div>
-                              <div>
-                                <span className="font-semibold">Screen:</span>{" "}
-                                {chat.phones[0].screen_size_numeric} inches
-                              </div>
-                              <div>
-                                <span className="font-semibold">
-                                  Processor:
-                                </span>{" "}
-                                {chat.phones[0].chipset || chat.phones[0].cpu}
-                              </div>
-                              <div>
-                                <span className="font-semibold">RAM:</span>{" "}
-                                {chat.phones[0].ram}
-                              </div>
-                              <div>
-                                <span className="font-semibold">Storage:</span>{" "}
-                                {chat.phones[0].internal_storage}
-                              </div>
-                              <div>
-                                <span className="font-semibold">Camera:</span>{" "}
-                                {chat.phones[0].primary_camera_mp}MP /{" "}
-                                {chat.phones[0].selfie_camera_mp}MP
-                              </div>
-                              <div>
-                                <span className="font-semibold">Battery:</span>{" "}
-                                {chat.phones[0].battery_capacity_numeric} mAh
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Device Score Chart */}
-                        <div
-                          className={`rounded-2xl shadow p-2 sm:p-4 mx-auto w-full max-w-xs sm:max-w-md md:max-w-lg 
-    ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border overflow-x-auto`}
-                        >
-                          <div className="font-semibold mb-2 text-brand">
-                            Device Score Comparison
-                          </div>
-                          <ResponsiveContainer width="100%" height={220}>
-                            <BarChart
-                              data={chat.phones}
-                              margin={{ top: 0, right: 0, left: 0, bottom: 30 }}
-                              barCategoryGap="15%" // More breathing room between bars
-                            >
-                              <XAxis
-                                dataKey="name"
-                                interval={0}
-                                tickLine={false}
-                                height={70}
-                                tick={({
-                                  x,
-                                  y,
-                                  payload,
-                                }: {
-                                  x: number;
-                                  y: number;
-                                  payload: { value: string };
-                                }) => {
-                                  const words: string[] =
-                                    payload.value.split(" ");
-                                  return (
-                                    <text
-                                      x={x}
-                                      y={y + 10}
-                                      textAnchor="middle"
-                                      fill={darkMode ? "#fff" : "#6b4b2b"}
-                                      fontSize={11}
-                                      fontWeight={500}
-                                    >
-                                      {words.map(
-                                        (word: string, index: number) => (
-                                          <tspan
-                                            key={index}
-                                            x={x}
-                                            dy={index === 0 ? 0 : 12}
-                                          >
-                                            {word}
-                                          </tspan>
-                                        )
-                                      )}
-                                    </text>
-                                  );
-                                }}
-                              />
-
-                              <YAxis
-                                tick={{
-                                  fill: darkMode ? "#fff" : "#6b4b2b",
-                                  fontWeight: 600,
-                                  fontSize: 10,
-                                }}
-                                tickLine={false}
-                                width={30}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  background: darkMode ? "#232323" : "#fff7f0",
-                                  color: darkMode ? "#e2b892" : "#6b4b2b",
-                                  borderRadius: 8,
-                                  fontSize: 12,
-                                }}
-                                labelStyle={{
-                                  color: darkMode ? "#fff" : "#222",
-                                  fontWeight: 700,
-                                }}
-                                itemStyle={{
-                                  color: darkMode ? "#fff" : "#222",
-                                  fontWeight: 600,
-                                }}
-                              />
-                              <Bar
-                                dataKey="overall_device_score"
-                                radius={[6, 6, 0, 0]}
-                                minPointSize={2}
-                              >
-                                {chat.phones.map((_, idx) => (
-                                  <Cell
-                                    key={idx}
-                                    fill={darkMode ? "#e2b892" : "#d4a88d"}
-                                    cursor="pointer"
-                                    onMouseOver={(e) => {
-                                      const target =
-                                        e && (e.target as SVGElement);
-                                      if (target && target.setAttribute)
-                                        target.setAttribute(
-                                          "fill",
-                                          darkMode ? "#d4a88d" : "#b07b50"
-                                        );
-                                    }}
-                                    onMouseOut={(e) => {
-                                      const target =
-                                        e && (e.target as SVGElement);
-                                      if (target && target.setAttribute)
-                                        target.setAttribute(
-                                          "fill",
-                                          darkMode ? "#e2b892" : "#d4a88d"
-                                        );
-                                    }}
-                                  />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                        {/* Specification Table */}
-                        <div
-                          className={`rounded-2xl shadow p-4 ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border`}
-                        >
-                          <div className="font-semibold mb-2 text-brand">
-                            Phone Specifications
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table
-                              className={`min-w-full border rounded-lg text-xs md:text-sm ${darkMode ? "bg-gray-900 text-white border-gray-700" : "bg-white text-gray-900 border-[#eae4da]"}`}
-                            >
-                              <thead>
-                                <tr className="bg-brand text-white">
-                                  <th className="px-2 py-1">Name</th>
-                                  <th className="px-2 py-1">Brand</th>
-                                  <th className="px-2 py-1">Price</th>
-                                  <th className="px-2 py-1">Processor</th>
-                                  <th className="px-2 py-1">RAM</th>
-                                  <th className="px-2 py-1">Storage</th>
-                                  <th className="px-2 py-1">Primary Camera</th>
-                                  <th className="px-2 py-1">Selfie Camera</th>
-                                  <th className="px-2 py-1">Battery</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {chat.phones.map((phone, idx) => (
-                                  <tr
-                                    key={idx}
-                                    className={
-                                      idx % 2 === 0
-                                        ? darkMode
-                                          ? "bg-gray-800"
-                                          : "bg-white"
-                                        : darkMode
-                                          ? "bg-gray-900"
-                                          : "bg-[#fff7f0]"
-                                    }
-                                  >
-                                    <td className="px-2 py-1 font-semibold">
-                                      {phone.name}
-                                    </td>
-                                    <td className="px-2 py-1">{phone.brand}</td>
-                                    <td className="px-2 py-1">{phone.price}</td>
-                                    <td className="px-2 py-1">
-                                      {phone.chipset || phone.cpu}
-                                    </td>
-                                    <td className="px-2 py-1">{phone.ram}</td>
-                                    <td className="px-2 py-1">
-                                      {phone.internal_storage}
-                                    </td>
-                                    <td className="px-2 py-1">
-                                      {phone.primary_camera_mp}MP
-                                    </td>
-                                    <td className="px-2 py-1">
-                                      {phone.selfie_camera_mp}MP
-                                    </td>
-                                    <td className="px-2 py-1">
-                                      {phone.battery_capacity_numeric} mAh
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
+                      {/* Use our new ChatPhoneRecommendation component */}
+                      <ChatPhoneRecommendation 
+                        phones={chat.phones}
+                        darkMode={darkMode}
+                      />
                     </div>
                   </div>
                 ) : (

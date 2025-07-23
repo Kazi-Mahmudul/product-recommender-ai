@@ -4,48 +4,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 24 45% 70%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 24 45% 70%;
-    --radius: 0.5rem;
+    /* Light mode color scheme based on Epick colors */
+    --background: 120 0% 98%; /* Slightly off-white background (#F9FAF9) */
+    --foreground: 0 0% 27%; /* Dark gray text for readability (#444444) */
+    --card: 0 0% 100%; /* Pure white cards (#FFFFFF) */
+    --card-foreground: 0 0% 27%; /* Dark gray text on cards (#444444) */
+    --popover: 0 0% 100%; /* White popovers (#FFFFFF) */
+    --popover-foreground: 0 0% 27%; /* Dark gray text on popovers (#444444) */
+    --primary: 156 39% 35%; /* Main brand green (#377D5B) - EpickGreen */
+    --primary-foreground: 0 0% 100%; /* White text on primary (#FFFFFF) */
+    --secondary: 120 80% 72%; /* Lighter green accent (#80EF80) - EpickDarkGreen */
+    --secondary-foreground: 0 0% 0%; /* Black text on secondary for better readability (#000000) */
+    --muted: 0 0% 92%; /* Light gray for muted areas (#EAEAEA) */
+    --muted-foreground: 0 0% 69%; /* Medium gray for muted text (#B0B0B0) */
+    --accent: 144 100% 60%; /* Neon green accent (#33FF99) */
+    --accent-foreground: 0 0% 10%; /* Near black text on accent (#1A1A1A) */
+    --destructive: 0 91% 58%; /* Red for destructive actions (#F44336) */
+    --destructive-foreground: 0 0% 100%; /* White text on destructive (#FFFFFF) */
+    --border: 0 0% 92%; /* Light gray border color (#EAEAEA) */
+    --input: 0 0% 92%; /* Light gray input borders (#EAEAEA) */
+    --ring: 120 80% 72%; /* Brand green for focus rings (#80EF80) */
+    --radius: 1.25rem; /* Larger radius for modern feel */
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 0 0% 95%;
-    --card: 24 9.8% 10%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 24 45% 70%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 85.7% 97.3%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 24 45% 70%;
+    /* Dark mode color scheme */
+    --background: 0 0% 10%; /* Dark background (#1A1A1A) */
+    --foreground: 0 0% 98%; /* Off-white text for readability (#F9FAF9) */
+    --card: 0 0% 15%; /* Slightly lighter dark for cards (#262626) */
+    --card-foreground: 0 0% 98%; /* Off-white text on cards (#F9FAF9) */
+    --popover: 0 0% 15%; /* Dark popovers (#262626) */
+    --popover-foreground: 0 0% 98%; /* Off-white text on popovers (#F9FAF9) */
+    --primary: 156 39% 35%; /* Main brand green for dark mode (#377D5B) - EpickGreen */
+    --primary-foreground: 0 0% 100%; /* White text on primary (#FFFFFF) */
+    --secondary: 120 80% 72%; /* Lighter green accent for dark mode (#80EF80) - EpickDarkGreen */
+    --secondary-foreground: 0 0% 0%; /* Black text on secondary for better readability (#000000) */
+    --muted: 0 0% 20%; /* Dark gray for muted areas (#333333) */
+    --muted-foreground: 0 0% 69%; /* Medium gray for muted text (#B0B0B0) */
+    --accent: 144 100% 50%; /* Slightly darker neon green for dark mode (#00FF80) */
+    --accent-foreground: 0 0% 10%; /* Near black text on accent (#1A1A1A) */
+    --destructive: 0 91% 48%; /* Darker red for dark mode (#E53935) */
+    --destructive-foreground: 0 0% 100%; /* White text on destructive (#FFFFFF) */
+    --border: 0 0% 25%; /* Darker border color (#404040) */
+    --input: 0 0% 25%; /* Darker input borders (#404040) */
+    --ring: 120 80% 65%; /* Slightly darker brand green for rings in dark mode (#6BEB6B) */
   }
 }
 
@@ -54,7 +56,10 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden;
+  }
+  html {
+    @apply overflow-x-hidden;
   }
 }
 

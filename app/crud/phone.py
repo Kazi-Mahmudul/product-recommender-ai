@@ -155,7 +155,18 @@ def get_phones(
     max_price: Optional[float] = None,
     min_ram_gb: Optional[int] = None,
     min_storage_gb: Optional[int] = None,
+    camera_setup: Optional[str] = None,
+    min_primary_camera_mp: Optional[float] = None,
+    min_selfie_camera_mp: Optional[float] = None,
+    battery_type: Optional[str] = None,
+    min_battery_capacity: Optional[int] = None,
+    display_type: Optional[str] = None,
     min_refresh_rate: Optional[int] = None,
+    min_screen_size: Optional[float] = None,
+    max_screen_size: Optional[float] = None,
+    chipset: Optional[str] = None,
+    operating_system: Optional[str] = None,
+    sort: Optional[str] = None,
     search: Optional[str] = None
 ) -> Tuple[List[Phone], int]:
     """Get phones with optional filtering"""
@@ -172,8 +183,38 @@ def get_phones(
         query = query.filter(Phone.ram_gb >= min_ram_gb)
     if min_storage_gb is not None:
         query = query.filter(Phone.storage_gb >= min_storage_gb)
+    
+    # Camera filters
+    if camera_setup is not None:
+        query = query.filter(func.lower(Phone.camera_setup) == func.lower(camera_setup))
+    if min_primary_camera_mp is not None:
+        query = query.filter(Phone.primary_camera_mp >= min_primary_camera_mp)
+    if min_selfie_camera_mp is not None:
+        query = query.filter(Phone.selfie_camera_mp >= min_selfie_camera_mp)
+    
+    # Battery filters
+    if battery_type is not None:
+        query = query.filter(func.lower(Phone.battery_type).contains(func.lower(battery_type)))
+    if min_battery_capacity is not None:
+        query = query.filter(Phone.battery_capacity_numeric >= min_battery_capacity)
+    
+    # Display filters
+    if display_type is not None:
+        query = query.filter(func.lower(Phone.display_type).contains(func.lower(display_type)))
     if min_refresh_rate is not None:
-        query = query.filter(Phone.refresh_rate_hz >= min_refresh_rate)
+        query = query.filter(Phone.refresh_rate_numeric >= min_refresh_rate)
+    if min_screen_size is not None:
+        query = query.filter(Phone.screen_size_numeric >= min_screen_size)
+    if max_screen_size is not None:
+        query = query.filter(Phone.screen_size_numeric <= max_screen_size)
+    
+    # Platform filters
+    if chipset is not None:
+        query = query.filter(func.lower(Phone.chipset).contains(func.lower(chipset)))
+    if operating_system is not None:
+        query = query.filter(func.lower(Phone.operating_system).contains(func.lower(operating_system)))
+    
+    # Search filter
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -181,6 +222,15 @@ def get_phones(
             (Phone.brand.ilike(search_term)) |
             (Phone.model.ilike(search_term))
         )
+    
+    # Apply sorting
+    if sort == "price_high":
+        query = query.order_by(Phone.price_original.desc())
+    elif sort == "price_low":
+        query = query.order_by(Phone.price_original.asc())
+    else:
+        # Default sorting
+        query = query.order_by(Phone.overall_device_score.desc())
     
     total = query.count()
     phones = query.offset(skip).limit(limit).all()

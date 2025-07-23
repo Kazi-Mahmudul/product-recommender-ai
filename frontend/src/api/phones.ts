@@ -1,4 +1,9 @@
 // phones.ts - API utility for fetching phones
+import {
+  FilterState,
+  FilterOptions,
+  defaultFilterOptions,
+} from "../types/filters";
 
 // API_BASE is loaded from .env (REACT_APP_API_BASE) via process.env in Create React App
 const API_BASE = process.env.REACT_APP_API_BASE || "/api";
@@ -48,6 +53,8 @@ export interface Phone {
   zoom?: string;
   shooting_modes?: string;
   video_fps?: string;
+  main_camera?: string;
+  front_camera?: string;
 
   // Battery
   battery_type?: string;
@@ -138,34 +145,100 @@ export async function fetchPhones({
   page = 1,
   pageSize = 20,
   sort = "default",
-  minPrice,
-  maxPrice,
+  filters,
 }: {
   page?: number;
   pageSize?: number;
   sort?: SortOrder;
-  minPrice?: number;
-  maxPrice?: number;
+  filters?: FilterState;
 } = {}): Promise<PhoneListResponse> {
+  // For debugging - log the filters being applied
+  console.log("Applying filters:", filters);
+
+  // Set up pagination parameters
   const skip = (page - 1) * pageSize;
   const params = new URLSearchParams({
     skip: skip.toString(),
     limit: pageSize.toString(),
   });
-  if (minPrice !== undefined) params.append("min_price", minPrice.toString());
-  if (maxPrice !== undefined) params.append("max_price", maxPrice.toString());
-  // Sorting is handled client-side for now, unless backend supports it
 
+  // Add all filter parameters to the API request
+  if (filters) {
+    // Price range filters
+    if (filters.priceRange.min !== null)
+      params.append("min_price", filters.priceRange.min.toString());
+    if (filters.priceRange.max !== null)
+      params.append("max_price", filters.priceRange.max.toString());
+
+    // Brand filter
+    if (filters.brand !== null) params.append("brand", filters.brand);
+
+    // Camera filters
+    if (filters.cameraSetup !== null)
+      params.append("camera_setup", filters.cameraSetup);
+    if (filters.mainCamera !== null)
+      params.append("min_primary_camera_mp", filters.mainCamera.toString());
+    if (filters.frontCamera !== null)
+      params.append("min_selfie_camera_mp", filters.frontCamera.toString());
+
+    // Performance filters
+    if (filters.ram !== null)
+      params.append("min_ram_gb", filters.ram.toString());
+    if (filters.storage !== null)
+      params.append("min_storage_gb", filters.storage.toString());
+
+    // Battery filters
+    if (filters.batteryType !== null)
+      params.append("battery_type", filters.batteryType);
+    if (filters.batteryCapacity !== null)
+      params.append("min_battery_capacity", filters.batteryCapacity.toString());
+
+    // Display filters
+    if (filters.displayType !== null)
+      params.append("display_type", filters.displayType);
+    if (filters.refreshRate !== null)
+      params.append("min_refresh_rate", filters.refreshRate.toString());
+    if (filters.displaySize.min !== null)
+      params.append("min_screen_size", filters.displaySize.min.toString());
+    if (filters.displaySize.max !== null)
+      params.append("max_screen_size", filters.displaySize.max.toString());
+
+    // Platform filters
+    if (filters.chipset !== null) params.append("chipset", filters.chipset);
+    if (filters.os !== null) params.append("os", filters.os);
+  }
+
+  // Add sorting parameter
+  if (sort !== "default") {
+    params.append("sort", sort);
+  }
+
+  // Log the API request URL for debugging
+  console.log(`API Request: ${API_BASE}/api/v1/phones?${params.toString()}`);
+
+  // Fetch phones from API
   const res = await fetch(`${API_BASE}/api/v1/phones?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch phones");
   const data = await res.json();
   let items = data.items;
-  if (sort === "price_high") {
-    items = [...items].sort((a, b) => (b.price_original || 0) - (a.price_original || 0));
-  } else if (sort === "price_low") {
-    items = [...items].sort((a, b) => (a.price_original || 0) - (b.price_original || 0));
+  let totalCount = data.total || items.length;
+
+  // Apply client-side sorting if needed (in case server doesn't support it)
+  if (sort === "price_high" && !params.has("sort")) {
+    items = [...items].sort(
+      (a, b) => (b.price_original || 0) - (a.price_original || 0)
+    );
+  } else if (sort === "price_low" && !params.has("sort")) {
+    items = [...items].sort(
+      (a, b) => (a.price_original || 0) - (b.price_original || 0)
+    );
   }
-  return { items, total: data.total };
+
+  console.log(
+    `Total phones: ${totalCount}, showing ${items.length} items on page ${page}`
+  );
+
+  return { items, total: totalCount };
 }
 
 /**
@@ -175,10 +248,10 @@ export async function fetchPhones({
  */
 const isValidPhoneId = (id: number | string | null | undefined): boolean => {
   if (id === undefined || id === null) return false;
-  
+
   // If it's a string, try to convert it to a number
-  const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
-  
+  const numericId = typeof id === "string" ? parseInt(id, 10) : id;
+
   // Check if it's a valid number greater than 0
   return !isNaN(numericId) && numericId > 0;
 };
@@ -192,53 +265,206 @@ const isValidPhoneId = (id: number | string | null | undefined): boolean => {
 export async function fetchPhoneById(id: number | string): Promise<Phone> {
   // Validate phone ID before making API calls
   if (!isValidPhoneId(id)) {
-    throw new Error(`Invalid phone ID: ${id}. Please provide a valid phone ID.`);
+    throw new Error(
+      `Invalid phone ID: ${id}. Please provide a valid phone ID.`
+    );
   }
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/phones/${id}`);
-    
+
     if (!res.ok) {
       // Handle different HTTP error codes
       if (res.status === 404) {
-        throw new Error(`Phone with ID ${id} not found. Please check the phone ID and try again.`);
+        throw new Error(
+          `Phone with ID ${id} not found. Please check the phone ID and try again.`
+        );
       } else if (res.status === 429) {
-        throw new Error('Too many requests. Please try again later.');
+        throw new Error("Too many requests. Please try again later.");
       } else if (res.status === 400) {
-        throw new Error('Invalid request. Please check your parameters and try again.');
+        throw new Error(
+          "Invalid request. Please check your parameters and try again."
+        );
       } else if (res.status === 401) {
-        throw new Error('Authentication required. Please log in and try again.');
+        throw new Error(
+          "Authentication required. Please log in and try again."
+        );
       } else if (res.status === 403) {
-        throw new Error('Access denied. You do not have permission to access this resource.');
+        throw new Error(
+          "Access denied. You do not have permission to access this resource."
+        );
       } else if (res.status >= 500) {
-        throw new Error('Server error. Our team has been notified. Please try again later.');
+        throw new Error(
+          "Server error. Our team has been notified. Please try again later."
+        );
       } else {
-        throw new Error(`Failed to fetch phone details: HTTP error ${res.status}`);
+        throw new Error(
+          `Failed to fetch phone details: HTTP error ${res.status}`
+        );
       }
     }
-    
+
     const data = await res.json();
-    
+
     // Validate the response data
     if (!data || !data.id) {
-      throw new Error('Invalid phone data received from server.');
+      throw new Error("Invalid phone data received from server.");
     }
-    
+
     return data;
   } catch (error) {
     // Check for network errors
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('Network error. Please check your internet connection and try again.');
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error(
+        "Network error. Please check your internet connection and try again."
+      );
     }
-    
+
     // Log the error for debugging
-    console.error('Phone fetch error:', error);
-    
+    console.error("Phone fetch error:", error);
+
     // Re-throw the error with a more descriptive message if it's not already an Error object
     if (error instanceof Error) {
       throw error;
     } else {
-      throw new Error('An unexpected error occurred while fetching phone details.');
+      throw new Error(
+        "An unexpected error occurred while fetching phone details."
+      );
     }
+  }
+}
+
+/**
+ * Fetch all available phone brands
+ * @returns Promise resolving to an array of brand names
+ */
+export async function fetchBrands(): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/phones/brands`);
+
+    if (!res.ok) {
+      console.error(`Failed to fetch brands: HTTP error ${res.status}`);
+      return [];
+    }
+
+    const data = await res.json();
+
+    // Ensure we have an array of strings
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data && Array.isArray(data.brands)) {
+      return data.brands;
+    } else {
+      console.error("Unexpected response format for brands:", data);
+      return [];
+    }
+  } catch (error) {
+    console.error("Error fetching brands:", error);
+    return [];
+  }
+}
+
+/**
+ * Extract unique camera setups from a list of phones
+ * @returns Promise resolving to an array of unique camera setup types
+ */
+export async function fetchCameraSetups(): Promise<string[]> {
+  try {
+    // Fetch a larger sample of phones to get a good variety of camera setups
+    const params = new URLSearchParams({
+      limit: "100", // Get a good sample size
+      skip: "0",
+    });
+
+    const res = await fetch(`${API_BASE}/api/v1/phones?${params.toString()}`);
+
+    if (!res.ok) {
+      console.error(
+        `Failed to fetch phones for camera setups: HTTP error ${res.status}`
+      );
+      return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
+    }
+
+    const data = await res.json();
+
+    if (!data || !Array.isArray(data.items)) {
+      console.error("Unexpected response format for phones:", data);
+      return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
+    }
+
+    // Extract unique camera_setup values
+    const cameraSetups = new Set<string>();
+
+    data.items.forEach((phone: Phone) => {
+      if (
+        phone.camera_setup &&
+        typeof phone.camera_setup === "string" &&
+        phone.camera_setup.trim() !== ""
+      ) {
+        cameraSetups.add(phone.camera_setup.trim());
+      }
+    });
+
+    // Convert Set to Array and sort
+    const uniqueCameraSetups = Array.from(cameraSetups).sort();
+
+    return uniqueCameraSetups.length > 0
+      ? uniqueCameraSetups
+      : ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback if no values found
+  } catch (error) {
+    console.error("Error extracting camera setups:", error);
+    // Return common camera setups as fallback
+    return ["Single", "Dual", "Triple", "Quad", "Penta"];
+  }
+}
+
+/**
+ * Fetch available filter options from the API
+ * @returns Promise resolving to FilterOptions object
+ */
+export async function fetchFilterOptions(): Promise<FilterOptions> {
+  try {
+    // Fetch filter options
+    const optionsPromise = fetch(`${API_BASE}/api/v1/phones/filter-options`)
+      .then((res) => {
+        if (!res.ok) {
+          console.error(
+            `Failed to fetch filter options: HTTP error ${res.status}`
+          );
+          return {};
+        }
+        return res.json();
+      })
+      .catch((error) => {
+        console.error("Error fetching filter options:", error);
+        return {};
+      });
+
+    // Fetch brands
+    const brandsPromise = fetchBrands();
+
+    // Fetch camera setups
+    const cameraSetupsPromise = fetchCameraSetups();
+
+    // Wait for all requests to complete
+    const [optionsData, brandsData, cameraSetupsData] = await Promise.all([
+      optionsPromise,
+      brandsPromise,
+      cameraSetupsPromise,
+    ]);
+
+    // Merge the API responses with default options
+    return {
+      ...defaultFilterOptions,
+      ...optionsData,
+      brands: brandsData.length > 0 ? brandsData : defaultFilterOptions.brands,
+      cameraSetups:
+        cameraSetupsData.length > 0
+          ? cameraSetupsData
+          : defaultFilterOptions.cameraSetups,
+    };
+  } catch (error) {
+    console.error("Error fetching filter options:", error);
+    return defaultFilterOptions;
   }
 }

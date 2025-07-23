@@ -1,67 +1,142 @@
 import React from 'react';
+import { Twitter, Facebook, Instagram, Mail, Phone, MapPin } from 'lucide-react';
 
 const currentYear = new Date().getFullYear();
 
 const footerLinks = [
+  { label: 'About Us', href: '/about' },
   { label: 'Privacy Policy', href: '/privacy-policy' },
   { label: 'Terms & Conditions', href: '/terms' },
+  { label: 'FAQ', href: '/faq' },
 ];
 
 const socialLinks = [
   {
     label: 'Twitter',
     href: 'https://twitter.com/',
-    icon: (
-      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 5.92a8.15 8.15 0 01-2.36.65A4.1 4.1 0 0021.4 4.1a8.18 8.18 0 01-2.6.99A4.1 4.1 0 0012 8.09c0 .32.04.63.1.93A11.65 11.65 0 013 4.79a4.1 4.1 0 001.27 5.47A4.07 4.07 0 012.8 9.1v.05a4.1 4.1 0 003.29 4.02c-.29.08-.6.12-.92.12-.22 0-.44-.02-.65-.06a4.11 4.11 0 003.83 2.85A8.23 8.23 0 012 19.54a11.6 11.6 0 006.29 1.84c7.55 0 11.69-6.26 11.69-11.69 0-.18 0-.37-.01-.55A8.18 8.18 0 0022 5.92z" fill="currentColor"/></svg>
-    ),
+    icon: <Twitter size={20} />,
   },
   {
     label: 'Facebook',
     href: 'https://facebook.com/',
-    icon: (
-      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 5 3.66 9.12 8.44 9.88v-6.99h-2.54v-2.89h2.54V9.41c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.45h-1.25c-1.23 0-1.61.77-1.61 1.56v1.87h2.74l-.44 2.89h-2.3v6.99C18.34 21.12 22 17 22 12z" fill="currentColor"/></svg>
-    ),
+    icon: <Facebook size={20} />,
   },
   {
     label: 'Instagram',
     href: 'https://instagram.com/',
-    icon: (
-      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="5" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
-    ),
+    icon: <Instagram size={20} />,
+  },
+];
+
+const contactInfo = [
+  {
+    label: 'Email',
+    value: 'support@epick.com',
+    icon: <Mail size={16} />,
+  },
+  {
+    label: 'Phone',
+    value: '+880 1234-567890',
+    icon: <Phone size={16} />,
+  },
+  {
+    label: 'Address',
+    value: 'Dhaka, Bangladesh',
+    icon: <MapPin size={16} />,
   },
 ];
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-[#fdf6f0] dark:bg-[#232323] text-[#a48e7a] dark:text-[#bca58a] pt-8 pb-4 px-2 mt-12 text-sm select-none">
-      <div className="max-w-5xl mx-auto flex flex-col gap-4 items-center justify-center">
-        {/* Top Row */}
-        <div className="w-full flex justify-between mb-2 text-base font-normal">
-          <a href={footerLinks[0].href} className="hover:underline" tabIndex={0}>{footerLinks[0].label}</a>
-          <a href={footerLinks[1].href} className="hover:underline" tabIndex={0}>{footerLinks[1].label}</a>
+    <footer className="w-full bg-epick-offWhite dark:bg-epick-black border-t border-epick-lightGray dark:border-epick-darkGray/30 pt-16 pb-8 mt-16">
+      <div className="max-w-6xl mx-auto px-4 md:px-8">
+        {/* Footer Top Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
+          {/* Brand Column */}
+          <div>
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-brand to-accent bg-clip-text text-transparent">
+                ePick
+              </h2>
+            </div>
+            <p className="text-epick-mediumGray dark:text-epick-mediumGray/80 text-sm mb-6 max-w-xs">
+              Your AI-powered smartphone recommendation platform. Find the perfect device tailored to your needs in Bangladesh.
+            </p>
+            {/* Social Links */}
+            <div className="flex space-x-4">
+              {socialLinks.map(link => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={link.label}
+                  className="w-9 h-9 rounded-full bg-brand/10 dark:bg-brand/5 flex items-center justify-center text-brand hover:bg-brand hover:text-white transition-colors duration-200"
+                >
+                  {link.icon}
+                </a>
+              ))}
+            </div>
+          </div>
+          
+          {/* Quick Links Column */}
+          <div>
+            <h3 className="text-lg font-semibold text-epick-darkGray dark:text-epick-offWhite mb-6">
+              Quick Links
+            </h3>
+            <ul className="space-y-3">
+              {footerLinks.map(link => (
+                <li key={link.label}>
+                  <a 
+                    href={link.href} 
+                    className="text-epick-mediumGray dark:text-epick-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* Contact Column */}
+          <div>
+            <h3 className="text-lg font-semibold text-epick-darkGray dark:text-epick-offWhite mb-6">
+              Contact Us
+            </h3>
+            <ul className="space-y-4">
+              {contactInfo.map(item => (
+                <li key={item.label} className="flex items-start gap-3">
+                  <span className="text-brand mt-0.5">{item.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium text-epick-darkGray dark:text-epick-offWhite">
+                      {item.label}
+                    </p>
+                    <p className="text-sm text-epick-mediumGray dark:text-epick-mediumGray/80">
+                      {item.value}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        {/* Social Icons */}
-        <div className="flex flex-row gap-6 mb-2">
-          {socialLinks.map(link => (
-            <a
-              key={link.label}
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={link.label}
-              className="hover:text-brand focus:outline-none focus:text-brand transition-colors"
-            >
-              {link.icon}
+        
+        {/* Divider */}
+        <div className="h-px bg-epick-lightGray/70 dark:bg-epick-darkGray/30 my-8"></div>
+        
+        {/* Footer Bottom */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="text-sm text-epick-mediumGray dark:text-epick-mediumGray/80">
+            &copy; {currentYear} ePick. All rights reserved.
+          </div>
+          <div className="flex items-center gap-6">
+            <a href="/privacy-policy" className="text-sm text-epick-mediumGray dark:text-epick-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200">
+              Privacy Policy
             </a>
-          ))}
-        </div>
-        {/* Contact Us (optional) */}
-        <div className="mb-1 text-xs">
-          <a href="mailto:support@epick.com" className="hover:underline">Contact Us</a>
-        </div>
-        {/* Copyright */}
-        <div className="text-center text-xs opacity-90 mt-1">
-          &copy;{currentYear} ePick. All rights reserved.
+            <a href="/terms" className="text-sm text-epick-mediumGray dark:text-epick-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200">
+              Terms of Service
+            </a>
+          </div>
         </div>
       </div>
     </footer>
