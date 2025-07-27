@@ -49,7 +49,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
       key: 'display_score',
       label: 'Display Score',
       getValue: (phone) => phone.display_score || null,
-      formatValue: (value) => value ? `${value.toFixed(1)}/10` : 'N/A',
+      formatValue: (value) => value ? `${value.toFixed(1)}/100` : 'N/A',
       compareFunction: (a, b) => a - b,
       higherIsBetter: true
     },
@@ -70,7 +70,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
       higherIsBetter: true
     },
     {
-      key: 'selfie_camera',
+      key: 'front_camera',
       label: 'Selfie Camera',
       getValue: (phone) => phone.selfie_camera_mp || null,
       formatValue: (value) => value ? `${value} MP` : 'N/A',

@@ -143,11 +143,11 @@ const MetricChart: React.FC<MetricChartProps> = ({
       case 'storage':
         return phone.storage_gb ? `${phone.storage_gb} GB` : 'N/A';
       case 'camera':
-        return phone.camera_score ? `${phone.camera_score.toFixed(1)}/10` : 'N/A';
+        return phone.camera_score ? `${phone.camera_score.toFixed(1)}/100` : 'N/A';
       case 'battery':
-        return phone.battery_score ? `${phone.battery_score.toFixed(1)}/10` : 'N/A';
+        return phone.battery_score ? `${phone.battery_score.toFixed(1)}/100` : 'N/A';
       case 'display':
-        return phone.display_score ? `${phone.display_score.toFixed(1)}/10` : 'N/A';
+        return phone.display_score ? `${phone.display_score.toFixed(1)}/100` : 'N/A';
       default:
         return 'N/A';
     }
