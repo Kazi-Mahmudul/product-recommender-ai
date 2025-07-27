@@ -127,6 +127,7 @@ const Navbar: React.FC<NavbarProps> = ({
           { path: "/", label: "Home" },
           { path: "/chat", label: "Chat" },
           { path: "/phones", label: "Phones" },
+          { path: "/compare", label: "Compare" },
         ].map((item) => (
           <li key={item.path}>
             <Link

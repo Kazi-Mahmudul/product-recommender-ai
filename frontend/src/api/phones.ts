@@ -419,6 +419,141 @@ export async function fetchCameraSetups(): Promise<string[]> {
 }
 
 /**
+ * Fetch multiple phones by their IDs efficiently with retry logic and proper error handling
+ * @param phoneIds - Array of phone IDs to fetch
+ * @param signal - Optional AbortSignal for request cancellation
+ * @returns Promise resolving to array of Phone objects
+ */
+export async function fetchPhonesByIds(phoneIds: number[], signal?: AbortSignal): Promise<Phone[]> {
+  if (phoneIds.length === 0) return [];
+
+  // Check if request was already aborted before starting
+  if (signal?.aborted) {
+    throw new Error('Request aborted');
+  }
+
+  // Import retry service dynamically to avoid circular dependencies
+  const { retryService } = await import('../services/retryService');
+
+  const fetchOperation = async (): Promise<Phone[]> => {
+    // Check if request was aborted
+    if (signal?.aborted) {
+      throw new Error('Request aborted');
+    }
+
+    try {
+      // Use comma-separated IDs for bulk fetch
+      const idsParam = phoneIds.join(',');
+      const res = await fetch(`${API_BASE}/api/v1/phones/bulk?ids=${idsParam}`, {
+        signal,
+      });
+
+      if (!res.ok) {
+        // Create error with status code for proper classification
+        const error = new Error(`Failed to fetch phones: HTTP error ${res.status}`) as any;
+        error.statusCode = res.status;
+        
+        // Handle specific status codes
+        if (res.status === 404) {
+          console.warn('Bulk fetch endpoint not available, falling back to individual fetches');
+          return await fetchIndividualPhones(phoneIds, signal);
+        } else if (res.status === 429) {
+          // Extract retry-after header if available
+          const retryAfter = res.headers.get('retry-after');
+          if (retryAfter) {
+            error.retryAfter = parseInt(retryAfter, 10);
+          }
+        }
+        
+        throw error;
+      }
+
+      const data = await res.json();
+      
+      // Validate response format for new bulk endpoint structure
+      if (!data || typeof data !== 'object' || !Array.isArray(data.phones)) {
+        throw new Error('Invalid response format from bulk phone fetch');
+      }
+
+      // Return the phones array from the structured response
+      return data.phones;
+    } catch (error: any) {
+      // Handle network errors specifically
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        console.error('Network error in bulk phone fetch:', error);
+        throw error;
+      }
+      
+      // Handle insufficient resources error
+      if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
+        console.error('Insufficient resources error in bulk phone fetch:', error);
+        throw error;
+      }
+      
+      // Handle abort errors
+      if (error.name === 'AbortError' || signal?.aborted) {
+        throw new Error('Request aborted');
+      }
+      
+      // For other errors, try fallback
+      if (!error.statusCode) {
+        console.warn('Unknown error in bulk fetch, trying individual fetches:', error);
+        return await fetchIndividualPhones(phoneIds, signal);
+      }
+      
+      throw error;
+    }
+  };
+
+  try {
+    // Use retry service for the main operation
+    return await retryService.executeWithRetry(fetchOperation, signal);
+  } catch (error) {
+    console.error('All retry attempts failed for bulk phone fetch:', error);
+    
+    // Last resort: try individual fetches without retry
+    try {
+      return await fetchIndividualPhones(phoneIds, signal);
+    } catch (fallbackError) {
+      console.error('Fallback individual fetches also failed:', fallbackError);
+      throw new Error('Failed to fetch phone data after all retry attempts');
+    }
+  }
+}
+
+/**
+ * Fallback function to fetch phones individually
+ * @param phoneIds - Array of phone IDs to fetch
+ * @param signal - Optional AbortSignal for request cancellation
+ * @returns Promise resolving to array of successfully fetched Phone objects
+ */
+async function fetchIndividualPhones(phoneIds: number[], signal?: AbortSignal): Promise<Phone[]> {
+  const phonePromises = phoneIds.map(async (id) => {
+    try {
+      return await fetchPhoneById(id);
+    } catch (error) {
+      console.warn(`Failed to fetch phone with ID ${id}:`, error);
+      return null;
+    }
+  });
+
+  const results = await Promise.allSettled(phonePromises);
+  
+  const successfulPhones = results
+    .filter((result): result is PromiseFulfilledResult<Phone | null> => 
+      result.status === 'fulfilled' && result.value !== null
+    )
+    .map(result => result.value as Phone);
+
+  // If no phones were successfully fetched, throw an error
+  if (successfulPhones.length === 0) {
+    throw new Error('All individual phone fetches failed');
+  }
+
+  return successfulPhones;
+}
+
+/**
  * Fetch available filter options from the API
  * @returns Promise resolving to FilterOptions object
  */

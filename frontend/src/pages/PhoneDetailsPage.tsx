@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { fetchPhoneById, Phone } from "../api/phones";
+import { useComparison } from "../context/ComparisonContext";
 import HeroSection from "../components/FullSpecs/HeroSection";
 import DeviceScoresChart from "../components/FullSpecs/DeviceScoresChart";
 import FullSpecsAccordion from "../components/FullSpecs/FullSpecsAccordion";
@@ -13,6 +14,8 @@ import {
 
 const PhoneDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
   // All hooks must be at the top
   const [phone, setPhone] = useState<Phone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +26,10 @@ const PhoneDetailsPage: React.FC = () => {
   const [cons, setCons] = useState<string[]>([]);
   const [loadingProsCons, setLoadingProsCons] = useState(false);
   const [prosConsError, setProsConsError] = useState<string | null>(null);
+  
+  // Use comparison context
+  const { addPhone, removePhone, isPhoneSelected } = useComparison();
+  
   // SmartRecommendations component handles its own state
 
   useEffect(() => {
@@ -132,9 +139,15 @@ Generate a similar tagline that captures this phone's unique strengths:`;
 
   // SmartRecommendations component handles its own data fetching and state management
 
-  // Compare button handler (example, should use context/store in real app)
+  // Compare button handler
   const handleAddToCompare = () => {
-    alert(`Added ${phone.name} to compare!`);
+    if (phone) {
+      if (isPhoneSelected(phone.id)) {
+        removePhone(phone.id);
+      } else {
+        addPhone(phone);
+      }
+    }
   };
 
   return (

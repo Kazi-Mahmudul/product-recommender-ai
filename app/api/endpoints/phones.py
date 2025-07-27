@@ -5,8 +5,9 @@ from sqlalchemy import func
 import time
 
 from app.crud import phone as phone_crud
-from app.schemas.phone import Phone, PhoneList
+from app.schemas.phone import Phone, PhoneList, BulkPhonesResponse
 from app.schemas.recommendation import SmartRecommendation
+from app.utils.validation import parse_and_validate_ids
 from app.core.database import get_db
 from app.models.phone import Phone as PhoneModel
 from app.services.recommendation_service import RecommendationService
@@ -297,6 +298,62 @@ def get_phone_recommendations(
         response.headers["ETag"] = f"phone-{phone_id}-recommendations-{int(time.time() / cache_time)}"
     
     return recommendations
+
+@router.get("/bulk", response_model=BulkPhonesResponse)
+@track_execution_time("get_phones_bulk_endpoint", "api_response_times")
+def get_phones_bulk(
+    ids: str = Query(..., description="Comma-separated phone IDs (max 50)"),
+    response: Response = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get multiple phones by IDs in a single request.
+    
+    This endpoint allows fetching multiple phones efficiently for comparison features.
+    
+    Args:
+        ids: Comma-separated list of phone IDs (e.g., "1,2,3,4")
+        db: Database session
+    
+    Returns:
+        BulkPhonesResponse with phones array, not_found IDs, and counts
+    
+    Raises:
+        HTTPException: For validation errors or database issues
+    """
+    try:
+        # Parse and validate input IDs
+        phone_ids = parse_and_validate_ids(ids)
+        
+        # Fetch phones from database
+        found_phones, not_found_ids = phone_crud.get_phones_by_ids(db, phone_ids)
+        
+        # Set cache headers (1 hour for bulk phone data)
+        if response:
+            cache_time = 60 * 60  # 1 hour in seconds
+            response.headers["Cache-Control"] = f"public, max-age={cache_time}"
+            response.headers["ETag"] = f"bulk-phones-{hash(tuple(sorted(phone_ids)))}-{int(time.time() / cache_time)}"
+        
+        # Return structured response
+        return BulkPhonesResponse(
+            phones=found_phones,
+            not_found=not_found_ids,
+            total_requested=len(phone_ids),
+            total_found=len(found_phones)
+        )
+        
+    except HTTPException:
+        # Re-raise validation errors as-is
+        raise
+    except Exception as e:
+        # Handle unexpected database or system errors
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error_code": "DATABASE_ERROR",
+                "message": "Internal server error occurred while fetching phones"
+            }
+        )
 
 @router.get("/name/{phone_name}", response_model=Phone)
 def read_phone_by_name(phone_name: str, db: Session = Depends(get_db)):
