@@ -54,6 +54,7 @@ const ComparePage: React.FC = () => {
     } else {
       // Check for phone IDs in search params (fallback)
       const phoneIdsParam = searchParams.get('phones');
+      
       if (phoneIdsParam) {
         const parsedIds = parsePhoneIdsFromUrl(phoneIdsParam);
         const validation = validateComparisonPhoneIds(parsedIds);
