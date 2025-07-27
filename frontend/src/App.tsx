@@ -17,6 +17,8 @@ import PhoneDetailsPage from "./pages/PhoneDetailsPage";
 import ComparePage from "./pages/ComparePage";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ComparisonProvider } from "./context/ComparisonContext";
+import ComparisonWidget from "./components/ComparisonWidget";
 
 interface Message {
   id: string;
@@ -425,7 +427,7 @@ function App() {
         setPlaceholderIndex((prev) => (prev + 1) % examplePlaceholders.length);
       }, 2000);
       return () => clearInterval(interval);
-    }, []);
+    }, [examplePlaceholders.length]);
 
     const handleHomeSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -625,35 +627,41 @@ function App() {
   // Use user from AuthContext
   const { user } = useAuth();
   return (
-    <div
-      className={`min-h-screen w-full ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"}`}
-    >
-      <Navbar
-        onMenuClick={() => setSidebarOpen(true)}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
-      {/* User state for authentication; replace with real logic later */}
-      <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        user={user}
-      />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage darkMode={darkMode} />} />
-        <Route path="/signup" element={<SignupPage darkMode={darkMode} />} />
-        <Route path="/verify" element={<VerifyPage darkMode={darkMode} />} />
-        <Route
-          path="/chat"
-          element={<ChatPage darkMode={darkMode} setDarkMode={setDarkMode} />}
+    <ComparisonProvider>
+      <div
+        className={`min-h-screen w-full ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"}`}
+      >
+        <Navbar
+          onMenuClick={() => setSidebarOpen(true)}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
         />
-        <Route path="/phones" element={<PhonesPage />} />
-        <Route path="/phones/:id" element={<PhoneDetailsPage />} />
-        <Route path="/compare" element={<ComparePage />} />
-      </Routes>
-      {location.pathname !== "/chat" && <Footer />}
-    </div>
+        {/* User state for authentication; replace with real logic later */}
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          user={user}
+        />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage darkMode={darkMode} />} />
+          <Route path="/signup" element={<SignupPage darkMode={darkMode} />} />
+          <Route path="/verify" element={<VerifyPage darkMode={darkMode} />} />
+          <Route
+            path="/chat"
+            element={<ChatPage darkMode={darkMode} setDarkMode={setDarkMode} />}
+          />
+          <Route path="/phones" element={<PhonesPage />} />
+          <Route path="/phones/:id" element={<PhoneDetailsPage />} />
+          <Route path="/compare" element={<ComparePage />} />
+          <Route path="/compare/:phoneIds" element={<ComparePage />} />
+        </Routes>
+        {location.pathname !== "/chat" && <Footer />}
+        
+        {/* Comparison Widget - shown on all pages except chat */}
+        {location.pathname !== "/chat" && <ComparisonWidget />}
+      </div>
+    </ComparisonProvider>
   );
 }
 

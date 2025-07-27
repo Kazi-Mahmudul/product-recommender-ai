@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Phone } from "../../api/phones";
 import { FaMicrochip, FaMemory, FaCamera, FaMobileAlt, FaBatteryFull, FaBolt, FaHdd, FaCalendarAlt, FaUser, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { useComparison } from "../../context/ComparisonContext";
 
 interface HeroSectionProps {
   phone: Phone;
@@ -25,6 +26,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
   // For carousel, but fallback to single image
   const images = phone.img_url ? [phone.img_url] : ["/phone.png"];
   const [imgIdx, setImgIdx] = useState(0);
+  
+  // Use comparison context to check selection state
+  const { isPhoneSelected } = useComparison();
+  const isSelected = isPhoneSelected(phone.id);
 
   // Key specs for grid
   const specs = [
@@ -117,9 +122,14 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
           </button>
           <button
             onClick={onAddToCompare}
-            className="flex-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 font-semibold shadow hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-600"
+            className={`flex-1 rounded-lg px-3 py-2 font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 ${
+              isSelected
+                ? 'bg-[#2d5016] hover:bg-[#3d6b1f] text-white focus:ring-[#2d5016]'
+                : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
+            }`}
+            title={isSelected ? 'Remove from comparison' : 'Add to comparison'}
           >
-            Compare
+            {isSelected ? 'Added to Compare' : 'Compare'}
           </button>
         </div>
         {/* Tagline */}

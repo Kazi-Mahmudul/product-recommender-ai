@@ -242,6 +242,42 @@ def get_phone(db: Session, phone_id: int) -> Optional[Phone]:
     """
     return db.query(Phone).filter(Phone.id == phone_id).first()
 
+def get_phones_by_ids(db: Session, phone_ids: List[int]) -> Tuple[List[Phone], List[int]]:
+    """
+    Get multiple phones by IDs using a single database query.
+    
+    Args:
+        db: Database session
+        phone_ids: List of phone IDs to retrieve
+    
+    Returns:
+        Tuple of (found_phones, not_found_ids)
+    """
+    try:
+        # Execute single query with IN clause for performance
+        found_phones = db.query(Phone).filter(Phone.id.in_(phone_ids)).all()
+        
+        # Create a mapping of found phone IDs for quick lookup
+        found_ids = {phone.id for phone in found_phones}
+        
+        # Determine which IDs were not found
+        not_found_ids = [phone_id for phone_id in phone_ids if phone_id not in found_ids]
+        
+        # Sort found phones to match the order of requested IDs
+        phone_id_to_phone = {phone.id: phone for phone in found_phones}
+        ordered_phones = []
+        for phone_id in phone_ids:
+            if phone_id in phone_id_to_phone:
+                ordered_phones.append(phone_id_to_phone[phone_id])
+        
+        logger.info(f"Bulk phone query: requested {len(phone_ids)}, found {len(ordered_phones)}, not found {len(not_found_ids)}")
+        
+        return ordered_phones, not_found_ids
+        
+    except Exception as e:
+        logger.error(f"Error in bulk phone retrieval: {str(e)}")
+        raise
+
 def get_phone_by_name(db: Session, name: str) -> Optional[Phone]:
     """
     Get a single phone by name

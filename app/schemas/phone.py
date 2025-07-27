@@ -140,3 +140,10 @@ class Phone(PhoneInDB):
 class PhoneList(BaseModel):
     items: List[Phone]
     total: int
+
+class BulkPhonesResponse(BaseModel):
+    """Response model for bulk phone retrieval"""
+    phones: List[Phone]
+    not_found: List[int]
+    total_requested: int
+    total_found: int

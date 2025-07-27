@@ -325,7 +325,6 @@ const PhonesPage: React.FC = () => {
                   key={phone.id}
                   phone={phone}
                   onFullSpecs={() => navigate(`/phones/${phone.id}`)}
-                  onCompare={() => navigate(`/compare?phone=${phone.id}`)}
                 />
               ))}
             </div>

@@ -1,16 +1,32 @@
 import React, { useState } from "react";
 import { Phone } from "../api/phones";
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
+import { useComparison } from "../context/ComparisonContext";
 
 interface PhoneCardProps {
   phone: Phone;
   onFullSpecs: () => void;
-  onCompare: () => void;
+  // onCompare removed - handled internally via context
 }
 
-const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs, onCompare }) => {
+const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Use comparison context
+  const { addPhone, removePhone, isPhoneSelected } = useComparison();
+  
+  // Check if this phone is selected for comparison
+  const isSelected = isPhoneSelected(phone.id);
+  
+  // Handle compare button click
+  const handleCompareClick = () => {
+    if (isSelected) {
+      removePhone(phone.id);
+    } else {
+      addPhone(phone);
+    }
+  };
 
   return (
     <div 
@@ -37,19 +53,23 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs, onCompare }) 
           {/* Compare Button */}
           <div className="absolute top-4 right-4">
             <button
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 dark:bg-card/90 shadow-sm backdrop-blur-sm text-brand dark:text-white hover:bg-brand hover:text-white transition-colors duration-200"
-              onClick={onCompare}
-              aria-label="Compare"
+              className={`w-8 h-8 flex items-center justify-center rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 ${
+                isSelected
+                  ? 'bg-brand text-white hover:bg-brand-darkGreen'
+                  : 'bg-white/90 dark:bg-card/90 text-brand dark:text-white hover:bg-brand hover:text-white'
+              }`}
+              onClick={handleCompareClick}
+              aria-label={isSelected ? "Remove from comparison" : "Add to comparison"}
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
               onFocus={() => setShowTooltip(true)}
               onBlur={() => setShowTooltip(false)}
             >
-              <Plus size={16} />
+              {isSelected ? <Check size={16} /> : <Plus size={16} />}
             </button>
             {showTooltip && (
               <div className="absolute -bottom-10 right-0 px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 text-brand dark:text-white text-xs font-medium shadow-soft z-20 whitespace-nowrap transition-opacity duration-200">
-                Compare
+                {isSelected ? "Remove from comparison" : "Add to comparison"}
               </div>
             )}
           </div>
