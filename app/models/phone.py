@@ -9,6 +9,7 @@ class Phone(Base):
     name = Column(String(512), index=True)
     brand = Column(String(255), index=True)
     model = Column(String(255), index=True)
+    slug = Column(String(255), index=True)
     price = Column(String(1024))
     url = Column(String(1024))
     img_url = Column(String(1024))

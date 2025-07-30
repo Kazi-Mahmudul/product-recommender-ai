@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { getThemeClasses } from "../utils/colorUtils";
+import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
 import { Phone } from "../types/phone";
 
@@ -23,7 +24,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
   
   const handleViewDetails = () => {
     if (phone.id) {
-      navigate(`/phones/${phone.id}`);
+      navigate(generatePhoneDetailUrl(phone));
     }
   };
   

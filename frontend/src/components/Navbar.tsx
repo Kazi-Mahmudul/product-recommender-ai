@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import UserDropdown from "./UserDropdown";
 import { useAuth } from "../context/AuthContext";
 import { fuzzySearchPhones, SearchResult } from "../api/search";
+import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
 interface NavbarProps {
   onMenuClick?: () => void;
@@ -97,6 +98,7 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   const handleResultClick = (phoneId: string) => {
+    // For search results, we use the ID and let the backend handle the redirect to slug-based URL
     navigate(`/phones/${phoneId}`);
     setSearchOpen(false);
     setSearchQuery("");

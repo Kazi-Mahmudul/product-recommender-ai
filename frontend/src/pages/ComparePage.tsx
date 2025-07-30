@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Phone } from "../api/phones";
-import { parsePhoneIdsFromUrl, validateComparisonPhoneIds, generateComparisonUrl } from "../utils/slugUtils";
+import { parseComparisonUrl, validateComparisonPhoneIdentifiers, generateComparisonUrl, generateComparisonUrlLegacy } from "../utils/slugUtils";
 import { useComparisonState } from "../hooks/useComparisonState";
 import { useAIVerdict } from "../hooks/useAIVerdict";
 
@@ -15,7 +15,7 @@ import ComparisonHistory from "../components/Compare/ComparisonHistory";
 import ComparisonErrorBoundary from "../components/ErrorBoundary/ComparisonErrorBoundary";
 
 const ComparePage: React.FC = () => {
-  const { phoneIds } = useParams<{ phoneIds?: string }>();
+  const { phoneIdentifiers } = useParams<{ phoneIdentifiers?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
@@ -35,18 +35,30 @@ const ComparePage: React.FC = () => {
   // Ref to track if we've processed the initial URL
   const hasProcessedInitialUrl = useRef(false);
 
-  // Parse phone IDs from URL on component mount
+  // Parse phone identifiers from URL on component mount
   useEffect(() => {
     // Only process URL once to prevent infinite loops
     if (hasProcessedInitialUrl.current) return;
     
-    if (phoneIds) {
-      const parsedIds = parsePhoneIdsFromUrl(phoneIds);
-      const validation = validateComparisonPhoneIds(parsedIds);
+    if (phoneIdentifiers) {
+      const parsedUrl = parseComparisonUrl(phoneIdentifiers);
+      const validation = validateComparisonPhoneIdentifiers(parsedUrl.identifiers);
       
       if (validation.isValid) {
-        comparisonActions.setSelectedPhoneIds(parsedIds);
-        hasProcessedInitialUrl.current = true;
+        // For now, we'll convert slugs to IDs by fetching the phones first
+        // This is a temporary solution until we update the comparison state to handle slugs
+        if (parsedUrl.isSlugBased) {
+          // Handle slug-based URLs - we need to fetch phones to get their IDs
+          // For now, we'll store the identifiers and let the comparison state handle it
+          // This is a simplified approach - in a full implementation, we'd update the state management
+          console.log('Slug-based comparison detected:', parsedUrl.identifiers);
+          hasProcessedInitialUrl.current = true;
+        } else {
+          // Handle ID-based URLs (legacy)
+          const phoneIds = parsedUrl.identifiers.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+          comparisonActions.setSelectedPhoneIds(phoneIds);
+          hasProcessedInitialUrl.current = true;
+        }
       } else {
         // Redirect to empty comparison page if invalid
         navigate('/compare', { replace: true });
@@ -56,20 +68,21 @@ const ComparePage: React.FC = () => {
       const phoneIdsParam = searchParams.get('phones');
       
       if (phoneIdsParam) {
-        const parsedIds = parsePhoneIdsFromUrl(phoneIdsParam);
-        const validation = validateComparisonPhoneIds(parsedIds);
+        const parsedUrl = parseComparisonUrl(phoneIdsParam);
+        const validation = validateComparisonPhoneIdentifiers(parsedUrl.identifiers);
         
-        if (validation.isValid) {
-          comparisonActions.setSelectedPhoneIds(parsedIds);
+        if (validation.isValid && parsedUrl.isLegacyFormat) {
+          const phoneIds = parsedUrl.identifiers.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+          comparisonActions.setSelectedPhoneIds(phoneIds);
           // Update URL to use path params instead of search params
-          navigate(generateComparisonUrl(parsedIds), { replace: true });
+          navigate(`/compare/${phoneIds.join('-')}`, { replace: true });
           hasProcessedInitialUrl.current = true;
         }
       } else {
         hasProcessedInitialUrl.current = true;
       }
     }
-  }, [phoneIds, searchParams, navigate]);
+  }, [phoneIdentifiers, searchParams, navigate, comparisonActions]);
 
   // Handle opening phone picker for adding
   const handleOpenAddPhone = () => {
@@ -88,13 +101,13 @@ const ComparePage: React.FC = () => {
     if (phoneToReplace !== null) {
       // Replace existing phone
       comparisonActions.replacePhone(phoneToReplace, phone.id);
-      const newPhoneIds = comparisonState.selectedPhoneIds.map(id => id === phoneToReplace ? phone.id : id);
-      navigate(generateComparisonUrl(newPhoneIds));
+      const newPhones = comparisonState.phones.map(p => p.id === phoneToReplace ? phone : p);
+      navigate(generateComparisonUrl(newPhones));
     } else {
       // Add new phone
       comparisonActions.addPhone(phone.id);
-      const newPhoneIds = [...comparisonState.selectedPhoneIds, phone.id];
-      navigate(generateComparisonUrl(newPhoneIds));
+      const newPhones = [...comparisonState.phones, phone];
+      navigate(generateComparisonUrl(newPhones));
     }
     setIsPhonePickerOpen(false);
     setPhoneToReplace(null);
@@ -108,7 +121,7 @@ const ComparePage: React.FC = () => {
     if (newPhoneIds.length === 0) {
       navigate('/compare');
     } else {
-      navigate(generateComparisonUrl(newPhoneIds));
+      navigate(generateComparisonUrlLegacy(newPhoneIds));
     }
   };
 
@@ -140,7 +153,7 @@ const ComparePage: React.FC = () => {
   // Clear AI verdict when phones change
   useEffect(() => {
     aiVerdictActions.clearVerdict();
-  }, [comparisonState.selectedPhoneIds]); // Remove aiVerdictActions from dependencies
+  }, [aiVerdictActions, comparisonState.selectedPhoneIds]); // Remove aiVerdictActions from dependencies
 
   return (
     <ComparisonErrorBoundary>
@@ -234,7 +247,7 @@ const ComparePage: React.FC = () => {
               </p>
               <button
                 onClick={() => navigate('/phones')}
-                className="inline-flex items-center px-6 py-3 bg-[#2d5016] hover:bg-[#3d6b1f] text-white font-medium rounded-lg transition-colors duration-200"
+                className="inline-flex items-center px-6 py-3 bg-brand hover:bg-brand-darkGreen text-white hover:text-hover-light font-medium rounded-lg transition-colors duration-200"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

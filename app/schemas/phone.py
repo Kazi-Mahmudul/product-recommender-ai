@@ -1,11 +1,12 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List, Union
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import date
 
 class PhoneBase(BaseModel):
     name: str
     brand: str
     model: str
+    slug: Optional[str] = None
     price: str
     url: str
     img_url: Optional[str] = None
@@ -117,9 +118,17 @@ class PhoneBase(BaseModel):
     security_score: Optional[float] = None
     connectivity_score: Optional[float] = None
     is_popular_brand: Optional[bool] = None
-    release_date_clean: Optional[date] = None
+    release_date_clean: Optional[str] = None  # Changed from date to str to match database
     is_new_release: Optional[bool] = None
-    age_in_months: Optional[int] = None
+    age_in_months: Optional[float] = None  # Changed from int to float to match database
+    
+    @field_validator('release_date_clean', mode='before')
+    @classmethod
+    def convert_date_to_string(cls, v):
+        """Convert date objects to strings for API response"""
+        if isinstance(v, date):
+            return v.strftime('%m/%d/%Y')
+        return v
     is_upcoming: Optional[bool] = None
     overall_device_score: Optional[float] = None
     performance_score: Optional[float] = None

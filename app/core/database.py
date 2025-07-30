@@ -23,6 +23,7 @@ if not settings.DATABASE_URL:
 SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1) if settings.DATABASE_URL.startswith("postgres://") else settings.DATABASE_URL
 
 # Create SQLAlchemy engine with explicit echo
+# For Supabase, we always need SSL
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     echo=settings.DEBUG,  # Only enable SQL logging in debug mode
@@ -30,7 +31,7 @@ engine = create_engine(
     max_overflow=10,
     pool_recycle=300,  # Recycle connections after 5 minutes
     pool_pre_ping=True,  # Enable connection health checks
-    connect_args={"sslmode": "require"}  # Force SSL for production
+    connect_args={"sslmode": "require"}  # Supabase requires SSL
 )
 
 # Create SessionLocal class
