@@ -3,6 +3,7 @@ import Slider from "react-slick";
 import axios from "axios";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
 interface Phone {
   id: string;
@@ -143,7 +144,7 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
             <div key={phone.id} className="px-3 py-2">
               <div 
                 className="rounded-3xl bg-white dark:bg-card overflow-hidden transition-all duration-300 hover:shadow-soft-lg group cursor-pointer"
-                onClick={() => navigate(`/phones/${phone.id}`)}
+                onClick={() => navigate(generatePhoneDetailUrl(phone))}
               >
                 {/* Card Header with Brand Badge */}
                 <div className="relative">
@@ -200,7 +201,7 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/phones/${phone.id}`);
+                        navigate(generatePhoneDetailUrl(phone));
                       }}
                       className="bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm"
                     >

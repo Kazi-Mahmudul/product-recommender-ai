@@ -36,6 +36,7 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
         "name": getattr(phone, 'name', None) or "Unknown Phone",
         "brand": getattr(phone, 'brand', None) or "Unknown",
         "model": getattr(phone, 'model', None) or "Unknown Model",
+        "slug": getattr(phone, 'slug', None),
         "price": getattr(phone, 'price', None) or "",
         "url": getattr(phone, 'url', None) or "",
         "img_url": getattr(phone, 'img_url', None) or "https://via.placeholder.com/300x300?text=No+Image",
@@ -278,6 +279,60 @@ def get_phones_by_ids(db: Session, phone_ids: List[int]) -> Tuple[List[Phone], L
         logger.error(f"Error in bulk phone retrieval: {str(e)}")
         raise
 
+def get_phone_slug_by_id(db: Session, phone_id: int) -> Optional[str]:
+    """
+    Get phone slug by ID for redirect purposes.
+    
+    Args:
+        db: Database session
+        phone_id: Phone ID to look up
+    
+    Returns:
+        Phone slug if found, None otherwise
+    """
+    try:
+        phone = db.query(Phone).filter(Phone.id == phone_id).first()
+        return phone.slug if phone and phone.slug else None
+    except Exception as e:
+        logger.error(f"Error getting phone slug by ID {phone_id}: {str(e)}")
+        return None
+
+def get_phones_by_slugs(db: Session, phone_slugs: List[str]) -> Tuple[List[Phone], List[str]]:
+    """
+    Get multiple phones by slugs using a single database query.
+    
+    Args:
+        db: Database session
+        phone_slugs: List of phone slugs to retrieve
+    
+    Returns:
+        Tuple of (found_phones, not_found_slugs)
+    """
+    try:
+        # Execute single query with IN clause for performance
+        found_phones = db.query(Phone).filter(Phone.slug.in_(phone_slugs)).all()
+        
+        # Create a mapping of found phone slugs for quick lookup
+        found_slugs = {phone.slug for phone in found_phones if phone.slug}
+        
+        # Determine which slugs were not found
+        not_found_slugs = [slug for slug in phone_slugs if slug not in found_slugs]
+        
+        # Sort found phones to match the order of requested slugs
+        phone_slug_to_phone = {phone.slug: phone for phone in found_phones if phone.slug}
+        ordered_phones = []
+        for slug in phone_slugs:
+            if slug in phone_slug_to_phone:
+                ordered_phones.append(phone_slug_to_phone[slug])
+        
+        logger.info(f"Bulk phone slug query: requested {len(phone_slugs)}, found {len(ordered_phones)}, not found {len(not_found_slugs)}")
+        
+        return ordered_phones, not_found_slugs
+        
+    except Exception as e:
+        logger.error(f"Error in bulk phone slug retrieval: {str(e)}")
+        raise
+
 def get_phone_by_name(db: Session, name: str) -> Optional[Phone]:
     """
     Get a single phone by name
@@ -292,6 +347,12 @@ def get_phone_by_name_and_brand(db: Session, name: str, brand: str) -> Optional[
         Phone.name == name,
         Phone.brand == brand
     ).first()
+
+def get_phone_by_slug(db: Session, slug: str) -> Optional[Phone]:
+    """
+    Get a single phone by slug
+    """
+    return db.query(Phone).filter(Phone.slug == slug).first()
 
 def get_brands(db: Session) -> List[str]:
     """

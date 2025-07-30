@@ -21,7 +21,7 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # List of all valid columns from the dataset
     valid_columns = [
         # Basic Information
-        'name', 'brand', 'model', 'price', 'url', 'img_url', 'status', 'made_by',
+        'name', 'brand', 'model', 'slug', 'price', 'url', 'img_url', 'status', 'made_by',
         
         # Display
         'display_type', 'screen_size_inches', 'display_resolution', 'pixel_density_ppi',

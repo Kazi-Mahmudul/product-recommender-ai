@@ -288,8 +288,7 @@ const fullSpecFields = [
 ]; // Used for full specification table
 // API configuration
 const API_BASE_URL = process.env.REACT_APP_API_BASE || "http://localhost:8000";
-const GEMINI_API_URL =
-  process.env.REACT_APP_GEMINI_API || "http://localhost:3000";
+const GEMINI_API_URL = process.env.REACT_APP_GEMINI_API || "http://localhost:3000";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -455,14 +454,16 @@ function App() {
               style={{ animationDelay: "3s" }}
             ></div>
 
-            <div className="w-full px-4 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden">
+            <div className="w-full px-4 py-10 md:py-0 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden relative">
+              {/* Mobile BG image */}
+              <div className="absolute inset-0 md:hidden bg-[url('https://i.ibb.co/JF7hWvmC/hero-bg.png')] bg-no-repeat bg-contain bg-right opacity-10 pointer-events-none" />
               {/* Left side content */}
-              <div className="md:w-1/2 text-center md:text-left z-10">
+              <div className="w-full md:w-1/2 text-center md:text-left z-10 px-2 md:px-0">
                 <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-brand/10 text-brand font-medium text-sm">
                   AI-Powered Smartphone Assistant
                 </div>
                 <h1
-                  className={`text-4xl md:text-6xl font-extrabold mb-6 leading-tight ${darkMode ? "text-white" : "text-gray-900"}`}
+                  className={`text-4xl md:text-6xl font-extrabold mb-6 leading-tight break-words ${darkMode ? "text-white" : "text-gray-900"}`}
                 >
                   Find Your <span className="text-brand">Perfect Phone</span> in
                   Bangladesh
@@ -535,13 +536,13 @@ function App() {
               </div>
 
               {/* Right side image */}
-              <div className="md:w-1/2 flex justify-center md:justify-end z-10">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-br from-brand/20 to-brand-darkGreen/20 rounded-3xl blur-2xl transform -rotate-6 scale-95"></div>
+              <div className="hidden md:flex md:w-1/2 justify-center md:justify-end z-10 max-h-[700px]">
+                <div className="relative max-h-[700px] flex items-end">
+                  <div className="absolute inset-0 from-brand/20 to-brand-darkGreen/20 rounded-3xl blur-2xl transform -rotate-6 scale-95"></div>
                   <img
-                    src="/phone-mockup.png"
+                    src="https://i.ibb.co/JF7hWvmC/hero-bg.png"
                     alt="Smartphone with ePick interface"
-                    className="relative z-10 max-w-full h-auto md:max-h-[500px] object-contain"
+                    className="relative z-10 max-w-full h-auto md:max-h-[700px] object-contain"
                     onError={(e) => {
                       // Fallback if image doesn't exist
                       e.currentTarget.style.display = "none";
@@ -652,9 +653,9 @@ function App() {
             element={<ChatPage darkMode={darkMode} setDarkMode={setDarkMode} />}
           />
           <Route path="/phones" element={<PhonesPage />} />
-          <Route path="/phones/:id" element={<PhoneDetailsPage />} />
+          <Route path="/phones/:slug" element={<PhoneDetailsPage />} />
           <Route path="/compare" element={<ComparePage />} />
-          <Route path="/compare/:phoneIds" element={<ComparePage />} />
+          <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
         </Routes>
         {location.pathname !== "/chat" && <Footer />}
         

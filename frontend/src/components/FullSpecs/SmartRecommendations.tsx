@@ -7,6 +7,8 @@ import RecommendationCard from "./RecommendationCard";
 import RecommendationCardSkeleton from "./RecommendationCardSkeleton";
 import RecommendationFallback from "./RecommendationFallback";
 import ErrorBoundary from "../ErrorBoundary";
+import { generatePhoneDetailUrl } from "../../utils/slugUtils";
+import { Phone } from "../../api/phones";
 
 // Define the props interface for the SmartRecommendations component
 interface SmartRecommendationsProps {
@@ -90,10 +92,10 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
   };
 
   // Handle card click to navigate to phone details
-  const handleCardClick = (id: number) => {
-    // Skip navigation for invalid IDs
-    if (!id) return;
-    navigate(`/phones/${id}`);
+  const handleCardClick = (phone: Phone) => {
+    // Skip navigation for invalid phones
+    if (!phone || !phone.id) return;
+    navigate(generatePhoneDetailUrl(phone));
   };
 
   // Handle card hover to prefetch phone details

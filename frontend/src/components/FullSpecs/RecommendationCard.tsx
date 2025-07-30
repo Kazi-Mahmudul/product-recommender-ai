@@ -8,7 +8,7 @@ interface RecommendationCardProps {
   highlights: string[];
   badges: string[];
   similarityScore: number;
-  onClick: (id: number) => void;
+  onClick: (phone: Phone) => void;
   onMouseEnter: (id: number) => void;
   index?: number; // For keyboard navigation order
 }
@@ -35,7 +35,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
 
   // Handle click event
   const handleClick = () => {
-    onClick(phone?.id || 0);
+    onClick(phone);
   };
 
   // Handle mouse enter event for prefetching

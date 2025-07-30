@@ -6,6 +6,7 @@ import {
   SortOrder,
 } from "../api/phones";
 import PhoneCard from "../components/PhoneCard";
+import { generatePhoneDetailUrl } from "../utils/slugUtils";
 import Pagination from "../components/Pagination";
 import SortSelect from "../components/SortSelect";
 import PageSizeSelect from "../components/PageSizeSelect";
@@ -324,7 +325,7 @@ const PhonesPage: React.FC = () => {
                 <PhoneCard
                   key={phone.id}
                   phone={phone}
-                  onFullSpecs={() => navigate(`/phones/${phone.id}`)}
+                  onFullSpecs={() => navigate(generatePhoneDetailUrl(phone))}
                 />
               ))}
             </div>

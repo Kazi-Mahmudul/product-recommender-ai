@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchPhoneById, Phone } from "../api/phones";
+import { fetchPhoneById, fetchPhoneBySlug, Phone } from "../api/phones";
 import { useComparison } from "../context/ComparisonContext";
 import HeroSection from "../components/FullSpecs/HeroSection";
 import DeviceScoresChart from "../components/FullSpecs/DeviceScoresChart";
@@ -13,7 +13,7 @@ import {
 } from "../api/gemini";
 
 const PhoneDetailsPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   
   // All hooks must be at the top
@@ -33,9 +33,17 @@ const PhoneDetailsPage: React.FC = () => {
   // SmartRecommendations component handles its own state
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     setLoading(true);
-    fetchPhoneById(id)
+    
+    // Detect if slug is actually a numeric ID (legacy URL)
+    const isNumericId = /^\d+$/.test(slug);
+    
+    const fetchFunction = isNumericId ? 
+      () => fetchPhoneById(slug) : 
+      () => fetchPhoneBySlug(slug);
+    
+    fetchFunction()
       .then((phoneData) => {
         setPhone(phoneData);
         // Once we have the phone data, generate pros and cons automatically
@@ -43,7 +51,7 @@ const PhoneDetailsPage: React.FC = () => {
       })
       .catch(() => setError("Failed to load phone details."))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
   
   // Function to generate pros and cons
   const generateProsCons = async (phoneData: Phone) => {

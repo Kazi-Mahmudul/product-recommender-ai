@@ -2,15 +2,18 @@
  * Navigation utility functions for the ePick application
  */
 
+import { generateComparisonUrlLegacy } from './slugUtils';
+
 /**
  * Navigate to the phone details page
  * @param navigate React Router's navigate function
- * @param phoneId The ID of the phone to view
+ * @param phoneId The ID of the phone to view (will be redirected to slug-based URL by backend)
  */
 export const navigateToPhoneDetails = (
   navigate: (path: string) => void,
   phoneId: string
 ) => {
+  // For now, use ID-based URL and let backend handle redirect to slug-based URL
   navigate(`/phones/${phoneId}`);
 };
 
@@ -28,8 +31,9 @@ export const navigateToComparison = (
     return;
   }
   
-  const phoneIdsParam = phoneIds.join(",");
-  navigate(`/compare?phones=${phoneIdsParam}`);
+  // Convert string IDs to numbers for the legacy URL generator
+  const numericIds = phoneIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  navigate(generateComparisonUrlLegacy(numericIds));
 };
 
 /**
@@ -42,6 +46,7 @@ export const getComparisonUrl = (phoneIds: string[]): string => {
     return "";
   }
   
-  const phoneIdsParam = phoneIds.join(",");
-  return `/compare?phones=${phoneIdsParam}`;
+  // Convert string IDs to numbers for the legacy URL generator
+  const numericIds = phoneIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  return generateComparisonUrlLegacy(numericIds);
 };
