@@ -2,7 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { getThemeClasses } from "../utils/colorUtils";
 
-import { Phone } from "../types/phone";
+import { Phone } from "../api/phones";
 
 interface CompareSelectionProps {
   selectedPhones: Phone[];
@@ -37,7 +37,7 @@ const CompareSelection: React.FC<CompareSelectionProps> = ({
         <div className="flex flex-wrap gap-2 items-center">
           {selectedPhones.map((phone) => (
             <div 
-              key={phone.id} 
+              key={String(phone.id)} 
               className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${
                 darkMode ? "bg-gray-700 text-white" : "bg-[#f7f3ef] text-gray-800"
               }`}
@@ -49,7 +49,7 @@ const CompareSelection: React.FC<CompareSelectionProps> = ({
               />
               <span className="text-xs font-medium truncate max-w-[100px]">{phone.name}</span>
               <button
-                onClick={() => phone.id && onRemovePhone(phone.id)}
+                onClick={() => phone.id && onRemovePhone(String(phone.id))}
                 className={`w-4 h-4 flex items-center justify-center rounded-full ${
                   darkMode ? "bg-gray-600 hover:bg-gray-500" : "bg-[#eae4da] hover:bg-[#d4c8b8]"
                 }`}

@@ -239,7 +239,16 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const phoneIds = selectedPhones.map(phone => phone.id);
-      const comparisonUrl = generateComparisonUrl(phoneIds);
+      // Create proper Phone objects with the required properties
+      const phoneObjects = phoneIds.map(id => ({ 
+        id: Number(id), 
+        name: '', // Add minimal required properties
+        brand: '',
+        model: '',
+        price: '',
+        url: ''
+      }));
+      const comparisonUrl = generateComparisonUrl(phoneObjects);
       
       // Navigate to comparison page
       navigate(comparisonUrl);

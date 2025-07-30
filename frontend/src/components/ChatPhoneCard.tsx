@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { getThemeClasses } from "../utils/colorUtils";
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
-
-import { Phone } from "../types/phone";
+import { Phone } from "../api/phones";
 
 interface ChatPhoneCardProps {
   phone: Phone;

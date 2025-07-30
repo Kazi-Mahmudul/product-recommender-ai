@@ -2,7 +2,7 @@
  * Custom hook for generating AI-powered comparison verdicts
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Phone } from '../api/phones';
 import { fetchGeminiSummary } from '../api/gemini';
 
@@ -55,24 +55,14 @@ Phone ${index + 1}: ${phone.brand} ${phone.name}
 
     const contextSection = userContext ? `\nUser Context: ${userContext}\n` : '';
 
-    return `
-You are an expert smartphone reviewer helping users compare phones available in Bangladesh. 
+    return `You are an expert smartphone reviewer providing a concise comparison for a user.
 
 ${contextSection}
-Please analyze these ${phones.length} smartphones and provide a comprehensive comparison verdict:
+Please analyze these ${phones.length} smartphones and provide a brief verdict, highlighting the key differences and declaring a winner.
 
 ${phoneDescriptions}
 
-Please provide:
-1. A brief summary of each phone's strengths and weaknesses
-2. Which phone offers the best value for money
-3. Recommendations based on different use cases (gaming, photography, battery life, budget-conscious)
-4. A clear final recommendation with reasoning
-
-Keep the response conversational, informative, and focused on helping Bangladeshi consumers make the best choice. Use BDT for pricing references and consider local market preferences.
-
-Response should be around 200-300 words and well-structured.
-    `.trim();
+Keep the response under 500 characters, focusing on the most important factors for a purchasing decision. Use Markdown for formatting (e.g., **bolding**, *italics*, and lists).`.trim();
   }, []);
 
   /**
@@ -164,11 +154,11 @@ Response should be around 200-300 words and well-structured.
     error
   };
 
-  const actions: AIVerdictActions = {
+  const actions = useMemo(() => ({
     generateVerdict,
     clearVerdict,
     retry
-  };
+  }), [generateVerdict, clearVerdict, retry]);
 
   return [state, actions];
 }

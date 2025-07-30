@@ -2,7 +2,7 @@ import React from "react";
 import { getThemeClasses } from "../utils/colorUtils";
 import { ExternalLink } from "lucide-react";
 
-import { Phone } from "../types/phone";
+import { Phone } from "../api/phones";
 
 interface ChatSpecTableProps {
   phones: Phone[];
@@ -66,11 +66,11 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
   
   // Helper function to get the value of a spec
   const getSpecValue = (phone: Phone, spec: { key: string; label: string; prefix?: string; suffix?: string; fallbackKey?: string }) => {
-    let value = phone[spec.key];
+    let value = phone[spec.key as keyof Phone];
     
     // Use fallback key if the primary key doesn't have a value
-    if ((!value || value === "N/A") && spec.fallbackKey && phone[spec.fallbackKey]) {
-      value = phone[spec.fallbackKey];
+    if ((!value || value === "N/A") && spec.fallbackKey && phone[spec.fallbackKey as keyof Phone]) {
+      value = phone[spec.fallbackKey as keyof Phone];
     }
     
     // Format the value
@@ -86,9 +86,9 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
   const shouldHighlight = (phones: Phone[], spec: { key: string; fallbackKey?: string }) => {
     // Get all values for this spec
     const values = phones.map(phone => {
-      let value = phone[spec.key];
+      let value = phone[spec.key as keyof Phone];
       if ((!value || value === "N/A") && spec.fallbackKey) {
-        value = phone[spec.fallbackKey];
+        value = phone[spec.fallbackKey as keyof Phone];
       }
       return value;
     });
@@ -126,7 +126,7 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
                   {onPhoneSelect && phone.id && (
                     <button
                       className="ml-1 inline-flex items-center justify-center opacity-70 hover:opacity-100"
-                      onClick={() => onPhoneSelect(phone.id!)}
+                      onClick={() => onPhoneSelect(String(phone.id!))}
                       aria-label={`View details for ${phone.name}`}
                     >
                       <ExternalLink size={14} />
@@ -190,7 +190,7 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
           phone.id && onPhoneSelect && (
             <button
               key={index}
-              onClick={() => onPhoneSelect(phone.id!)}
+              onClick={() => onPhoneSelect(String(phone.id!))}
               className={`text-xs px-3 py-1 rounded-full ${
                 darkMode
                   ? "bg-gray-800 hover:bg-gray-700 text-white"

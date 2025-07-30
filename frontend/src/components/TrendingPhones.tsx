@@ -3,24 +3,10 @@ import Slider from "react-slick";
 import axios from "axios";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Phone } from '../api/phones';
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
-interface Phone {
-  id: string;
-  name: string;
-  price: number;
-  img_url: string;
-  overall_device_score: number;
-  is_popular_brand: boolean;
-  is_new_release: boolean;
-  age_in_months: number;
-  screen_size_inches: string;
-  capacity: string;
-  is_upcoming: boolean;
-  brand?: string;
-  ram?: string;
-  internal_storage?: string;
-}
+
 
 const sliderSettings = {
   dots: true,
@@ -73,12 +59,12 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
           (phone: Phone) =>
             phone.is_popular_brand === true &&
             phone.is_new_release === true &&
-            phone.age_in_months <= 1 &&
+            (phone.age_in_months ?? Infinity) <= 1 &&
             phone.is_upcoming === false
         );
         filtered.sort(
           (a: Phone, b: Phone) =>
-            b.overall_device_score - a.overall_device_score
+            (b.overall_device_score ?? 0) - (a.overall_device_score ?? 0)
         );
         setPhones(filtered.slice(0, 8));
       } catch (err) {

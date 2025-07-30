@@ -3,13 +3,14 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Phone, fetchPhonesByIds } from "../api/phones";
+import { Phone, fetchPhonesBySlugs, fetchPhonesByIds } from "../api/phones";
 import { validateComparisonPhoneIds } from "../utils/slugUtils";
 import { requestManager } from "../services/requestManager";
 
 export interface ComparisonState {
   phones: Phone[];
   selectedPhoneIds: number[];
+  selectedPhoneSlugs: string[]; // Add this new property
   isLoading: boolean;
   error: string | null;
   isValidComparison: boolean;
@@ -19,9 +20,10 @@ export interface ComparisonState {
 
 export interface ComparisonActions {
   setSelectedPhoneIds: (phoneIds: number[]) => void;
-  addPhone: (phoneId: number) => void;
+  setSelectedPhoneSlugs: (phoneSlugs: string[]) => void; // Add this new action
+  addPhone: (phoneSlug: string) => void;
   removePhone: (phoneId: number) => void;
-  replacePhone: (oldPhoneId: number, newPhoneId: number) => void;
+  replacePhone: (oldPhoneId: number, newPhone: Phone) => void;
   clearError: () => void;
   refreshPhones: () => Promise<void>;
   retryFetch: () => Promise<void>;
@@ -34,8 +36,8 @@ export function useComparisonState(
   initialPhoneIds: number[] = []
 ): [ComparisonState, ComparisonActions] {
   const [phones, setPhones] = useState<Phone[]>([]);
-  const [selectedPhoneIds, setSelectedPhoneIds] =
-    useState<number[]>(initialPhoneIds);
+  const [selectedPhoneIds, setSelectedPhoneIds] = useState<number[]>(initialPhoneIds);
+  const [selectedPhoneSlugs, setSelectedPhoneSlugs] = useState<string[]>([]); // Add this new state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -203,103 +205,73 @@ export function useComparisonState(
     await fetchPhonesInternal(selectedPhoneIds, true);
   }, [selectedPhoneIds, fetchPhonesInternal]);
 
-  // Fetch phones when selected IDs change with debouncing
-  useEffect(() => {
-    if (selectedPhoneIds.length > 0) {
-      // Clear any existing timeout
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-
-      // Set up debounced fetch
-      debounceTimeoutRef.current = setTimeout(() => {
-        fetchPhonesInternalRef.current?.(selectedPhoneIds, false);
-      }, 300); // 300ms debounce
-    } else {
-      // Clear state immediately for empty selection
-      if (isMountedRef.current) {
-        setPhones([]);
-        setIsLoading(false);
-        setError(null);
-        setRetryCount(0);
-        setIsRetrying(false);
-      }
-      lastRequestedIdsRef.current = "";
-    }
-
-    // Cleanup function to clear timeout
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, [selectedPhoneIds]); // Only depend on selectedPhoneIds
+  
 
   /**
    * Add a phone to the comparison
    */
   const addPhone = useCallback(
-    (phoneId: number) => {
-      if (selectedPhoneIds.includes(phoneId)) {
+    (phoneSlug: string) => {
+      if (selectedPhoneSlugs.includes(phoneSlug)) {
         setError("This phone is already in the comparison");
         return;
       }
 
-      if (selectedPhoneIds.length >= 5) {
+      if (selectedPhoneSlugs.length >= 5) {
         setError("Maximum 5 phones can be compared at once");
         return;
       }
 
-      const newPhoneIds = [...selectedPhoneIds, phoneId];
-      const validation = validateComparisonPhoneIds(newPhoneIds);
-
-      if (validation.isValid) {
-        setSelectedPhoneIds(newPhoneIds);
-        setError(null);
-      } else {
-        setError(validation.errors.join(", "));
-      }
+      const newPhoneSlugs = [...selectedPhoneSlugs, phoneSlug];
+      setSelectedPhoneSlugs(newPhoneSlugs);
+      setError(null);
     },
-    [selectedPhoneIds]
+    [selectedPhoneSlugs]
   );
 
   /**
    * Remove a phone from the comparison
    */
   const removePhone = useCallback(
-    (phoneId: number) => {
-      const newPhoneIds = selectedPhoneIds.filter((id) => id !== phoneId);
-      setSelectedPhoneIds(newPhoneIds);
+    (phoneIdToRemove: number) => {
+      const phoneToRemove = phones.find(p => p.id === phoneIdToRemove);
+      if (phoneToRemove && phoneToRemove.slug) {
+        setSelectedPhoneSlugs(prevSlugs => 
+          prevSlugs.filter(slug => slug !== phoneToRemove.slug)
+        );
+      } else {
+        // Fallback to ID-based removal if slug not found
+        setSelectedPhoneIds(prevIds => prevIds.filter(id => id !== phoneIdToRemove));
+      }
       setError(null);
     },
-    [selectedPhoneIds]
+    [phones] // Depend on phones to have access to the latest slugs
   );
 
   /**
    * Replace a phone in the comparison
    */
   const replacePhone = useCallback(
-    (oldPhoneId: number, newPhoneId: number) => {
-      if (newPhoneId === oldPhoneId) return;
+    (oldPhoneId: number, newPhone: Phone) => {
+      if (newPhone.id === oldPhoneId) return;
 
-      if (selectedPhoneIds.includes(newPhoneId)) {
+      const oldPhone = phones.find(p => p.id === oldPhoneId);
+      if (!oldPhone || !oldPhone.slug || !newPhone.slug) {
+        setError("Cannot replace phone without a valid slug.");
+        return;
+      }
+
+      if (selectedPhoneSlugs.includes(newPhone.slug)) {
         setError("This phone is already in the comparison");
         return;
       }
 
-      const newPhoneIds = selectedPhoneIds.map((id) =>
-        id === oldPhoneId ? newPhoneId : id
+      setSelectedPhoneSlugs(prevSlugs =>
+        prevSlugs.map(slug => (slug === oldPhone.slug ? newPhone.slug! : slug))
       );
-      const validation = validateComparisonPhoneIds(newPhoneIds);
-
-      if (validation.isValid) {
-        setSelectedPhoneIds(newPhoneIds);
-        setError(null);
-      } else {
-        setError(validation.errors.join(", "));
-      }
+      setError(null);
     },
-    [selectedPhoneIds]
+    [selectedPhoneSlugs, phones]
   );
 
   /**
@@ -329,24 +301,136 @@ export function useComparisonState(
     };
   }, []);
 
+  // Add a function to fetch phones by slugs
+  const fetchPhonesBySlugsInternal = useCallback(
+    async (phoneSlugs: string[], isRetry = false): Promise<void> => {
+      if (phoneSlugs.length === 0) {
+        if (isMountedRef.current) {
+          setPhones([]);
+          setIsLoading(false);
+          setError(null);
+          setRetryCount(0);
+          setIsRetrying(false);
+        }
+        return;
+      }
+
+      const slugsString = phoneSlugs.join(",");
+
+      // Prevent duplicate requests for same phone slugs
+      if (lastRequestedIdsRef.current === slugsString && !isRetry) {
+        console.debug("Skipping duplicate request for phone slugs:", slugsString);
+        return;
+      }
+
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
+      lastRequestedIdsRef.current = slugsString;
+
+      if (isMountedRef.current) {
+        setIsLoading(true);
+        setError(null);
+        if (isRetry) {
+          setIsRetrying(true);
+          setRetryCount((prev) => prev + 1);
+        } else {
+          setRetryCount(0);
+          setIsRetrying(false);
+        }
+      }
+
+      try {
+        // Use the existing API function to fetch phones by slugs
+        const fetchedPhones = await fetchPhonesBySlugs(phoneSlugs, signal);
+
+        if (isMountedRef.current) {
+          setPhones(fetchedPhones);
+          // Update the IDs based on the fetched phones
+          setSelectedPhoneIds(fetchedPhones.map(phone => phone.id));
+          setIsLoading(false);
+          setError(null);
+          setIsRetrying(false);
+        }
+      } catch (error) {
+        console.error("Error fetching phones by slugs:", error);
+
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setIsRetrying(false);
+          setError("Failed to load phone data. Please try again.");
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    // Clear any existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Set up debounced fetch
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (selectedPhoneSlugs.length > 0) {
+        fetchPhonesBySlugsInternal(selectedPhoneSlugs, false);
+      } else if (selectedPhoneIds.length > 0) {
+        // Fallback to IDs if slugs are not available
+        fetchPhonesInternalRef.current?.(selectedPhoneIds, false);
+      } else {
+        // Clear state immediately for empty selection
+        if (isMountedRef.current) {
+          setPhones([]);
+          setIsLoading(false);
+          setError(null);
+          setRetryCount(0);
+          setIsRetrying(false);
+        }
+        lastRequestedIdsRef.current = "";
+      }
+    }, 300); // 300ms debounce
+
+    // Cleanup function to clear timeout
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [selectedPhoneSlugs, selectedPhoneIds, fetchPhonesBySlugsInternal]);
+
+  // Add new actions for slug-based operations
+  
+
+  
+
+  // Update the state and actions objects
   const state: ComparisonState = {
     phones,
     selectedPhoneIds,
+    selectedPhoneSlugs,
     isLoading,
     error,
     isValidComparison,
     retryCount,
-    isRetrying,
+    isRetrying
   };
 
   const actions: ComparisonActions = {
     setSelectedPhoneIds,
+    setSelectedPhoneSlugs,
     addPhone,
     removePhone,
     replacePhone,
     clearError,
     refreshPhones,
-    retryFetch,
+    retryFetch
   };
 
   return [state, actions];

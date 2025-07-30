@@ -438,7 +438,7 @@ function App() {
       <main className="flex flex-col items-center min-h-screen lg:mt-16 pt-16">
         <div className="w-full max-w-7xl px-2 md:px-6 mx-auto">
           {/* Hero Section and Search Form */}
-          <section className="w-full mt-6 relative overflow-hidden rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-16 md:py-24 mb-12">
+          <section className="w-full mt-6 relative overflow-hidden rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-8 md:py-12 mb-12">
             {/* Decorative elements - contained within the section */}
             <div className="absolute top-0 right-0 w-72 h-72 bg-brand/10 rounded-full filter blur-3xl -z-10 animate-float"></div>
             <div
@@ -536,13 +536,13 @@ function App() {
               </div>
 
               {/* Right side image */}
-              <div className="hidden md:flex md:w-1/2 justify-center md:justify-end z-10 max-h-[700px]">
-                <div className="relative max-h-[700px] flex items-end">
+              <div className="hidden md:flex md:w-1/2 justify-center md:justify-end z-10">
+                <div className="relative flex items-end">
                   <div className="absolute inset-0 from-brand/20 to-brand-darkGreen/20 rounded-3xl blur-2xl transform -rotate-6 scale-95"></div>
                   <img
                     src="https://i.ibb.co/JF7hWvmC/hero-bg.png"
                     alt="Smartphone with ePick interface"
-                    className="relative z-10 max-w-full h-auto md:max-h-[700px] object-contain"
+                    className="relative z-10 max-w-full h-[700px] object-contain"
                     onError={(e) => {
                       // Fallback if image doesn't exist
                       e.currentTarget.style.display = "none";
