@@ -1,5 +1,5 @@
 import React from "react";
-import { Phone } from "../../api/phones";
+import { Phone } from '../../api/phones';
 
 interface SimilarPhonesProps {
   phones: Phone[];

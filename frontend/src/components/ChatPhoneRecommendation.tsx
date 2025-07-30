@@ -6,8 +6,8 @@ import ChatSpecTable from "./ChatSpecTable";
 import CompareSelection from "./CompareSelection";
 import { navigateToPhoneDetails, navigateToComparison } from "../utils/navigationUtils";
 
-// Import the Phone interface from types to ensure consistency
-import { Phone } from "../types/phone";
+// Import the Phone interface from api to ensure consistency
+import { Phone } from '../api/phones';
 
 interface ChatPhoneRecommendationProps {
   phones: Phone[];
@@ -24,7 +24,7 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
   // Ensure all phones have IDs (use name as fallback)
   const phonesWithIds = phones.map(phone => ({
     ...phone,
-    id: phone.id || phone.name.replace(/\s+/g, "-").toLowerCase(),
+    id: phone.id || parseInt(phone.name.replace(/\s+/g, "-").toLowerCase(), 36),
   }));
   
   const handleViewDetails = (phoneId: string) => {
@@ -46,12 +46,12 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
   };
   
   const handleRemoveFromCompare = (phoneId: string) => {
-    setPhonesToCompare(prev => prev.filter(p => p.id !== phoneId));
+    setPhonesToCompare(prev => prev.filter(p => p.id !== parseInt(phoneId, 10)));
   };
   
   const handleCompareSelected = () => {
     if (phonesToCompare.length > 1) {
-      const phoneIds = phonesToCompare.map(p => p.id!);
+      const phoneIds = phonesToCompare.map(p => String(p.id));
       navigateToComparison(navigate, phoneIds);
     }
   };
@@ -62,22 +62,20 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
     
     // Define the features to compare
     const featureKeys = [
-      { key: "overall_device_score", label: "Overall Score" },
-      { key: "performance_score", label: "Performance" },
-      { key: "display_score", label: "Display" },
-      { key: "camera_score", label: "Camera" },
-      { key: "battery_score", label: "Battery" },
+      { key: "overall_device_score" as keyof Phone, label: "Overall Score" },
+      { key: "performance_score" as keyof Phone, label: "Performance" },
+      { key: "display_score" as keyof Phone, label: "Display" },
     ];
     
     // Generate the features array with percentages
     const features = featureKeys.map(feature => {
-      const raw = phones.map(phone => phone[feature.key] || 0);
+      const raw = phones.map(phone => (phone[feature.key] as number | undefined) ?? 0);
       const max = Math.max(...raw.filter(v => !isNaN(Number(v))).map(v => Number(v)));
       const percent = raw.map(v => max > 0 ? (Number(v) / max) * 100 : 0);
       
       return {
         key: feature.key,
-        label: feature.label,
+        label: feature.key.toString().replace("_", " ").replace(/\w\S*/g, (w: string) => (w.replace(/^\w/, (c: string) => c.toUpperCase()))),
         raw,
         percent,
       };

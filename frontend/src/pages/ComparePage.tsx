@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Phone } from "../api/phones";
-import { parseComparisonUrl, validateComparisonPhoneIdentifiers, generateComparisonUrl, generateComparisonUrlLegacy } from "../utils/slugUtils";
+import { parseComparisonUrl, validateComparisonPhoneIdentifiers, generateComparisonUrl } from "../utils/slugUtils";
 import { useComparisonState } from "../hooks/useComparisonState";
 import { useAIVerdict } from "../hooks/useAIVerdict";
 
@@ -25,8 +25,6 @@ const ComparePage: React.FC = () => {
   // Initialize AI verdict state
   const [aiVerdictState, aiVerdictActions] = useAIVerdict();
   
-
-  
   // Modal state
   const [isPhonePickerOpen, setIsPhonePickerOpen] = useState(false);
   const [phoneToReplace, setPhoneToReplace] = useState<number | null>(null);
@@ -34,6 +32,7 @@ const ComparePage: React.FC = () => {
 
   // Ref to track if we've processed the initial URL
   const hasProcessedInitialUrl = useRef(false);
+  
 
   // Parse phone identifiers from URL on component mount
   useEffect(() => {
@@ -45,13 +44,9 @@ const ComparePage: React.FC = () => {
       const validation = validateComparisonPhoneIdentifiers(parsedUrl.identifiers);
       
       if (validation.isValid) {
-        // For now, we'll convert slugs to IDs by fetching the phones first
-        // This is a temporary solution until we update the comparison state to handle slugs
         if (parsedUrl.isSlugBased) {
-          // Handle slug-based URLs - we need to fetch phones to get their IDs
-          // For now, we'll store the identifiers and let the comparison state handle it
-          // This is a simplified approach - in a full implementation, we'd update the state management
-          console.log('Slug-based comparison detected:', parsedUrl.identifiers);
+          // Handle slug-based URLs properly
+          comparisonActions.setSelectedPhoneSlugs(parsedUrl.identifiers);
           hasProcessedInitialUrl.current = true;
         } else {
           // Handle ID-based URLs (legacy)
@@ -100,14 +95,10 @@ const ComparePage: React.FC = () => {
   const handlePhoneSelect = (phone: Phone) => {
     if (phoneToReplace !== null) {
       // Replace existing phone
-      comparisonActions.replacePhone(phoneToReplace, phone.id);
-      const newPhones = comparisonState.phones.map(p => p.id === phoneToReplace ? phone : p);
-      navigate(generateComparisonUrl(newPhones));
+      comparisonActions.replacePhone(phoneToReplace, phone);
     } else {
       // Add new phone
-      comparisonActions.addPhone(phone.id);
-      const newPhones = [...comparisonState.phones, phone];
-      navigate(generateComparisonUrl(newPhones));
+      comparisonActions.addPhone(phone.slug!);
     }
     setIsPhonePickerOpen(false);
     setPhoneToReplace(null);
@@ -116,12 +107,12 @@ const ComparePage: React.FC = () => {
   // Handle removing a phone from comparison
   const handleRemovePhone = (phoneId: number) => {
     comparisonActions.removePhone(phoneId);
-    const newPhoneIds = comparisonState.selectedPhoneIds.filter(id => id !== phoneId);
+    const newPhones = comparisonState.phones.filter(p => p.id !== phoneId);
     
-    if (newPhoneIds.length === 0) {
+    if (newPhones.length === 0) {
       navigate('/compare');
     } else {
-      navigate(generateComparisonUrlLegacy(newPhoneIds));
+      navigate(generateComparisonUrl(newPhones));
     }
   };
 
@@ -131,29 +122,45 @@ const ComparePage: React.FC = () => {
       const timer = setTimeout(() => comparisonActions.clearError(), 5000);
       return () => clearTimeout(timer);
     }
-  }, [comparisonState.error]); // Remove comparisonActions from dependencies
+  }, [comparisonState.error, comparisonActions]);
 
-  // Auto-generate AI verdict when phones are loaded (if not already generated)
+  // Update URL when phones change
+  useEffect(() => {
+    if (comparisonState.phones.length > 0) {
+      const newUrl = generateComparisonUrl(comparisonState.phones);
+      if (window.location.pathname !== newUrl) {
+        navigate(newUrl, { replace: true });
+      }
+    }
+  }, [comparisonState.phones, navigate]);
+  
+  // Ref to track if a verdict generation is in progress
+  const isGeneratingVerdictRef = useRef(false);
+
+  // Auto-generate AI verdict when phones are loaded
   useEffect(() => {
     if (
-      comparisonState.phones.length >= 2 && 
-      !aiVerdictState.verdict && 
-      !aiVerdictState.isLoading && 
-      !aiVerdictState.error
+      comparisonState.phones.length >= 2 &&
+      !aiVerdictState.verdict &&
+      !aiVerdictState.isLoading &&
+      !aiVerdictState.error &&
+      !isGeneratingVerdictRef.current
     ) {
-      // Auto-generate verdict after a short delay
-      const timer = setTimeout(() => {
-        aiVerdictActions.generateVerdict(comparisonState.phones);
-      }, 1000);
-      
-      return () => clearTimeout(timer);
+      isGeneratingVerdictRef.current = true;
+      aiVerdictActions.generateVerdict(comparisonState.phones)
+        .finally(() => {
+          isGeneratingVerdictRef.current = false;
+        });
     }
-  }, [comparisonState.phones, aiVerdictState.verdict, aiVerdictState.isLoading, aiVerdictState.error, aiVerdictActions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparisonState.phones, aiVerdictState.isLoading, aiVerdictState.error, aiVerdictActions]);
 
-  // Clear AI verdict when phones change
+  // Clear AI verdict when phones change (to trigger new generation)
   useEffect(() => {
-    aiVerdictActions.clearVerdict();
-  }, [aiVerdictActions, comparisonState.selectedPhoneIds]); // Remove aiVerdictActions from dependencies
+    if (!aiVerdictState.isLoading) {
+      aiVerdictActions.clearVerdict();
+    }
+  }, [comparisonState.phones, aiVerdictActions, aiVerdictState.isLoading]);
 
   return (
     <ComparisonErrorBoundary>
@@ -324,4 +331,4 @@ const ComparePage: React.FC = () => {
   );
 };
 
-export default ComparePage; 
+export default ComparePage;

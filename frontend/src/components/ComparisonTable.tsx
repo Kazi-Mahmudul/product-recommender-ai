@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone } from '../types/phone';
+import { Phone } from '../api/phones';
 import { getThemeClasses, getChartColor, getSemanticColor } from '../utils/colorUtils';
 
 interface Feature {
@@ -73,7 +73,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                   <td 
                     key={`${feature.key}-${phone.name}`} 
                     className={`text-center py-2 px-3 ${isHighest ? 'font-semibold' : ''}`}
-                    onClick={() => onPhoneSelect && phone.id && onPhoneSelect(phone.id)}
+                    onClick={() => onPhoneSelect && phone.id && onPhoneSelect(String(phone.id))}
                     style={{ 
                       cursor: onPhoneSelect ? 'pointer' : 'default',
                       backgroundColor: isHighest 

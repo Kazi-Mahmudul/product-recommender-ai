@@ -3,23 +3,10 @@ import Slider from "react-slick";
 import axios from "axios";
 import { ArrowRight, Clock, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Phone } from '../api/phones';
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
-interface Phone {
-  id: string;
-  name: string;
-  price: number | string;
-  img_url: string;
-  overall_device_score: number;
-  is_popular_brand: boolean;
-  is_upcoming: boolean;
-  capacity: string;
-  screen_size_inches: string;
-  brand?: string;
-  ram?: string;
-  internal_storage?: string;
-  release_date?: string;
-}
+
 
 interface UpcomingPhonesProps {
   darkMode: boolean;
@@ -58,11 +45,12 @@ const UpcomingPhones: React.FC<UpcomingPhonesProps> = ({ darkMode }) => {
         const items = res.data.items || [];
         const filtered = items.filter(
           (phone: Phone) =>
-            phone.is_popular_brand === true && phone.is_upcoming === true
+            phone.is_popular_brand === true &&
+            phone.is_upcoming === true
         );
         filtered.sort(
           (a: Phone, b: Phone) =>
-            b.overall_device_score - a.overall_device_score
+            (b.overall_device_score ?? 0) - (a.overall_device_score ?? 0)
         );
         setPhones(filtered.slice(0, 8));
       } catch (err) {
@@ -181,18 +169,18 @@ const UpcomingPhones: React.FC<UpcomingPhonesProps> = ({ darkMode }) => {
                   {/* Key Specs */}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
                     {[
-                      { label: "RAM", value: phone.ram || "N/A" },
+                      { label: "RAM", value: phone.ram ?? "N/A" },
                       {
                         label: "Storage",
-                        value: phone.internal_storage || "N/A",
+                        value: phone.internal_storage ?? "N/A",
                       },
                       {
                         label: "Display",
-                        value: phone.screen_size_inches
+                        value: (phone.screen_size_inches ?? "N/A") !== "N/A"
                           ? `${phone.screen_size_inches}"`
                           : "N/A",
                       },
-                      { label: "Battery", value: phone.capacity || "N/A" },
+                      { label: "Battery", value: phone.capacity ?? "N/A" },
                     ].map((spec, idx) => (
                       <div key={idx} className="text-xs">
                         <span className="text-neutral-500 dark:text-neutral-400">
@@ -212,8 +200,9 @@ const UpcomingPhones: React.FC<UpcomingPhonesProps> = ({ darkMode }) => {
                         ৳
                       </span>
                       {typeof phone.price === "number"
-                        ? phone.price.toLocaleString()
-                        : phone.price}
+                        ? (phone.price as number).toLocaleString()
+                        : (typeof phone.price === "string" ? phone.price : "N/A")}
+
                     </div>
                     <button
                       onClick={(e) => {

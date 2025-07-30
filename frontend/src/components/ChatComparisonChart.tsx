@@ -47,7 +47,7 @@ import {
   getOptimalChartHeight,
 } from "../utils/chartLayoutManager";
 
-import { Phone } from "../types/phone";
+import { Phone } from "../api/phones";
 
 interface Feature {
   key: string;
@@ -881,7 +881,7 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
           if (onPhoneSelect && focusedPhoneIndex !== null) {
             const phone = phones[focusedPhoneIndex];
             if (phone && phone.id) {
-              onPhoneSelect(phone.id);
+              onPhoneSelect(String(phone.id));
               e.preventDefault();
             }
           }
@@ -1255,7 +1255,7 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
                       key={phone.name}
                       dataKey={phone.name}
                       onClick={() =>
-                        onPhoneSelect && phone.id && onPhoneSelect(phone.id)
+                        onPhoneSelect && phone.id && onPhoneSelect(String(phone.id))
                       }
                       onFocus={() => {
                         setFocusedPhoneIndex(phoneIndex);

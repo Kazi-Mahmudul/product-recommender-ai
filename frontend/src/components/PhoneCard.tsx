@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Phone } from "../api/phones";
+import { Phone } from '../api/phones';
 import { Plus, Check } from "lucide-react";
 import { useComparison } from "../context/ComparisonContext";
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
