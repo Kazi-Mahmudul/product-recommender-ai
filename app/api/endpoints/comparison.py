@@ -1,26 +1,38 @@
-from fastapi import APIRouter, Depends, Response, Cookie
+from fastapi import APIRouter, Depends, Response, Cookie, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from app.api import deps
 from app.crud import comparison as crud_comparison
 from app.schemas.comparison import ComparisonSession, ComparisonItem
 import uuid
+import logging
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 @router.post("/session", response_model=ComparisonSession)
 def create_session(response: Response, db: Session = Depends(deps.get_db)):
-    session_id = uuid.uuid4()
-    session = crud_comparison.create_comparison_session(db, session_id=session_id)
-    response.set_cookie(
-        key="comparison_session_id",
-        value=str(session.session_id),
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        max_age=86400  # 1 day
-    )
-    return session
+    try:
+        session_id = uuid.uuid4()
+        session = crud_comparison.create_comparison_session(db, session_id=session_id)
+        response.set_cookie(
+            key="comparison_session_id",
+            value=str(session.session_id),
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=86400  # 1 day
+        )
+        logger.info(f"Created new comparison session: {session_id}")
+        return session
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create comparison session")
+    except Exception as e:
+        logger.error(f"Unexpected error creating session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/session", response_model=ComparisonSession)
 def get_session(
@@ -28,52 +40,125 @@ def get_session(
     comparison_session_id: uuid.UUID | None = Cookie(None),
     db: Session = Depends(deps.get_db)
 ):
-    if comparison_session_id is None:
-        session_id = uuid.uuid4()
-        session = crud_comparison.create_comparison_session(db, session_id=session_id)
-        response.set_cookie(
-            key="comparison_session_id",
-            value=str(session.session_id),
-            httponly=True,
-            secure=True,
-            samesite="strict",
-            max_age=86400  # 1 day
-        )
+    try:
+        if comparison_session_id is None:
+            # Create new session
+            session_id = uuid.uuid4()
+            session = crud_comparison.create_comparison_session(db, session_id=session_id)
+            response.set_cookie(
+                key="comparison_session_id",
+                value=str(session.session_id),
+                httponly=True,
+                secure=True,
+                samesite="strict",
+                max_age=86400  # 1 day
+            )
+            logger.info(f"Created new session for anonymous user: {session_id}")
+            return session
+        
+        # Try to get existing session
+        session = crud_comparison.get_comparison_session(db, session_id=comparison_session_id)
+        if not session:
+            # Session doesn't exist or expired, create new one
+            session_id = uuid.uuid4()
+            session = crud_comparison.create_comparison_session(db, session_id=session_id)
+            response.set_cookie(
+                key="comparison_session_id",
+                value=str(session.session_id),
+                httponly=True,
+                secure=True,
+                samesite="strict",
+                max_age=86400  # 1 day
+            )
+            logger.info(f"Created replacement session: {session_id}")
+        else:
+            logger.info(f"Retrieved existing session: {comparison_session_id}")
+        
         return session
-    session = crud_comparison.get_comparison_session(db, session_id=comparison_session_id)
-    if not session:
-        session_id = uuid.uuid4()
-        session = crud_comparison.create_comparison_session(db, session_id=session_id)
-        response.set_cookie(
-            key="comparison_session_id",
-            value=str(session.session_id),
-            httponly=True,
-            secure=True,
-            samesite="strict",
-            max_age=86400  # 1 day
-        )
-    return session
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error getting session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get comparison session")
+    except Exception as e:
+        logger.error(f"Unexpected error getting session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/items/{slug}", response_model=ComparisonItem)
 def add_item(
     slug: str,
-    comparison_session_id: uuid.UUID = Cookie(...),
+    response: Response,
+    comparison_session_id: uuid.UUID | None = Cookie(None),
     db: Session = Depends(deps.get_db)
 ):
-    return crud_comparison.add_comparison_item(db, slug=slug, session_id=comparison_session_id)
+    try:
+        # If no session cookie, create a new session
+        if comparison_session_id is None:
+            session_id = uuid.uuid4()
+            session = crud_comparison.create_comparison_session(db, session_id=session_id)
+            response.set_cookie(
+                key="comparison_session_id",
+                value=str(session.session_id),
+                httponly=True,
+                secure=True,
+                samesite="strict",
+                max_age=86400  # 1 day
+            )
+            comparison_session_id = session.session_id
+            logger.info(f"Created new session for add_item: {session_id}")
+        
+        # Add the item to comparison
+        item = crud_comparison.add_comparison_item(db, slug=slug, session_id=comparison_session_id)
+        logger.info(f"Added item {slug} to session {comparison_session_id}")
+        return item
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error adding item: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add comparison item")
+    except Exception as e:
+        logger.error(f"Unexpected error adding item: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.delete("/items/{slug}")
 def remove_item(
     slug: str,
-    comparison_session_id: uuid.UUID = Cookie(...),
+    comparison_session_id: uuid.UUID | None = Cookie(None),
     db: Session = Depends(deps.get_db)
 ):
-    crud_comparison.remove_comparison_item(db, slug=slug, session_id=comparison_session_id)
-    return {"message": "Item removed"}
+    try:
+        # If no session cookie, return success (nothing to remove)
+        if comparison_session_id is None:
+            logger.warning(f"Attempted to remove item {slug} without session")
+            return {"message": "Item removed"}
+        
+        crud_comparison.remove_comparison_item(db, slug=slug, session_id=comparison_session_id)
+        logger.info(f"Removed item {slug} from session {comparison_session_id}")
+        return {"message": "Item removed"}
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error removing item: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to remove comparison item")
+    except Exception as e:
+        logger.error(f"Unexpected error removing item: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/items", response_model=List[ComparisonItem])
 def get_items(
-    comparison_session_id: uuid.UUID = Cookie(...),
+    comparison_session_id: uuid.UUID | None = Cookie(None),
     db: Session = Depends(deps.get_db)
 ):
-    return crud_comparison.get_comparison_items(db, session_id=comparison_session_id)
+    try:
+        # If no session cookie, return empty list
+        if comparison_session_id is None:
+            logger.info("No session cookie found, returning empty comparison list")
+            return []
+        
+        items = crud_comparison.get_comparison_items(db, session_id=comparison_session_id)
+        logger.info(f"Retrieved {len(items)} items for session {comparison_session_id}")
+        return items
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error getting items: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get comparison items")
+    except Exception as e:
+        logger.error(f"Unexpected error getting items: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

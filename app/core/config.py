@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     
     # Database settings
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/pickbd")
+    LOCAL_DATABASE_URL: str = os.getenv("LOCAL_DATABASE_URL", "postgresql://product_user1:secure_password@localhost:5432/product_recommender")
     
     # CORS settings
     CORS_ORIGINS: List[str] = [
