@@ -18,7 +18,10 @@ export interface ComparisonSession {
 }
 
 export async function getComparisonSession(): Promise<ComparisonSession> {
-  const response = await fetch(`${API_BASE}/api/v1/comparison/session`);
+  const response = await fetch(`${API_BASE}/api/v1/comparison/session`, {
+    method: 'GET',
+    credentials: 'include', // Include cookies in the request
+  });
   if (!response.ok) {
     throw new Error(`Failed to get comparison session: ${response.statusText}`);
   }
@@ -28,6 +31,10 @@ export async function getComparisonSession(): Promise<ComparisonSession> {
 export async function addComparisonItem(slug: string): Promise<ComparisonItem> {
   const response = await fetch(`${API_BASE}/api/v1/comparison/items/${slug}`, {
     method: 'POST',
+    credentials: 'include', // Include cookies in the request
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
   if (!response.ok) {
     throw new Error(`Failed to add comparison item: ${response.statusText}`);
@@ -38,6 +45,7 @@ export async function addComparisonItem(slug: string): Promise<ComparisonItem> {
 export async function removeComparisonItem(slug: string): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/comparison/items/${slug}`, {
     method: 'DELETE',
+    credentials: 'include', // Include cookies in the request
   });
   if (!response.ok) {
     throw new Error(`Failed to remove comparison item: ${response.statusText}`);
@@ -45,7 +53,10 @@ export async function removeComparisonItem(slug: string): Promise<void> {
 }
 
 export async function getComparisonItems(): Promise<ComparisonItem[]> {
-  const response = await fetch(`${API_BASE}/api/v1/comparison/items`);
+  const response = await fetch(`${API_BASE}/api/v1/comparison/items`, {
+    method: 'GET',
+    credentials: 'include', // Include cookies in the request
+  });
   if (!response.ok) {
     throw new Error(`Failed to get comparison items: ${response.statusText}`);
   }

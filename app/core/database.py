@@ -2,10 +2,11 @@ import logging
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from contextlib import contextmanager
 from typing import Generator
 import os
+import time
 from dotenv import load_dotenv
 
 from app.core.config import settings
@@ -15,24 +16,74 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Get database URL from settings
-if not settings.DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set")
+def create_database_engine(database_url: str, is_fallback: bool = False):
+    """Create database engine with appropriate configuration"""
+    # Handle postgres:// to postgresql:// URL scheme issue for SQLAlchemy
+    sqlalchemy_url = database_url.replace("postgres://", "postgresql://", 1) if database_url.startswith("postgres://") else database_url
+    
+    # Determine connection arguments based on URL
+    connect_args = {}
+    if "supabase.com" in database_url or "amazonaws.com" in database_url:
+        # Cloud database - require SSL
+        connect_args = {"sslmode": "require"}
+    elif "localhost" in database_url or "127.0.0.1" in database_url:
+        # Local database - no SSL required
+        connect_args = {}
+    
+    engine_name = "fallback" if is_fallback else "primary"
+    logger.info(f"Creating {engine_name} database engine for: {sqlalchemy_url.split('@')[0]}@***")
+    
+    return create_engine(
+        sqlalchemy_url,
+        echo=settings.DEBUG,  # Only enable SQL logging in debug mode
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=300,  # Recycle connections after 5 minutes
+        pool_pre_ping=True,  # Enable connection health checks
+        connect_args=connect_args
+    )
 
-# Handle postgres:// to postgresql:// URL scheme issue for SQLAlchemy
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1) if settings.DATABASE_URL.startswith("postgres://") else settings.DATABASE_URL
+def test_database_connection(engine, engine_name: str) -> bool:
+    """Test database connection and return True if successful"""
+    try:
+        with engine.connect() as conn:
+            # Test basic connectivity
+            conn.execute(text("SELECT 1"))
+            logger.info(f"✅ {engine_name} database connection successful")
+            return True
+    except Exception as e:
+        logger.warning(f"❌ {engine_name} database connection failed: {str(e)}")
+        return False
 
-# Create SQLAlchemy engine with explicit echo
-# For Supabase, we always need SSL
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    echo=settings.DEBUG,  # Only enable SQL logging in debug mode
-    pool_size=5,
-    max_overflow=10,
-    pool_recycle=300,  # Recycle connections after 5 minutes
-    pool_pre_ping=True,  # Enable connection health checks
-    connect_args={"sslmode": "require"}  # Supabase requires SSL
-)
+# Initialize database connection with fallback
+engine = None
+current_db_type = None
+
+# Try primary database first
+if settings.DATABASE_URL:
+    try:
+        primary_engine = create_database_engine(settings.DATABASE_URL)
+        if test_database_connection(primary_engine, "Primary (Supabase)"):
+            engine = primary_engine
+            current_db_type = "supabase"
+            logger.info("🎯 Using Supabase database")
+    except Exception as e:
+        logger.error(f"Failed to create primary database engine: {e}")
+
+# Fallback to local database if primary fails
+if engine is None and hasattr(settings, 'LOCAL_DATABASE_URL') and settings.LOCAL_DATABASE_URL:
+    try:
+        fallback_engine = create_database_engine(settings.LOCAL_DATABASE_URL, is_fallback=True)
+        if test_database_connection(fallback_engine, "Fallback (Local)"):
+            engine = fallback_engine
+            current_db_type = "local"
+            logger.info("🏠 Using local database as fallback")
+    except Exception as e:
+        logger.error(f"Failed to create fallback database engine: {e}")
+
+# Final check
+if engine is None:
+    raise RuntimeError("❌ Could not establish connection to any database. Please check your database configuration.")
 
 # Create SessionLocal class
 SessionLocal = sessionmaker(
@@ -62,18 +113,33 @@ def get_db() -> Generator[Session, None, None]:
         logger.info("Database connection closed")
         db.close()
 
-# Test connection
+# Final connection test and table verification
 try:
     with engine.connect() as conn:
-        logger.info("Successfully connected to database")
-        # First check if the table exists
+        logger.info(f"📊 Database connection established ({current_db_type})")
+        
+        # Check if phones table exists
         result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'phones')"))
         if result.scalar():
-            # If table exists, count rows
             result = conn.execute(text("SELECT COUNT(*) FROM phones"))
             count = result.scalar()
-            logger.info(f"Found {count} rows in phones table")
+            logger.info(f"📱 Found {count} phones in database")
         else:
-            logger.warning("phones table does not exist yet")
+            logger.warning("⚠️  phones table does not exist yet")
+        
+        # Check if comparison tables exist
+        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'comparison_sessions')"))
+        if result.scalar():
+            logger.info("✅ comparison_sessions table exists")
+        else:
+            logger.warning("⚠️  comparison_sessions table does not exist")
+            
+        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'comparison_items')"))
+        if result.scalar():
+            logger.info("✅ comparison_items table exists")
+        else:
+            logger.warning("⚠️  comparison_items table does not exist")
+            
 except Exception as e:
-    logger.error(f"Database connection test failed: {str(e)}")
+    logger.error(f"❌ Database verification failed: {str(e)}")
+    # Don't raise here, let the app start and handle errors gracefully
