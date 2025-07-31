@@ -16,18 +16,13 @@ const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 second
 
 /**
- * Validates if a phone ID is valid for API calls
- * @param id - The phone ID to validate
- * @returns boolean indicating if the ID is valid
+ * Validates if a phone slug is valid for API calls
+ * @param slug - The phone slug to validate
+ * @returns boolean indicating if the slug is valid
  */
-const isValidPhoneId = (id: number | string | null | undefined): boolean => {
-  if (id === undefined || id === null) return false;
-
-  // If it's a string, try to convert it to a number
-  const numericId = typeof id === "string" ? parseInt(id, 10) : id;
-
-  // Check if it's a valid number greater than 0
-  return !isNaN(numericId) && numericId > 0;
+const isValidPhoneSlug = (slug: string | null | undefined): boolean => {
+  if (slug === undefined || slug === null || slug.trim() === '') return false;
+  return true;
 };
 
 /**
@@ -50,10 +45,10 @@ const isNetworkError = (error: any): boolean => {
 
 /**
  * Hook for fetching phone recommendations with retry mechanism and exponential backoff
- * @param phoneId - The ID of the phone to get recommendations for
+ * @param phoneSlug - The slug of the phone to get recommendations for
  * @returns Object containing recommendations, loading state, error state, retry info, and refetch function
  */
-export const useRecommendations = (phoneId: number | string) => {
+export const useRecommendations = (phoneSlug: string) => {
   const [recommendations, setRecommendations] = useState<SmartRecommendation[]>(
     []
   );
@@ -99,16 +94,16 @@ export const useRecommendations = (phoneId: number | string) => {
     async (forceRefresh = false) => {
       // Debug logging
       console.log(
-        "fetchRecommendationsData called with phoneId:",
-        phoneId,
+        "fetchRecommendationsData called with phoneSlug:",
+        phoneSlug,
         "type:",
-        typeof phoneId
+        typeof phoneSlug
       );
 
-      // Validate phone ID before making API calls
-      if (!isValidPhoneId(phoneId)) {
-        console.error("Invalid phone ID detected:", phoneId);
-        setError("Invalid phone ID. Please provide a valid phone ID.");
+      // Validate phone slug before making API calls
+      if (!isValidPhoneSlug(phoneSlug)) {
+        console.error("Invalid phone slug detected:", phoneSlug);
+        setError("Invalid phone slug. Please provide a valid phone slug.");
         setLoading(false);
         return;
       }
@@ -129,7 +124,7 @@ export const useRecommendations = (phoneId: number | string) => {
         // Check cache first unless force refresh is requested
         if (!forceRefresh) {
           // Use our cache manager to get cached data
-          const cacheKey = getRecommendationsCacheKey(phoneId);
+          const cacheKey = getRecommendationsCacheKey(phoneSlug);
           const cachedData = getCacheItem<SmartRecommendation[]>(cacheKey);
 
           if (cachedData) {
@@ -140,17 +135,17 @@ export const useRecommendations = (phoneId: number | string) => {
         }
 
         // Fetch fresh data with abort signal
-        const data = await fetchRecommendations(phoneId, undefined, signal);
+        const data = await fetchRecommendations(phoneSlug, undefined, signal);
 
-        // Filter out recommendations with invalid phone IDs
+        // Filter out recommendations with invalid phone slugs
         const validRecommendations = data.filter(
-          (rec) => rec.phone && isValidPhoneId(rec.phone.id)
+          (rec) => rec.phone && isValidPhoneSlug(rec.phone.slug)
         );
 
         // Check if we have any valid recommendations after filtering
         if (validRecommendations.length === 0 && data.length > 0) {
           console.warn(
-            "All recommendations had invalid phone IDs. Original data:",
+            "All recommendations had invalid phone slugs. Original data:",
             data
           );
           setError(
@@ -161,7 +156,7 @@ export const useRecommendations = (phoneId: number | string) => {
           setRetryCount(0); // Reset retry count on success
 
           // Store in cache using our cache manager
-          const cacheKey = getRecommendationsCacheKey(phoneId);
+          const cacheKey = getRecommendationsCacheKey(phoneSlug);
           setCacheItem(
             cacheKey,
             validRecommendations,
@@ -194,7 +189,7 @@ export const useRecommendations = (phoneId: number | string) => {
         abortControllerRef.current = null;
       }
     },
-    [phoneId, clearRetryTimeout, abortRequest]
+    [phoneSlug, clearRetryTimeout, abortRequest]
   );
 
   // Function to retry with exponential backoff
@@ -233,9 +228,9 @@ export const useRecommendations = (phoneId: number | string) => {
 
   // Check for cached data on initial load
   useEffect(() => {
-    // Skip API calls for invalid phone IDs
-    if (!isValidPhoneId(phoneId)) {
-      setError("Invalid phone ID. Please provide a valid phone ID.");
+    // Skip API calls for invalid phone slugs
+    if (!isValidPhoneSlug(phoneSlug)) {
+      setError("Invalid phone slug. Please provide a valid phone slug.");
       return;
     }
 
@@ -246,20 +241,20 @@ export const useRecommendations = (phoneId: number | string) => {
       clearRetryTimeout();
       abortRequest();
     };
-  }, [phoneId, fetchRecommendationsData, clearRetryTimeout, abortRequest]);
+  }, [phoneSlug, fetchRecommendationsData, clearRetryTimeout, abortRequest]);
 
   // Manual retry function that resets the retry count
   const manualRetry = useCallback(() => {
-    // Skip retry for invalid phone IDs
-    if (!isValidPhoneId(phoneId)) {
-      setError("Invalid phone ID. Please provide a valid phone ID.");
+    // Skip retry for invalid phone slugs
+    if (!isValidPhoneSlug(phoneSlug)) {
+      setError("Invalid phone slug. Please provide a valid phone slug.");
       return;
     }
 
     setRetryCount(0);
     setIsRetrying(false);
     fetchRecommendationsData(true); // Force refresh on manual retry
-  }, [phoneId, fetchRecommendationsData]);
+  }, [phoneSlug, fetchRecommendationsData]);
 
   return {
     recommendations,
@@ -275,3 +270,4 @@ export const useRecommendations = (phoneId: number | string) => {
 };
 
 export default useRecommendations;
+

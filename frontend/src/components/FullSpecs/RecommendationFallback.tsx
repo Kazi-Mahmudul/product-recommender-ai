@@ -6,7 +6,7 @@ interface RecommendationFallbackProps {
   retry?: () => void;
   isNetworkError?: boolean;
   noRecommendations?: boolean;
-  isInvalidPhoneId?: boolean | null | "";
+  isInvalidPhoneSlug?: boolean | null | "";
 }
 
 /**
@@ -25,7 +25,7 @@ const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
   retry,
   isNetworkError = false,
   noRecommendations = false,
-  isInvalidPhoneId = false,
+  isInvalidPhoneSlug = false,
 }) => {
   const handleRetry = () => {
     if (resetError) resetError();
@@ -33,11 +33,11 @@ const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
   };
 
   // Check if error message indicates invalid phone ID
-  const isInvalidIdError = isInvalidPhoneId || 
-    (error && typeof error === "string" && error.includes("Invalid phone ID"));
+  const isInvalidSlugError = isInvalidPhoneSlug || 
+    (error && typeof error === "string" && error.includes("Invalid phone slug"));
 
   // Invalid phone ID error
-  if (isInvalidIdError) {
+  if (isInvalidSlugError) {
     return (
       <div 
         className="flex flex-col items-center justify-center py-8 px-4"

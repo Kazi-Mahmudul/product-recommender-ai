@@ -242,20 +242,7 @@ export async function fetchPhones({
   return { items, total: totalCount };
 }
 
-/**
- * Validates if a phone ID is valid for API calls
- * @param id - The phone ID to validate
- * @returns boolean indicating if the ID is valid
- */
-const isValidPhoneId = (id: number | string | null | undefined): boolean => {
-  if (id === undefined || id === null) return false;
 
-  // If it's a string, try to convert it to a number
-  const numericId = typeof id === "string" ? parseInt(id, 10) : id;
-
-  // Check if it's a valid number greater than 0
-  return !isNaN(numericId) && numericId > 0;
-};
 
 /**
  * Fetch a single phone by slug with enhanced error handling
@@ -335,83 +322,7 @@ export async function fetchPhoneBySlug(slug: string): Promise<Phone> {
   }
 }
 
-/**
- * Fetch a single phone by ID with enhanced error handling
- * @param id - The ID of the phone to fetch
- * @returns Promise resolving to a Phone object
- * @throws Error if the phone cannot be fetched or the ID is invalid
- */
-export async function fetchPhoneById(id: number | string): Promise<Phone> {
-  // Validate phone ID before making API calls
-  if (!isValidPhoneId(id)) {
-    throw new Error(
-      `Invalid phone ID: ${id}. Please provide a valid phone ID.`
-    );
-  }
 
-  try {
-    const res = await fetch(`${API_BASE}/api/v1/phones/${id}`);
-
-    if (!res.ok) {
-      // Handle different HTTP error codes
-      if (res.status === 404) {
-        throw new Error(
-          `Phone with ID ${id} not found. Please check the phone ID and try again.`
-        );
-      } else if (res.status === 429) {
-        throw new Error("Too many requests. Please try again later.");
-      } else if (res.status === 400) {
-        throw new Error(
-          "Invalid request. Please check your parameters and try again."
-        );
-      } else if (res.status === 401) {
-        throw new Error(
-          "Authentication required. Please log in and try again."
-        );
-      } else if (res.status === 403) {
-        throw new Error(
-          "Access denied. You do not have permission to access this resource."
-        );
-      } else if (res.status >= 500) {
-        throw new Error(
-          "Server error. Our team has been notified. Please try again later."
-        );
-      } else {
-        throw new Error(
-          `Failed to fetch phone details: HTTP error ${res.status}`
-        );
-      }
-    }
-
-    const data = await res.json();
-
-    // Validate the response data
-    if (!data || !data.id) {
-      throw new Error("Invalid phone data received from server.");
-    }
-
-    return data;
-  } catch (error) {
-    // Check for network errors
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error(
-        "Network error. Please check your internet connection and try again."
-      );
-    }
-
-    // Log the error for debugging
-    console.error("Phone fetch error:", error);
-
-    // Re-throw the error with a more descriptive message if it's not already an Error object
-    if (error instanceof Error) {
-      throw error;
-    } else {
-      throw new Error(
-        "An unexpected error occurred while fetching phone details."
-      );
-    }
-  }
-}
 
 /**
  * Fetch all available phone brands
@@ -523,7 +434,7 @@ export async function fetchPhonesBySlugs(phoneSlugs: string[], signal?: AbortSig
     try {
       // Use comma-separated slugs for bulk fetch
       const slugsParam = phoneSlugs.join(',');
-      const res = await fetch(`${API_BASE}/api/v1/phones/bulk-slugs?slugs=${slugsParam}`, {
+      const res = await fetch(`${API_BASE}/api/v1/phones/bulk?slugs=${slugsParam}`, {
         signal,
       });
 
@@ -632,140 +543,7 @@ async function fetchIndividualPhonesBySlugs(phoneSlugs: string[], signal?: Abort
   return successfulPhones;
 }
 
-/**
- * Fetch multiple phones by their IDs efficiently with retry logic and proper error handling
- * @param phoneIds - Array of phone IDs to fetch
- * @param signal - Optional AbortSignal for request cancellation
- * @returns Promise resolving to array of Phone objects
- */
-export async function fetchPhonesByIds(phoneIds: number[], signal?: AbortSignal): Promise<Phone[]> {
-  if (phoneIds.length === 0) return [];
 
-  // Check if request was already aborted before starting
-  if (signal?.aborted) {
-    throw new Error('Request aborted');
-  }
-
-  // Import retry service dynamically to avoid circular dependencies
-  const { retryService } = await import('../services/retryService');
-
-  const fetchOperation = async (): Promise<Phone[]> => {
-    // Check if request was aborted
-    if (signal?.aborted) {
-      throw new Error('Request aborted');
-    }
-
-    try {
-      // Use comma-separated IDs for bulk fetch
-      const idsParam = phoneIds.join(',');
-      const res = await fetch(`${API_BASE}/api/v1/phones/bulk?ids=${idsParam}`, {
-        signal,
-      });
-
-      if (!res.ok) {
-        // Create error with status code for proper classification
-        const error = new Error(`Failed to fetch phones: HTTP error ${res.status}`) as any;
-        error.statusCode = res.status;
-        
-        // Handle specific status codes
-        if (res.status === 404) {
-          console.warn('Bulk fetch endpoint not available, falling back to individual fetches');
-          return await fetchIndividualPhones(phoneIds, signal);
-        } else if (res.status === 429) {
-          // Extract retry-after header if available
-          const retryAfter = res.headers.get('retry-after');
-          if (retryAfter) {
-            error.retryAfter = parseInt(retryAfter, 10);
-          }
-        }
-        
-        throw error;
-      }
-
-      const data = await res.json();
-      
-      // Validate response format for new bulk endpoint structure
-      if (!data || typeof data !== 'object' || !Array.isArray(data.phones)) {
-        throw new Error('Invalid response format from bulk phone fetch');
-      }
-
-      // Return the phones array from the structured response
-      return data.phones;
-    } catch (error: any) {
-      // Handle network errors specifically
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        console.error('Network error in bulk phone fetch:', error);
-        throw error;
-      }
-      
-      // Handle insufficient resources error
-      if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-        console.error('Insufficient resources error in bulk phone fetch:', error);
-        throw error;
-      }
-      
-      // Handle abort errors
-      if (error.name === 'AbortError' || signal?.aborted) {
-        throw new Error('Request aborted');
-      }
-      
-      // For other errors, try fallback
-      if (!error.statusCode) {
-        console.warn('Unknown error in bulk fetch, trying individual fetches:', error);
-        return await fetchIndividualPhones(phoneIds, signal);
-      }
-      
-      throw error;
-    }
-  };
-
-  try {
-    // Use retry service for the main operation
-    return await retryService.executeWithRetry(fetchOperation, signal);
-  } catch (error) {
-    console.error('All retry attempts failed for bulk phone fetch:', error);
-    
-    // Last resort: try individual fetches without retry
-    try {
-      return await fetchIndividualPhones(phoneIds, signal);
-    } catch (fallbackError) {
-      console.error('Fallback individual fetches also failed:', fallbackError);
-      throw new Error('Failed to fetch phone data after all retry attempts');
-    }
-  }
-}
-
-/**
- * Fallback function to fetch phones individually
- * @param phoneIds - Array of phone IDs to fetch
- * @param signal - Optional AbortSignal for request cancellation
- * @returns Promise resolving to array of successfully fetched Phone objects
- */
-async function fetchIndividualPhones(phoneIds: number[], signal?: AbortSignal): Promise<Phone[]> {
-  const phonePromises = phoneIds.map(async (id) => {
-    try {
-      return await fetchPhoneById(id);
-    } catch (error) {
-      console.warn(`Failed to fetch phone with ID ${id}:`, error);
-      return null;
-    }
-  });
-
-  const results = await Promise.allSettled(phonePromises);
-  
-  const successfulPhones = results
-    .filter((result): result is PromiseFulfilledResult<Phone | null> => 
-      result.status === 'fulfilled' && result.value !== null
-    )
-    .map(result => result.value as Phone);
-
-  // If no phones were successfully fetched, throw an error
-  if (successfulPhones.length === 0) {
-    throw new Error('All individual phone fetches failed');
-  }
-
-  return successfulPhones;
-}
 
 /**
  * Fetch available filter options from the API

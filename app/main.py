@@ -8,6 +8,8 @@ from sqlalchemy import text
 from app.api.api import api_router
 from app.core.config import settings
 from app.core.database import get_db
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.core.tasks import cleanup_expired_sessions
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path=".env")
@@ -19,6 +21,18 @@ app = FastAPI(
     docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
 )
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+
+@app.on_event("startup")
+async def startup_event():
+    scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
+    scheduler.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
 
 # Set up CORS middleware with production settings
 app.add_middleware(

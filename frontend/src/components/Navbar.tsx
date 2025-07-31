@@ -221,7 +221,7 @@ const Navbar: React.FC<NavbarProps> = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
-                              {result.brand} {result.name}
+                              {result.name}
                             </p>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">
                               {result.ram && `${result.ram} • `}
