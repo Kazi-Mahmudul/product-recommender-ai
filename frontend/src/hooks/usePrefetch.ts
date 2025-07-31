@@ -8,51 +8,51 @@ import { getCacheItem, getPhoneDetailsCacheKey } from '../utils/cacheManager';
  */
 export const usePrefetch = () => {
   // Use useRef to maintain the set across renders but not trigger re-renders
-  const prefetchedPhonesRef = useRef<Set<number>>(new Set());
+  const prefetchedPhonesRef = useRef<Set<string>>(new Set());
   
   // Track prefetch in progress to avoid duplicate requests
-  const prefetchInProgressRef = useRef<Set<number>>(new Set());
+  const prefetchInProgressRef = useRef<Set<string>>(new Set());
   
   /**
    * Prefetch phone details when hovering over a recommendation card
    * @param phoneId - The ID of the phone to prefetch
    */
-  const prefetchPhone = useCallback((phoneId: number) => {
+  const prefetchPhone = useCallback((phoneSlug: string) => {
     // Skip if already prefetched or in progress
     if (
-      prefetchedPhonesRef.current.has(phoneId) || 
-      prefetchInProgressRef.current.has(phoneId)
+      prefetchedPhonesRef.current.has(phoneSlug) || 
+      prefetchInProgressRef.current.has(phoneSlug)
     ) {
       return;
     }
     
     // Check if data is already in cache
-    const cacheKey = getPhoneDetailsCacheKey(phoneId);
+    const cacheKey = getPhoneDetailsCacheKey(phoneSlug);
     const cachedData = getCacheItem(cacheKey);
     
     if (cachedData) {
       // Data is already cached, no need to prefetch
-      prefetchedPhonesRef.current.add(phoneId);
+      prefetchedPhonesRef.current.add(phoneSlug);
       return;
     }
     
     // Mark as in progress
-    prefetchInProgressRef.current.add(phoneId);
+    prefetchInProgressRef.current.add(phoneSlug);
     
     // Use requestIdleCallback if available for better performance
     const startPrefetch = () => {
-      prefetchPhoneDetails(phoneId)
+      prefetchPhoneDetails(phoneSlug)
         .then(() => {
           // Successfully prefetched, add to prefetched set
-          prefetchedPhonesRef.current.add(phoneId);
+          prefetchedPhonesRef.current.add(phoneSlug);
         })
         .catch(() => {
           // If prefetch fails, we'll try again next time
-          console.warn(`Failed to prefetch phone ${phoneId}`);
+          console.warn(`Failed to prefetch phone ${phoneSlug}`);
         })
         .finally(() => {
           // Remove from in-progress set regardless of outcome
-          prefetchInProgressRef.current.delete(phoneId);
+          prefetchInProgressRef.current.delete(phoneSlug);
         });
     };
     

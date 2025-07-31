@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchPhoneById, fetchPhoneBySlug, Phone } from "../api/phones";
+import { fetchPhoneBySlug, Phone } from "../api/phones";
 import { useComparison } from "../context/ComparisonContext";
 import HeroSection from "../components/FullSpecs/HeroSection";
 import DeviceScoresChart from "../components/FullSpecs/DeviceScoresChart";
@@ -36,14 +36,7 @@ const PhoneDetailsPage: React.FC = () => {
     if (!slug) return;
     setLoading(true);
     
-    // Detect if slug is actually a numeric ID (legacy URL)
-    const isNumericId = /^\d+$/.test(slug);
-    
-    const fetchFunction = isNumericId ? 
-      () => fetchPhoneById(slug) : 
-      () => fetchPhoneBySlug(slug);
-    
-    fetchFunction()
+    fetchPhoneBySlug(slug)
       .then((phoneData) => {
         setPhone(phoneData);
         // Once we have the phone data, generate pros and cons automatically
@@ -150,8 +143,8 @@ Generate a similar tagline that captures this phone's unique strengths:`;
   // Compare button handler
   const handleAddToCompare = () => {
     if (phone) {
-      if (isPhoneSelected(phone.id)) {
-        removePhone(phone.id);
+      if (isPhoneSelected(phone.slug!)) {
+        removePhone(phone.slug!);
       } else {
         addPhone(phone);
       }
@@ -194,7 +187,7 @@ Generate a similar tagline that captures this phone's unique strengths:`;
 
       {/* 7. SMART RECOMMENDATIONS SECTION */}
       <div className="mb-6">
-        {phone && <SmartRecommendations phoneId={phone.id} />}
+        {phone && <SmartRecommendations phoneSlug={phone.slug!} />}
       </div>
     </div>
   );

@@ -29,7 +29,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
   
   // Use comparison context to check selection state
   const { isPhoneSelected } = useComparison();
-  const isSelected = isPhoneSelected(phone.id);
+  const isSelected = isPhoneSelected(phone.slug!);
 
   // Key specs for grid
   const specs = [

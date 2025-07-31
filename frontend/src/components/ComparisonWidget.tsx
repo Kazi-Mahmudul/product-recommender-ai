@@ -76,7 +76,7 @@ const ComparisonWidget: React.FC = () => {
             <div className="flex flex-wrap gap-2 flex-1 min-w-0">
               {selectedPhones.map((phone) => (
                 <div
-                  key={phone.id}
+                  key={phone.slug}
                   className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2 min-w-0"
                 >
                   {/* Phone Image */}
@@ -101,7 +101,7 @@ const ComparisonWidget: React.FC = () => {
                   
                   {/* Remove Button */}
                   <button
-                    onClick={() => removePhone(phone.id)}
+                    onClick={() => phone.slug && removePhone(phone.slug)}
                     className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 transition-colors flex-shrink-0"
                     aria-label={`Remove ${phone.brand} ${phone.name} from comparison`}
                   >

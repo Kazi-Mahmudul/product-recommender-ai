@@ -2,10 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { Phone } from '../api/phones';
 import { useNavigate } from 'react-router-dom';
 import { generateComparisonUrl } from '../utils/slugUtils';
+import { getComparisonSession, addComparisonItem, removeComparisonItem, getComparisonItems, ComparisonItem } from '../api/comparison';
 
-// Storage key for localStorage
-const COMPARISON_STORAGE_KEY = 'epick_comparison_selection';
-const STORAGE_VERSION = '1.0';
 const MAX_PHONES = 5;
 
 // Error types for comparison operations
@@ -13,15 +11,7 @@ export type ComparisonError =
   | 'MAX_PHONES_REACHED'
   | 'PHONE_ALREADY_SELECTED'
   | 'INVALID_PHONE_DATA'
-  | 'STORAGE_ERROR'
   | 'NETWORK_ERROR';
-
-// Interface for localStorage data structure
-interface ComparisonSelection {
-  phones: Phone[];
-  timestamp: number;
-  version: string;
-}
 
 // Context interface
 export interface ComparisonContextType {
@@ -31,10 +21,10 @@ export interface ComparisonContextType {
   error: string | null;
   
   // Actions
-  addPhone: (phone: Phone) => void;
-  removePhone: (phoneId: number) => void;
-  clearComparison: () => void;
-  isPhoneSelected: (phoneId: number) => boolean;
+  addPhone: (phone: Phone) => Promise<void>;
+  removePhone: (slug: string) => Promise<void>;
+  clearComparison: () => Promise<void>;
+  isPhoneSelected: (slug: string) => boolean;
   navigateToComparison: () => void;
   clearError: () => void;
 }
@@ -47,7 +37,6 @@ const ERROR_MESSAGES: Record<ComparisonError, string> = {
   MAX_PHONES_REACHED: `Maximum ${MAX_PHONES} phones can be compared at once`,
   PHONE_ALREADY_SELECTED: 'This phone is already in your comparison list',
   INVALID_PHONE_DATA: 'Invalid phone data provided',
-  STORAGE_ERROR: 'Failed to save comparison data',
   NETWORK_ERROR: 'Network error occurred'
 };
 
@@ -56,99 +45,65 @@ const isValidPhone = (phone: any): phone is Phone => {
   return (
     phone &&
     typeof phone === 'object' &&
-    typeof phone.id === 'number' &&
+    typeof phone.slug === 'string' &&
+    phone.slug.length > 0 &&
     typeof phone.name === 'string' &&
     typeof phone.brand === 'string' &&
     typeof phone.price === 'string'
   );
 };
 
-// Helper function to load comparison data from localStorage
-const loadComparisonFromStorage = (): Phone[] => {
-  try {
-    const stored = localStorage.getItem(COMPARISON_STORAGE_KEY);
-    if (!stored) return [];
-
-    const data: ComparisonSelection = JSON.parse(stored);
-    
-    // Validate data structure and version
-    if (!data || typeof data !== 'object' || !Array.isArray(data.phones)) {
-      console.warn('Invalid comparison data structure in localStorage');
-      return [];
-    }
-
-    // Check version compatibility (for future migrations)
-    if (data.version !== STORAGE_VERSION) {
-      console.warn(`Comparison data version mismatch: ${data.version} vs ${STORAGE_VERSION}`);
-      // For now, clear old version data
-      localStorage.removeItem(COMPARISON_STORAGE_KEY);
-      return [];
-    }
-
-    // Validate each phone object
-    const validPhones = data.phones.filter(phone => {
-      const isValid = isValidPhone(phone);
-      if (!isValid) {
-        console.warn('Invalid phone data found in localStorage:', phone);
-      }
-      return isValid;
-    });
-
-    // If we filtered out invalid phones, don't immediately save back
-    // Just log the issue and return the valid phones
-    if (validPhones.length !== data.phones.length) {
-      console.warn(`Filtered out ${data.phones.length - validPhones.length} invalid phones from localStorage`);
-    }
-
-    return validPhones;
-  } catch (error) {
-    console.error('Error loading comparison data from localStorage:', error);
-    // Clear corrupted data
-    try {
-      localStorage.removeItem(COMPARISON_STORAGE_KEY);
-    } catch (clearError) {
-      console.error('Error clearing corrupted localStorage data:', clearError);
-    }
-    return [];
-  }
-};
-
-// Helper function to save comparison data to localStorage with debouncing
-let saveTimeout: NodeJS.Timeout | null = null;
-const saveComparisonToStorage = (phones: Phone[]): void => {
-  // Clear any existing timeout to debounce rapid saves
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  
-  saveTimeout = setTimeout(() => {
-    try {
-      const data: ComparisonSelection = {
-        phones,
-        timestamp: Date.now(),
-        version: STORAGE_VERSION
-      };
-      
-      localStorage.setItem(COMPARISON_STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.error('Error saving comparison data to localStorage:', error);
-      // Don't throw error to avoid breaking the app
-    }
-  }, 100); // Debounce by 100ms
-};
-
 // Provider component
 export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
   const [selectedPhones, setSelectedPhones] = useState<Phone[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start as loading to fetch session
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Load comparison data on mount
-  useEffect(() => {
-    const storedPhones = loadComparisonFromStorage();
-    setSelectedPhones(storedPhones);
+  // Function to fetch comparison items from the backend
+  const fetchComparisonItems = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const items = await getComparisonItems();
+      
+      if (items.length === 0) {
+        setSelectedPhones([]);
+        setError(null);
+        return;
+      }
+
+      // Extract slugs from comparison items
+      const slugs = items.map(item => item.slug);
+      
+      // Fetch full phone data using slugs
+      const { fetchPhonesBySlugs } = await import('../api/phones');
+      const phones = await fetchPhonesBySlugs(slugs);
+      
+      setSelectedPhones(phones);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to fetch comparison items:", err);
+      setError(ERROR_MESSAGES.NETWORK_ERROR);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Load comparison data on mount and on session changes
+  useEffect(() => {
+    // Ensure a session exists and fetch items
+    const initializeSessionAndFetchItems = async () => {
+      try {
+        await getComparisonSession(); // This will create a session if one doesn't exist
+        await fetchComparisonItems();
+      } catch (err) {
+        console.error("Error initializing comparison session:", err);
+        setError(ERROR_MESSAGES.NETWORK_ERROR);
+        setIsLoading(false);
+      }
+    };
+    initializeSessionAndFetchItems();
+  }, [fetchComparisonItems]);
 
   // Auto-clear error after 5 seconds
   useEffect(() => {
@@ -166,7 +121,7 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Add phone to comparison
-  const addPhone = useCallback((phone: Phone) => {
+  const addPhone = useCallback(async (phone: Phone) => {
     // Validate phone data
     if (!isValidPhone(phone)) {
       setComparisonError('INVALID_PHONE_DATA');
@@ -174,7 +129,7 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Check if phone is already selected
-    if (selectedPhones.some(p => p.id === phone.id)) {
+    if (selectedPhones.some(p => p.slug === phone.slug)) {
       setComparisonError('PHONE_ALREADY_SELECTED');
       return;
     }
@@ -185,49 +140,54 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Add phone to selection
-    const newSelection = [...selectedPhones, phone];
-    setSelectedPhones(newSelection);
-    
-    // Save to localStorage
     try {
-      saveComparisonToStorage(newSelection);
+      setIsLoading(true);
+      await addComparisonItem(phone.slug!); // Use non-null assertion as isValidPhone checks for slug
+      await fetchComparisonItems(); // Re-fetch to get updated list from backend
       setError(null); // Clear any previous errors
-    } catch (storageError) {
-      setComparisonError('STORAGE_ERROR');
+    } catch (err) {
+      console.error("Failed to add phone to comparison:", err);
+      setComparisonError('NETWORK_ERROR');
+    } finally {
+      setIsLoading(false);
     }
-  }, [selectedPhones, setComparisonError]);
+  }, [selectedPhones, setComparisonError, fetchComparisonItems]);
 
   // Remove phone from comparison
-  const removePhone = useCallback((phoneId: number) => {
-    const newSelection = selectedPhones.filter(phone => phone.id !== phoneId);
-    setSelectedPhones(newSelection);
-    
-    // Save to localStorage
+  const removePhone = useCallback(async (slug: string) => {
     try {
-      saveComparisonToStorage(newSelection);
+      setIsLoading(true);
+      await removeComparisonItem(slug);
+      await fetchComparisonItems(); // Re-fetch to get updated list from backend
       setError(null); // Clear any previous errors
-    } catch (storageError) {
-      setComparisonError('STORAGE_ERROR');
+    } catch (err) {
+      console.error("Failed to remove phone from comparison:", err);
+      setComparisonError('NETWORK_ERROR');
+    } finally {
+      setIsLoading(false);
     }
-  }, [selectedPhones, setComparisonError]);
+  }, [setComparisonError, fetchComparisonItems]);
 
   // Clear all comparisons
-  const clearComparison = useCallback(() => {
-    setSelectedPhones([]);
-    setError(null);
-    
-    // Clear from localStorage
+  const clearComparison = useCallback(async () => {
     try {
-      localStorage.removeItem(COMPARISON_STORAGE_KEY);
-    } catch (storageError) {
-      console.error('Error clearing comparison data from localStorage:', storageError);
+      setIsLoading(true);
+      // Fetch all items and remove them one by one
+      const items = await getComparisonItems();
+      await Promise.all(items.map(item => removeComparisonItem(item.slug)));
+      await fetchComparisonItems(); // Re-fetch to confirm empty list
+      setError(null);
+    } catch (err) {
+      console.error("Failed to clear comparison:", err);
+      setComparisonError('NETWORK_ERROR');
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [setComparisonError, fetchComparisonItems]);
 
   // Check if phone is selected
-  const isPhoneSelected = useCallback((phoneId: number): boolean => {
-    return selectedPhones.some(phone => phone.id === phoneId);
+  const isPhoneSelected = useCallback((slug: string): boolean => {
+    return selectedPhones.some(phone => phone.slug === slug);
   }, [selectedPhones]);
 
   // Navigate to comparison page
@@ -238,23 +198,12 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const phoneIds = selectedPhones.map(phone => phone.id);
-      // Create proper Phone objects with the required properties
-      const phoneObjects = phoneIds.map(id => ({ 
-        id: Number(id), 
-        name: '', // Add minimal required properties
-        brand: '',
-        model: '',
-        price: '',
-        url: ''
-      }));
-      const comparisonUrl = generateComparisonUrl(phoneObjects);
+      const phoneSlugs = selectedPhones.map(phone => phone.slug!);
+      const comparisonUrl = generateComparisonUrl(phoneSlugs);
       
       // Navigate to comparison page
       navigate(comparisonUrl);
       
-      // Don't clear comparison here - let user manually clear it if they want
-      // The comparison page works independently with URL-based phone IDs
     } catch (navigationError) {
       console.error('Error navigating to comparison:', navigationError);
       setError('Failed to navigate to comparison page');

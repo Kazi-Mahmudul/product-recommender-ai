@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Phone } from "../api/phones";
-import { parseComparisonUrl, validateComparisonPhoneIdentifiers, generateComparisonUrl } from "../utils/slugUtils";
+import { parseComparisonUrl, validateComparisonPhoneSlugs, generateComparisonUrl } from "../utils/slugUtils";
 import { useComparisonState } from "../hooks/useComparisonState";
 import { useAIVerdict } from "../hooks/useAIVerdict";
 
@@ -27,57 +27,33 @@ const ComparePage: React.FC = () => {
   
   // Modal state
   const [isPhonePickerOpen, setIsPhonePickerOpen] = useState(false);
-  const [phoneToReplace, setPhoneToReplace] = useState<number | null>(null);
+  const [phoneToReplace, setPhoneToReplace] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Ref to track if we've processed the initial URL
   const hasProcessedInitialUrl = useRef(false);
   
 
-  // Parse phone identifiers from URL on component mount
+  // Parse phone slugs from URL on component mount
   useEffect(() => {
     // Only process URL once to prevent infinite loops
     if (hasProcessedInitialUrl.current) return;
     
     if (phoneIdentifiers) {
       const parsedUrl = parseComparisonUrl(phoneIdentifiers);
-      const validation = validateComparisonPhoneIdentifiers(parsedUrl.identifiers);
+      const validation = validateComparisonPhoneSlugs(parsedUrl.slugs);
       
       if (validation.isValid) {
-        if (parsedUrl.isSlugBased) {
-          // Handle slug-based URLs properly
-          comparisonActions.setSelectedPhoneSlugs(parsedUrl.identifiers);
-          hasProcessedInitialUrl.current = true;
-        } else {
-          // Handle ID-based URLs (legacy)
-          const phoneIds = parsedUrl.identifiers.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
-          comparisonActions.setSelectedPhoneIds(phoneIds);
-          hasProcessedInitialUrl.current = true;
-        }
+        comparisonActions.setSelectedPhoneSlugs(parsedUrl.slugs);
+        hasProcessedInitialUrl.current = true;
       } else {
         // Redirect to empty comparison page if invalid
         navigate('/compare', { replace: true });
       }
     } else {
-      // Check for phone IDs in search params (fallback)
-      const phoneIdsParam = searchParams.get('phones');
-      
-      if (phoneIdsParam) {
-        const parsedUrl = parseComparisonUrl(phoneIdsParam);
-        const validation = validateComparisonPhoneIdentifiers(parsedUrl.identifiers);
-        
-        if (validation.isValid && parsedUrl.isLegacyFormat) {
-          const phoneIds = parsedUrl.identifiers.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
-          comparisonActions.setSelectedPhoneIds(phoneIds);
-          // Update URL to use path params instead of search params
-          navigate(`/compare/${phoneIds.join('-')}`, { replace: true });
-          hasProcessedInitialUrl.current = true;
-        }
-      } else {
-        hasProcessedInitialUrl.current = true;
-      }
+      hasProcessedInitialUrl.current = true;
     }
-  }, [phoneIdentifiers, searchParams, navigate, comparisonActions]);
+  }, [phoneIdentifiers, navigate, comparisonActions]);
 
   // Handle opening phone picker for adding
   const handleOpenAddPhone = () => {
@@ -86,8 +62,8 @@ const ComparePage: React.FC = () => {
   };
 
   // Handle opening phone picker for replacing
-  const handleOpenChangePhone = (phoneId: number) => {
-    setPhoneToReplace(phoneId);
+  const handleOpenChangePhone = (phoneSlug: string) => {
+    setPhoneToReplace(phoneSlug);
     setIsPhonePickerOpen(true);
   };
 
@@ -95,7 +71,7 @@ const ComparePage: React.FC = () => {
   const handlePhoneSelect = (phone: Phone) => {
     if (phoneToReplace !== null) {
       // Replace existing phone
-      comparisonActions.replacePhone(phoneToReplace, phone);
+      comparisonActions.replacePhone(phoneToReplace, phone); // Pass the full phone object
     } else {
       // Add new phone
       comparisonActions.addPhone(phone.slug!);
@@ -105,14 +81,14 @@ const ComparePage: React.FC = () => {
   };
 
   // Handle removing a phone from comparison
-  const handleRemovePhone = (phoneId: number) => {
-    comparisonActions.removePhone(phoneId);
-    const newPhones = comparisonState.phones.filter(p => p.id !== phoneId);
+  const handleRemovePhone = (phoneSlug: string) => {
+    comparisonActions.removePhone(phoneSlug);
+    const newPhones = comparisonState.phones.filter(p => p.slug !== phoneSlug);
     
     if (newPhones.length === 0) {
       navigate('/compare');
     } else {
-      navigate(generateComparisonUrl(newPhones));
+      navigate(generateComparisonUrl(newPhones.map(p => p.slug!)));
     }
   };
 
@@ -127,7 +103,7 @@ const ComparePage: React.FC = () => {
   // Update URL when phones change
   useEffect(() => {
     if (comparisonState.phones.length > 0) {
-      const newUrl = generateComparisonUrl(comparisonState.phones);
+      const newUrl = generateComparisonUrl(comparisonState.selectedPhoneSlugs);
       if (window.location.pathname !== newUrl) {
         navigate(newUrl, { replace: true });
       }
@@ -198,20 +174,8 @@ const ComparePage: React.FC = () => {
                 </svg>
                 <div>
                   <span className="text-red-700 dark:text-red-300">{comparisonState.error}</span>
-                  {comparisonState.retryCount > 0 && (
-                    <div className="text-sm text-red-600 dark:text-red-400 mt-1">
-                      Retry attempt {comparisonState.retryCount}
-                    </div>
-                  )}
                 </div>
               </div>
-              <button
-                onClick={comparisonActions.retryFetch}
-                disabled={comparisonState.isLoading || comparisonState.isRetrying}
-                className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-700 dark:text-red-300 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {comparisonState.isRetrying ? 'Retrying...' : 'Retry'}
-              </button>
             </div>
           </div>
         )}
@@ -234,7 +198,7 @@ const ComparePage: React.FC = () => {
         )}
 
         {/* Main Content */}
-        {comparisonState.selectedPhoneIds.length === 0 ? (
+        {comparisonState.selectedPhoneSlugs.length === 0 ? (
           // Empty state - no phones selected
           <div className="text-center py-16">
             <div className="max-w-md mx-auto">
@@ -316,7 +280,7 @@ const ComparePage: React.FC = () => {
             setPhoneToReplace(null);
           }}
           onSelectPhone={handlePhoneSelect}
-          excludePhoneIds={comparisonState.selectedPhoneIds}
+          excludePhoneSlugs={comparisonState.selectedPhoneSlugs}
           title={phoneToReplace !== null ? "Replace Phone" : "Add Phone to Comparison"}
         />
 

@@ -5,8 +5,8 @@ import { selectPrimaryBadge } from '../../utils/badgeSelector';
 interface StickyProductCardsProps {
   phones: Phone[];
   verdictBadges?: Record<number, string>;
-  onRemovePhone: (phoneId: number) => void;
-  onChangePhone: (phoneId: number) => void;
+  onRemovePhone: (phoneSlug: string) => void;
+  onChangePhone: (phoneSlug: string) => void;
   onAddPhone: () => void;
   maxPhones: number;
 }
@@ -32,7 +32,7 @@ const StickyProductCards: React.FC<StickyProductCardsProps> = ({
 
             return (
               <div
-                key={phone.id}
+                key={phone.slug}
                 className="flex-shrink-0 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 sm:p-4 min-w-[260px] sm:min-w-[280px] border border-gray-200 dark:border-gray-700"
               >
                 {/* Phone Image and Badge */}
@@ -121,13 +121,13 @@ const StickyProductCards: React.FC<StickyProductCardsProps> = ({
                 {/* Action Buttons */}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onChangePhone(phone.id)}
+                    onClick={() => phone.slug && onChangePhone(phone.slug)}
                     className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200 min-h-[36px] touch-manipulation"
                   >
                     Change
                   </button>
                   <button
-                    onClick={() => onRemovePhone(phone.id)}
+                    onClick={() => phone.slug && onRemovePhone(phone.slug)}
                     className="flex-1 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors duration-200 min-h-[36px] touch-manipulation"
                   >
                     Remove

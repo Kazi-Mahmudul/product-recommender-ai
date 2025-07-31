@@ -258,10 +258,10 @@ def get_smart_recommendations(
     )
     return recommendations
 
-@router.get("/{phone_id}/recommendations", response_model=List[SmartRecommendation])
+@router.get("/slug/{phone_slug}/recommendations", response_model=List[SmartRecommendation])
 @track_execution_time("get_phone_recommendations_endpoint", "api_response_times")
 def get_phone_recommendations(
-    phone_id: int,
+    phone_slug: str,
     limit: int = 8,
     response: Response = None,
     db: Session = Depends(get_db)
@@ -269,7 +269,7 @@ def get_phone_recommendations(
     """
     Get smart recommendations for a specific phone
     
-    This endpoint returns a list of recommended phones based on the specified phone ID.
+    This endpoint returns a list of recommended phones based on the specified phone slug.
     The recommendations are generated using multiple matching algorithms including:
     - Price proximity matching
     - Specification similarity
@@ -284,93 +284,23 @@ def get_phone_recommendations(
     - Match reasons
     """
     # Check if phone exists
-    target_phone = phone_crud.get_phone(db, phone_id=phone_id)
+    target_phone = phone_crud.get_phone_by_slug(db, slug=phone_slug)
     if target_phone is None:
-        raise HTTPException(status_code=404, detail=f"Phone with ID {phone_id} not found")
+        raise HTTPException(status_code=404, detail=f"Phone with slug {phone_slug} not found")
     
     # Generate recommendations using the recommendation service
     recommendation_service = RecommendationService(db)
-    recommendations = recommendation_service.get_smart_recommendations(phone_id, limit=limit)
+    recommendations = recommendation_service.get_smart_recommendations(target_phone.id, limit=limit)
     
     # Set cache headers (24 hours)
     if response:
         cache_time = 24 * 60 * 60  # 24 hours in seconds
         response.headers["Cache-Control"] = f"public, max-age={cache_time}"
-        response.headers["ETag"] = f"phone-{phone_id}-recommendations-{int(time.time() / cache_time)}"
+        response.headers["ETag"] = f"phone-{phone_slug}-recommendations-{int(time.time() / cache_time)}"
     
     return recommendations
 
 @router.get("/bulk", response_model=BulkPhonesResponse)
-@track_execution_time("get_phones_bulk_endpoint", "api_response_times")
-def get_phones_bulk(
-    ids: str = Query(..., description="Comma-separated phone IDs or slugs (max 50)"),
-    response: Response = None,
-    db: Session = Depends(get_db)
-):
-    """
-    Get multiple phones by IDs or slugs in a single request.
-    
-    This endpoint allows fetching multiple phones efficiently for comparison features.
-    Supports both numeric IDs (legacy) and slugs (new format).
-    
-    Args:
-        ids: Comma-separated list of phone IDs or slugs (e.g., "1,2,3,4" or "samsung-galaxy-a15,realme-narzo-70")
-        db: Database session
-    
-    Returns:
-        BulkPhonesResponse with phones array, not_found identifiers, and counts
-    
-    Raises:
-        HTTPException: For validation errors or database issues
-    """
-    try:
-        # Detect if input contains numeric IDs or slugs
-        id_parts = [part.strip() for part in ids.split(',') if part.strip()]
-        
-        # Check if all parts are numeric (legacy ID format)
-        all_numeric = all(part.isdigit() for part in id_parts)
-        
-        if all_numeric:
-            # Handle as numeric IDs (legacy format)
-            phone_ids = parse_and_validate_ids(ids)
-            found_phones, not_found_items = phone_crud.get_phones_by_ids(db, phone_ids)
-            phones_data = [phone_crud.phone_to_dict(phone) for phone in found_phones]
-            cache_key = f"bulk-phones-{hash(tuple(sorted(phone_ids)))}"
-        else:
-            # Handle as slugs (new format)
-            phone_slugs = parse_and_validate_slugs(ids)
-            found_phones, not_found_items = phone_crud.get_phones_by_slugs(db, phone_slugs)
-            phones_data = [phone_crud.phone_to_dict(phone) for phone in found_phones]
-            cache_key = f"bulk-phones-slugs-{hash(tuple(sorted(phone_slugs)))}"
-        
-        # Set cache headers (1 hour for bulk phone data)
-        if response:
-            cache_time = 60 * 60  # 1 hour in seconds
-            response.headers["Cache-Control"] = f"public, max-age={cache_time}"
-            response.headers["ETag"] = f"{cache_key}-{int(time.time() / cache_time)}"
-        
-        # Return structured response
-        return BulkPhonesResponse(
-            phones=phones_data,
-            not_found=not_found_items,
-            total_requested=len(id_parts),
-            total_found=len(phones_data)
-        )
-        
-    except HTTPException:
-        # Re-raise validation errors as-is
-        raise
-    except Exception as e:
-        # Handle unexpected database or system errors
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error_code": "DATABASE_ERROR",
-                "message": "Internal server error occurred while fetching phones"
-            }
-        )
-
-@router.get("/bulk-slugs", response_model=BulkPhonesResponse)
 @track_execution_time("get_phones_bulk_slugs_endpoint", "api_response_times")
 def get_phones_bulk_by_slugs(
     slugs: str = Query(..., description="Comma-separated phone slugs (max 50)"),

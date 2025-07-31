@@ -12,7 +12,7 @@ import { Phone } from "../../api/phones";
 
 // Define the props interface for the SmartRecommendations component
 interface SmartRecommendationsProps {
-  phoneId: number | string;
+  phoneSlug: string;
   className?: string;
 }
 
@@ -27,12 +27,9 @@ interface SmartRecommendationsProps {
  * - WCAG AA color contrast compliance
  */
 const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
-  phoneId,
+  phoneSlug,
   className = "",
 }) => {
-  // Convert phoneId to number if it's a string
-  const numericPhoneId = typeof phoneId === 'string' ? parseInt(phoneId, 10) : phoneId;
-
   // Use the recommendations hook to manage data fetching and state
   const {
     recommendations,
@@ -44,7 +41,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     refetch,
     retry,
     resetError,
-  } = useRecommendations(numericPhoneId);
+  } = useRecommendations(phoneSlug);
 
   // Use the prefetch hook to prefetch phone details on hover
   const { prefetchPhone } = usePrefetch();
@@ -99,10 +96,10 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
   };
 
   // Handle card hover to prefetch phone details
-  const handleCardHover = (id: number) => {
-    // Skip prefetching for invalid IDs
-    if (!id) return;
-    prefetchPhone(id);
+  const handleCardHover = (slug: string) => {
+    // Skip prefetching for invalid slugs
+    if (!slug) return;
+    prefetchPhone(slug);
   };
 
   // Handle keyboard navigation between cards
@@ -150,7 +147,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
   };
 
   // Check if error message indicates invalid phone ID
-  const isInvalidPhoneId = error && typeof error === "string" && error.includes("Invalid phone ID");
+  const isInvalidPhoneSlug = error && typeof error === "string" && error.includes("Invalid phone slug");
 
   // Render the error boundary fallback UI
   const renderErrorBoundaryFallback = (
@@ -173,7 +170,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
             resetError();
           }}
           retry={handleRetry}
-          isInvalidPhoneId={isInvalidPhoneId}
+          isInvalidPhoneSlug={isInvalidPhoneSlug}
         />
       </div>
     );
@@ -235,11 +232,11 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         {/* Error state with network detection and invalid phone ID detection */}
         {error && !loading && (
           <RecommendationFallback
-            error={error}
-            retry={handleRetry}
-            isNetworkError={isNetworkError}
-            isInvalidPhoneId={isInvalidPhoneId}
-          />
+              error={error}
+              retry={handleRetry}
+              isNetworkError={isNetworkError}
+              isInvalidPhoneSlug={isInvalidPhoneSlug}
+            />
         )}
 
         {/* Empty state with graceful degradation */}
@@ -266,7 +263,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
           >
             {validRecommendations.map((recommendation, index) => (
               <div
-                key={`recommendation-${recommendation?.phone?.id || index}-${index}`}
+                key={`recommendation-${recommendation?.phone?.slug || index}-${index}`}
                 className="
                   min-w-[200px] flex-shrink-0
                   md:min-w-0 md:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]
@@ -280,13 +277,14 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
                     name: "Unknown Phone",
                     model: "Unknown Model",
                     price: "",
-                    url: ""
+                    url: "",
+                    slug: ""
                   }}
                   highlights={recommendation?.highlights || []}
                   badges={recommendation?.badges || []}
                   similarityScore={recommendation?.similarityScore || 0}
                   onClick={handleCardClick}
-                  onMouseEnter={handleCardHover}
+                  onMouseEnter={() => recommendation?.phone?.slug && handleCardHover(recommendation.phone.slug)}
                   index={index}
                 />
               </div>

@@ -14,18 +14,15 @@ export interface SmartRecommendation {
 }
 
 /**
- * Validates if a phone ID is valid for API calls
- * @param id - The phone ID to validate
- * @returns boolean indicating if the ID is valid
+ * Validates if a phone slug is valid for API calls
+ * @param slug - The phone slug to validate
+ * @returns boolean indicating if the slug is valid
  */
-const isValidPhoneId = (id: number | string | null | undefined): boolean => {
-  if (id === undefined || id === null) return false;
-  
-  // If it's a string, try to convert it to a number
-  const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
-  
-  // Check if it's a valid number greater than 0
-  return !isNaN(numericId) && numericId > 0;
+const isValidPhoneSlug = (slug: string | null | undefined): boolean => {
+  if (slug === undefined || slug === null || slug.trim() === '') return false;
+  // Basic slug validation: non-empty string, no leading/trailing spaces
+  // More complex validation (e.g., regex for allowed characters) can be added if needed
+  return true;
 };
 
 /**
@@ -36,32 +33,29 @@ const isValidPhoneId = (id: number | string | null | undefined): boolean => {
  * @returns Promise resolving to an array of SmartRecommendation objects
  */
 export async function fetchRecommendations(
-  phoneId: number | string, 
+  phoneSlug: string, 
   limit: number = 8,
   signal?: AbortSignal
 ): Promise<SmartRecommendation[]> {
   // Debug logging
-  console.log('fetchRecommendations API called with phoneId:', phoneId, 'type:', typeof phoneId);
+  console.log('fetchRecommendations API called with phoneSlug:', phoneSlug, 'type:', typeof phoneSlug);
   
-  // Validate phone ID before making API calls
-  if (!isValidPhoneId(phoneId)) {
-    console.error('API validation failed for phoneId:', phoneId);
-    throw new Error('Invalid phone ID. Please provide a valid phone ID.');
+  // Validate phone slug before making API calls
+  if (!isValidPhoneSlug(phoneSlug)) {
+    console.error('API validation failed for phoneSlug:', phoneSlug);
+    throw new Error('Invalid phone slug. Please provide a valid phone slug.');
   }
   
-  // Convert phoneId to number if it's a string
-  const numericPhoneId = typeof phoneId === 'string' ? parseInt(phoneId, 10) : phoneId;
-
   try {
     const response = await fetch(
-      `${API_BASE}/api/v1/phones/${numericPhoneId}/recommendations?limit=${limit}`,
+      `${API_BASE}/api/v1/phones/slug/${phoneSlug}/recommendations?limit=${limit}`,
       { signal }
     );
     
     if (!response.ok) {
       // Handle different HTTP error codes
       if (response.status === 404) {
-        throw new Error(`Phone with ID ${phoneId} not found. Please check the phone ID and try again.`);
+        throw new Error(`Phone with slug ${phoneSlug} not found. Please check the phone slug and try again.`);
       } else if (response.status === 429) {
         throw new Error('Too many requests. Please try again later.');
       } else if (response.status === 400) {
@@ -84,15 +78,15 @@ export async function fetchRecommendations(
       throw new Error('Invalid response format. Expected an array of recommendations.');
     }
     
-    // Check if all recommendations have invalid IDs (like ID 0)
-    const allInvalid = data.length > 0 && data.every(rec => !rec.phone || !isValidPhoneId(rec.phone.id));
+    // Check if all recommendations have invalid slugs
+    const allInvalid = data.length > 0 && data.every(rec => !rec.phone || !isValidPhoneSlug(rec.phone.slug));
     if (allInvalid) {
-      console.error('API returned recommendations with all invalid phone IDs:', data);
+      console.error('API returned recommendations with all invalid phone slugs:', data);
       throw new Error('The recommendation service returned invalid data. Please try again later.');
     }
     
-    // Filter out recommendations with invalid phone IDs
-    const validRecommendations = data.filter(rec => rec.phone && isValidPhoneId(rec.phone.id));
+    // Filter out recommendations with invalid phone slugs
+    const validRecommendations = data.filter(rec => rec.phone && isValidPhoneSlug(rec.phone.slug));
     
     // If we filtered out some but not all recommendations, log a warning
     if (validRecommendations.length < data.length && validRecommendations.length > 0) {
@@ -125,18 +119,18 @@ export async function fetchRecommendations(
 
 /**
  * Prefetches phone details for faster navigation
- * @param phoneId - The ID of the phone to prefetch
+ * @param phoneSlug - The slug of the phone to prefetch
  * @returns Promise that resolves when prefetching is complete
  */
-export async function prefetchPhoneDetails(phoneId: number | string): Promise<void> {
-  // Validate phone ID before making API calls
-  if (!isValidPhoneId(phoneId)) {
-    console.warn('Invalid phone ID for prefetching:', phoneId);
+export async function prefetchPhoneDetails(phoneSlug: string): Promise<void> {
+  // Validate phone slug before making API calls
+  if (!isValidPhoneSlug(phoneSlug)) {
+    console.warn('Invalid phone slug for prefetching:', phoneSlug);
     return;
   }
 
   // Check if we already have this phone in cache and it's not expired
-  const cacheKey = getPhoneDetailsCacheKey(phoneId);
+  const cacheKey = getPhoneDetailsCacheKey(phoneSlug);
   const cachedData = getCacheItem(cacheKey);
   
   if (cachedData) {
@@ -149,13 +143,10 @@ export async function prefetchPhoneDetails(phoneId: number | string): Promise<vo
     const controller = new AbortController();
     const signal = controller.signal;
     
-    // Convert phoneId to number if it's a string
-    const numericPhoneId = typeof phoneId === 'string' ? parseInt(phoneId, 10) : phoneId;
-    
     // Use a timeout to abort the prefetch if it takes too long
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(`${API_BASE}/api/v1/phones/${numericPhoneId}`, {
+    const response = await fetch(`${API_BASE}/api/v1/phones/slug/${phoneSlug}`, {
       signal
     });
     
@@ -167,7 +158,7 @@ export async function prefetchPhoneDetails(phoneId: number | string): Promise<vo
       // Store in cache using our cache manager
       setCacheItem(cacheKey, data, CACHE_TTL.PHONE_DETAILS);
     } else if (response.status === 404) {
-      console.warn(`Phone with ID ${phoneId} not found during prefetch.`);
+      console.warn(`Phone with slug ${phoneSlug} not found during prefetch.`);
     } else {
       console.warn(`Failed to prefetch phone details: HTTP error ${response.status}`);
     }

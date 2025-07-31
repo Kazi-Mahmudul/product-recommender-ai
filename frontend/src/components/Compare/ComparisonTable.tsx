@@ -200,7 +200,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
               </th>
               {phones.map((phone, index) => (
                 <th
-                  key={phone.id}
+                  key={phone.slug}
                   className="px-6 py-4 text-center text-sm font-medium text-gray-900 dark:text-white min-w-[200px]"
                   scope="col"
                   role="columnheader"
@@ -246,7 +246,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     
                     return (
                       <td
-                        key={phone.id}
+                        key={phone.slug}
                         className={`px-6 py-4 text-sm text-center transition-colors duration-200 ${
                           isBest 
                             ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 font-semibold' 

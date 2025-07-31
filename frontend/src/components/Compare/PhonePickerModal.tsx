@@ -5,7 +5,7 @@ interface PhonePickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectPhone: (phone: Phone) => void;
-  excludePhoneIds: number[];
+  excludePhoneSlugs?: string[];
   suggestedPhones?: Phone[];
   title?: string;
 }
@@ -14,7 +14,7 @@ const PhonePickerModal: React.FC<PhonePickerModalProps> = ({
   isOpen,
   onClose,
   onSelectPhone,
-  excludePhoneIds,
+  excludePhoneSlugs = [],
   suggestedPhones = [],
   title = "Select a Phone"
 }) => {
@@ -65,7 +65,9 @@ const PhonePickerModal: React.FC<PhonePickerModalProps> = ({
     }
 
     // If no explicit suggestions, generate based on popular phones or similar price range
-    const availablePhones = phones.filter(phone => !excludePhoneIds.includes(phone.id));
+    const availablePhones = phones.filter(phone => 
+      !excludePhoneSlugs.includes(phone.slug!)
+    );
     
     // Sort by popularity/score and return top phones
     return availablePhones
@@ -79,7 +81,7 @@ const PhonePickerModal: React.FC<PhonePickerModalProps> = ({
 
   // Filter phones based on search query and exclusions
   const filteredPhones = phones.filter(phone => {
-    if (excludePhoneIds.includes(phone.id)) return false;
+    if (excludePhoneSlugs.includes(phone.slug!)) return false;
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -108,7 +110,9 @@ const PhonePickerModal: React.FC<PhonePickerModalProps> = ({
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const availablePhones = [...(getSuggestedPhones().length > 0 && !searchQuery ? getSuggestedPhones().slice(0, 4) : []), ...filteredPhones.slice(0, 20)];
-    const validPhones = availablePhones.filter(phone => !excludePhoneIds.includes(phone.id));
+    const validPhones = availablePhones.filter(phone => 
+      !excludePhoneSlugs.includes(phone.slug!)
+    );
 
     switch (e.key) {
       case 'Escape':
@@ -218,10 +222,10 @@ const PhonePickerModal: React.FC<PhonePickerModalProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
                       {getSuggestedPhones().slice(0, 4).map((phone, index) => (
                         <PhoneCard
-                          key={phone.id}
+                          key={phone.slug}
                           phone={phone}
                           onSelect={handlePhoneSelect}
-                          isExcluded={excludePhoneIds.includes(phone.id)}
+                          isExcluded={excludePhoneSlugs.includes(phone.slug!)}
                           isSelected={selectedIndex === index}
                           index={index}
                         />
@@ -240,7 +244,7 @@ const PhonePickerModal: React.FC<PhonePickerModalProps> = ({
                       const adjustedIndex = getSuggestedPhones().length > 0 && !searchQuery ? index + 4 : index;
                       return (
                         <PhoneCard
-                          key={phone.id}
+                          key={phone.slug}
                           phone={phone}
                           onSelect={handlePhoneSelect}
                           isExcluded={false}

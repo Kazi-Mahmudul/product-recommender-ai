@@ -9,7 +9,7 @@ interface RecommendationCardProps {
   badges: string[];
   similarityScore: number;
   onClick: (phone: Phone) => void;
-  onMouseEnter: (id: number) => void;
+  onMouseEnter: (slug: string) => void;
   index?: number; // For keyboard navigation order
 }
 
@@ -40,7 +40,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
 
   // Handle mouse enter event for prefetching
   const handleMouseEnter = () => {
-    onMouseEnter(phone?.id || 0);
+    onMouseEnter(phone?.slug || "");
   };
   
   // Select the primary badge using our badge selector utility
@@ -52,6 +52,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
   // Ensure phone object has all required properties with fallbacks
   const safePhone = {
     id: phone?.id || 0,
+    slug: phone?.slug || "",
     brand: phone?.brand || "Unknown",
     name: phone?.name || "Unknown Phone",
     model: phone?.model || "Unknown Model",
@@ -100,8 +101,8 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       tabIndex={0}
       role="button"
       aria-label={`View details for ${safePhone.brand} ${safePhone.name}`}
-      aria-describedby={`card-desc-${safePhone.id}`}
-      data-testid={`recommendation-card-${safePhone.id}`}
+      aria-describedby={`card-desc-${safePhone.slug}`} 
+      data-testid={`recommendation-card-${safePhone.slug}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault(); // Prevent page scroll on space

@@ -663,10 +663,10 @@ function formatVerdictForPDF(verdict: string): string {
 
 // Re-export other utility functions
 export function generateShareableUrl(
-  phoneIds: number[],
+  phoneSlugs: string[],
   baseUrl: string = window.location.origin
 ): string {
-  const path = `/compare/${phoneIds.join("-")}`;
+  const path = `/compare/${phoneSlugs.join("-vs-")}`;
   return `${baseUrl}${path}`;
 }
 
@@ -721,7 +721,7 @@ export async function shareComparison(
 
 export interface ComparisonHistoryItem {
   id: string;
-  phoneIds: number[];
+  phoneSlugs: string[];
   phoneNames: string[];
   timestamp: Date;
   url: string;
@@ -734,16 +734,16 @@ export function saveComparisonToHistory(phones: Phone[]): void {
   try {
     const historyItem: ComparisonHistoryItem = {
       id: Date.now().toString(),
-      phoneIds: phones.map((p) => p.id),
+      phoneSlugs: phones.map((p) => p.slug!),
       phoneNames: phones.map((p) => `${p.brand} ${p.name}`),
       timestamp: new Date(),
-      url: generateShareableUrl(phones.map((p) => p.id)),
+      url: generateShareableUrl(phones.map((p) => p.slug!)),
     };
 
     const existingHistory = getComparisonHistory();
 
     const filteredHistory = existingHistory.filter(
-      (item) => !arraysEqual(item.phoneIds.sort(), historyItem.phoneIds.sort())
+      (item) => !arraysEqual(item.phoneSlugs.sort(), historyItem.phoneSlugs.sort())
     );
 
     const newHistory = [historyItem, ...filteredHistory].slice(
@@ -782,7 +782,7 @@ export function clearComparisonHistory(): void {
   }
 }
 
-function arraysEqual(a: number[], b: number[]): boolean {
+function arraysEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((val, index) => val === b[index]);
 }

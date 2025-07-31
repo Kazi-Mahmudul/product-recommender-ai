@@ -2,7 +2,7 @@
  * Navigation utility functions for the ePick application
  */
 
-import { generateComparisonUrlLegacy } from './slugUtils';
+import { generateComparisonUrl, generatePhoneDetailUrl } from './slugUtils';
 
 /**
  * Navigate to the phone details page
@@ -11,10 +11,9 @@ import { generateComparisonUrlLegacy } from './slugUtils';
  */
 export const navigateToPhoneDetails = (
   navigate: (path: string) => void,
-  phoneId: string
+  phoneSlug: string
 ) => {
-  // For now, use ID-based URL and let backend handle redirect to slug-based URL
-  navigate(`/phones/${phoneId}`);
+  navigate(generatePhoneDetailUrl(phoneSlug));
 };
 
 /**
@@ -24,16 +23,14 @@ export const navigateToPhoneDetails = (
  */
 export const navigateToComparison = (
   navigate: (path: string) => void,
-  phoneIds: string[]
+  phoneSlugs: string[]
 ) => {
-  if (phoneIds.length < 2) {
+  if (phoneSlugs.length < 2) {
     console.error("At least 2 phones are required for comparison");
     return;
   }
   
-  // Convert string IDs to numbers for the legacy URL generator
-  const numericIds = phoneIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
-  navigate(generateComparisonUrlLegacy(numericIds));
+  navigate(generateComparisonUrl(phoneSlugs));
 };
 
 /**
@@ -41,12 +38,10 @@ export const navigateToComparison = (
  * @param phoneIds Array of phone IDs to compare
  * @returns The URL for the comparison page
  */
-export const getComparisonUrl = (phoneIds: string[]): string => {
-  if (phoneIds.length < 2) {
+export const getComparisonUrl = (phoneSlugs: string[]): string => {
+  if (phoneSlugs.length < 2) {
     return "";
   }
   
-  // Convert string IDs to numbers for the legacy URL generator
-  const numericIds = phoneIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
-  return generateComparisonUrlLegacy(numericIds);
+  return generateComparisonUrl(phoneSlugs);
 };

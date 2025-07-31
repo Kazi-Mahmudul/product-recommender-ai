@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.crud.auth import (
@@ -16,6 +16,8 @@ import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from app.core.config import settings
+from app.crud import comparison as crud_comparison
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +133,17 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     # Create access token
     access_token = create_access_token(data={"sub": str(user.id)})
     
+    # Merge anonymous comparison data if a session cookie exists
+    comparison_session_id = request.cookies.get("comparison_session_id")
+    if comparison_session_id:
+        try:
+            session_uuid = uuid.UUID(comparison_session_id)
+            crud_comparison.merge_comparison_data(db, session_uuid, user.id)
+            # Clear the session cookie after merging
+            response.delete_cookie("comparison_session_id")
+        except ValueError:
+            logger.warning(f"Invalid comparison_session_id cookie: {comparison_session_id}")
+
     return Token(
         access_token=access_token,
         token_type="bearer",

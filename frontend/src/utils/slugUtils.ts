@@ -19,196 +19,106 @@ export function generatePhoneSlug(phoneName: string): string {
 }
 
 /**
- * Generates a comparison URL slug from multiple phones
- * @param phones - Array of phones to include in comparison
- * @returns Comparison URL slug
+ * Parses phone slugs from URL parameters
+ * @param slugs - Comma or dash separated phone slugs from URL
+ * @returns Array of phone slugs
  */
-export function generateComparisonSlug(phones: Phone[]): string {
-  if (phones.length === 0) return '';
-  
-  const slugs = phones.map(phone => generatePhoneSlug(phone.name));
-  return slugs.join('-vs-');
-}
-
-/**
- * Parses phone identifiers from URL parameters (supports both IDs and slugs)
- * @param identifiers - Comma or dash separated phone identifiers from URL
- * @returns Array of phone identifiers (numbers for IDs, strings for slugs)
- */
-export function parsePhoneIdentifiersFromUrl(identifiers: string): string[] {
-  if (!identifiers) return [];
+export function parsePhoneSlugsFromUrl(slugs: string): string[] {
+  if (!slugs) return [];
   
   // Handle both comma-separated and dash-separated formats
-  return identifiers.split(/[,-]/).map(id => id.trim()).filter(id => id.length > 0);
+  return slugs.split(/[,-]/).map(slug => slug.trim()).filter(slug => slug.length > 0);
 }
 
 /**
- * Parses phone IDs from URL parameters (legacy function for backward compatibility)
- * @param phoneIds - Comma or dash separated phone IDs from URL
- * @returns Array of phone IDs
- */
-export function parsePhoneIdsFromUrl(phoneIds: string): number[] {
-  if (!phoneIds) return [];
-  
-  // Handle both comma-separated and dash-separated formats
-  const ids = phoneIds.split(/[,-]/).map(id => parseInt(id.trim(), 10));
-  return ids.filter(id => !isNaN(id) && id > 0);
-}
-
-/**
- * Parses comparison URL to detect format and extract identifiers
- * @param urlParam - URL parameter containing phone identifiers
- * @returns Object with identifiers, format detection, and metadata
+ * Parses comparison URL to extract slugs
+ * @param urlParam - URL parameter containing phone slugs
+ * @returns Object with slugs and format detection
  */
 export function parseComparisonUrl(urlParam: string): {
-  identifiers: string[];
-  isSlugBased: boolean;
-  isLegacyFormat: boolean;
+  slugs: string[];
 } {
   if (!urlParam) {
     return {
-      identifiers: [],
-      isSlugBased: false,
-      isLegacyFormat: false
+      slugs: [],
     };
   }
 
-  // Check if URL contains "-vs-" (new slug format)
-  const isSlugBased = urlParam.includes('-vs-');
-  
-  if (isSlugBased) {
-    // Parse slug-based format: "samsung-galaxy-a15-vs-realme-narzo-70"
-    const identifiers = urlParam.split('-vs-').map(slug => slug.trim()).filter(slug => slug.length > 0);
-    return {
-      identifiers,
-      isSlugBased: true,
-      isLegacyFormat: false
-    };
-  } else {
-    // Parse legacy ID format: "1958-1752" or comma-separated
-    const identifiers = parsePhoneIdentifiersFromUrl(urlParam);
-    const allNumeric = identifiers.every(id => /^\d+$/.test(id));
-    
-    return {
-      identifiers,
-      isSlugBased: false,
-      isLegacyFormat: allNumeric
-    };
-  }
-}
-
-/**
- * Generates URL path for phone comparison using slugs
- * @param phones - Array of phones to compare
- * @returns URL path for comparison
- */
-export function generateComparisonUrl(phones: Phone[]): string {
-  if (phones.length === 0) return '/compare';
-  
-  // Use slugs if available, fallback to IDs
-  const identifiers = phones.map(phone => phone.slug || phone.id.toString());
-  
-  // If all phones have slugs, use slug format with "-vs-"
-  const allHaveSlugs = phones.every(phone => phone.slug);
-  if (allHaveSlugs) {
-    return `/compare/${identifiers.join('-vs-')}`;
-  } else {
-    // Fallback to legacy ID format
-    const ids = phones.map(phone => phone.id);
-    return `/compare/${ids.join('-')}`;
-  }
-}
-
-/**
- * Generates URL path for phone comparison using IDs (legacy function)
- * @param phoneIds - Array of phone IDs
- * @returns URL path for comparison
- */
-export function generateComparisonUrlLegacy(phoneIds: number[]): string {
-  if (phoneIds.length === 0) return '/compare';
-  return `/compare/${phoneIds.join('-')}`;
-}
-
-/**
- * Generates URL path for phone detail page using slug
- * @param phone - Phone object with slug
- * @returns URL path for phone detail page
- */
-export function generatePhoneDetailUrl(phone: Phone): string {
-  if (phone.slug) {
-    return `/phones/${phone.slug}`;
-  } else {
-    // Fallback to ID-based URL
-    return `/phones/${phone.id}`;
-  }
-}
-
-/**
- * Validates phone identifiers for comparison (supports both IDs and slugs)
- * @param identifiers - Array of phone identifiers to validate
- * @returns Validation result with errors if any
- */
-export function validateComparisonPhoneIdentifiers(identifiers: string[]): {
-  isValid: boolean;
-  errors: string[];
-} {
-  const errors: string[] = [];
-  
-  if (identifiers.length < 2) {
-    errors.push('At least 2 phones are required for comparison');
-  }
-  
-  if (identifiers.length > 5) {
-    errors.push('Maximum 5 phones can be compared at once');
-  }
-  
-  // Check for duplicate identifiers
-  const uniqueIdentifiers = new Set(identifiers);
-  if (uniqueIdentifiers.size !== identifiers.length) {
-    errors.push('Duplicate phones cannot be compared');
-  }
-  
-  // Check for empty identifiers
-  const emptyIdentifiers = identifiers.filter(id => !id || id.trim().length === 0);
-  if (emptyIdentifiers.length > 0) {
-    errors.push('Invalid phone identifiers detected');
-  }
-  
+  // Parse slug-based format: "samsung-galaxy-a15-vs-realme-narzo-70"
+  const slugs = urlParam.split('-vs-').map(slug => slug.trim()).filter(slug => slug.length > 0);
   return {
-    isValid: errors.length === 0,
-    errors
+    slugs,
   };
 }
 
 /**
- * Validates phone IDs for comparison (legacy function for backward compatibility)
- * @param phoneIds - Array of phone IDs to validate
+ * Generates URL path for phone comparison using slugs or Phone objects
+ * @param phonesOrSlugs - Array of phone slugs or Phone objects to compare
+ * @returns URL path for comparison
+ */
+export function generateComparisonUrl(phonesOrSlugs: (Phone | string)[]): string {
+  if (phonesOrSlugs.length === 0) return '/compare';
+  
+  const slugs = phonesOrSlugs.map(item => {
+    if (typeof item === 'string') {
+      return item;
+    }
+    // Handle Phone object
+    return item.slug || item.id.toString();
+  });
+  
+  return `/compare/${slugs.join('-vs-')}`;
+}
+
+/**
+ * Generates URL path for phone detail page using slug or Phone object
+ * @param phoneOrSlug - Phone object or phone slug string
+ * @returns URL path for phone detail page
+ */
+export function generatePhoneDetailUrl(phoneOrSlug: Phone | string): string {
+  if (typeof phoneOrSlug === 'string') {
+    return `/phones/${phoneOrSlug}`;
+  }
+  
+  // Handle Phone object
+  const phone = phoneOrSlug;
+  if (phone.slug && phone.slug.trim()) {
+    return `/phones/${phone.slug}`;
+  }
+  
+  // Fallback to ID-based URL if no slug
+  return `/phones/${phone.id}`;
+}
+
+/**
+ * Validates phone slugs for comparison
+ * @param slugs - Array of phone slugs to validate
  * @returns Validation result with errors if any
  */
-export function validateComparisonPhoneIds(phoneIds: number[]): {
+export function validateComparisonPhoneSlugs(slugs: string[]): {
   isValid: boolean;
   errors: string[];
 } {
   const errors: string[] = [];
   
-  if (phoneIds.length < 2) {
+  if (slugs.length < 2) {
     errors.push('At least 2 phones are required for comparison');
   }
   
-  if (phoneIds.length > 5) {
+  if (slugs.length > 5) {
     errors.push('Maximum 5 phones can be compared at once');
   }
   
-  // Check for duplicate IDs
-  const uniqueIds = new Set(phoneIds);
-  if (uniqueIds.size !== phoneIds.length) {
+  // Check for duplicate slugs
+  const uniqueSlugs = new Set(slugs);
+  if (uniqueSlugs.size !== slugs.length) {
     errors.push('Duplicate phones cannot be compared');
   }
   
-  // Check for invalid IDs
-  const invalidIds = phoneIds.filter(id => !Number.isInteger(id) || id <= 0);
-  if (invalidIds.length > 0) {
-    errors.push('Invalid phone IDs detected');
+  // Check for empty slugs
+  const emptySlugs = slugs.filter(slug => !slug || slug.trim().length === 0);
+  if (emptySlugs.length > 0) {
+    errors.push('Invalid phone slugs detected');
   }
   
   return {
@@ -219,11 +129,11 @@ export function validateComparisonPhoneIds(phoneIds: number[]): {
 
 /**
  * Creates a shareable comparison URL with phone slugs
- * @param phones - Array of phones in comparison
+ * @param slugs - Array of phone slugs in comparison
  * @param baseUrl - Base URL of the application
  * @returns Shareable URL with phone slugs
  */
-export function createShareableComparisonUrl(phones: Phone[], baseUrl: string = window.location.origin): string {
-  const comparisonUrl = generateComparisonUrl(phones);
+export function createShareableComparisonUrl(slugs: string[], baseUrl: string = window.location.origin): string {
+  const comparisonUrl = generateComparisonUrl(slugs);
   return `${baseUrl}${comparisonUrl}`;
 }

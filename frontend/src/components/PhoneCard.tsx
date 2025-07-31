@@ -6,7 +6,7 @@ import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
 interface PhoneCardProps {
   phone: Phone;
-  onFullSpecs: () => void;
+  onFullSpecs: (slug: string) => void;
   // onCompare removed - handled internally via context
 }
 
@@ -18,12 +18,12 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
   const { addPhone, removePhone, isPhoneSelected } = useComparison();
   
   // Check if this phone is selected for comparison
-  const isSelected = isPhoneSelected(phone.id);
+  const isSelected = isPhoneSelected(phone.slug!);
   
   // Handle compare button click
   const handleCompareClick = () => {
     if (isSelected) {
-      removePhone(phone.id);
+      removePhone(phone.slug!);
     } else {
       addPhone(phone);
     }
@@ -106,7 +106,7 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
           </div>
           <button
             className="bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm"
-            onClick={onFullSpecs}
+            onClick={() => phone.slug && onFullSpecs(phone.slug)}
           >
             Details
           </button>

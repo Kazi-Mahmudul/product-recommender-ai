@@ -40,7 +40,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
   const handleCopyLink = async () => {
     if (phones.length === 0) return;
 
-    const url = generateShareableUrl(phones.map(p => p.id));
+    const url = generateShareableUrl(phones.map(p => p.slug!));
     const success = await copyToClipboard(url);
     
     if (success) {
@@ -56,7 +56,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
   const handleShare = async () => {
     if (phones.length === 0) return;
 
-    const url = generateShareableUrl(phones.map(p => p.id));
+    const url = generateShareableUrl(phones.map(p => p.slug!));
     const success = await shareComparison(phones, url);
     
     if (success) {
