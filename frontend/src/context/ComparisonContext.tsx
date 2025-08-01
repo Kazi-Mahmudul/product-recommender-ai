@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Phone } from '../api/phones';
+import { Phone, fetchPhonesBySlugs } from '../api/phones';
 import { useNavigate } from 'react-router-dom';
 import { generateComparisonUrl } from '../utils/slugUtils';
 import { getComparisonSession, addComparisonItem, removeComparisonItem, getComparisonItems, ComparisonItem } from '../api/comparison';
@@ -62,11 +62,15 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
 
   // Function to fetch comparison items from the backend
   const fetchComparisonItems = useCallback(async () => {
+    console.log('🔄 fetchComparisonItems: Starting...');
     setIsLoading(true);
     try {
+      console.log('📡 fetchComparisonItems: Calling getComparisonItems...');
       const items = await getComparisonItems();
+      console.log('📦 fetchComparisonItems: Received items:', items);
       
       if (items.length === 0) {
+        console.log('📭 fetchComparisonItems: No items found, clearing state');
         setSelectedPhones([]);
         setError(null);
         return;
@@ -74,18 +78,22 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
 
       // Extract slugs from comparison items
       const slugs = items.map(item => item.slug);
+      console.log('🏷️ fetchComparisonItems: Extracted slugs:', slugs);
       
       // Fetch full phone data using slugs
-      const { fetchPhonesBySlugs } = await import('../api/phones');
+      console.log('📱 fetchComparisonItems: Fetching phone details...');
       const phones = await fetchPhonesBySlugs(slugs);
+      console.log('✅ fetchComparisonItems: Fetched phones:', phones);
       
       setSelectedPhones(phones);
       setError(null);
+      console.log('🎉 fetchComparisonItems: State updated successfully');
     } catch (err) {
-      console.error("Failed to fetch comparison items:", err);
+      console.error("❌ fetchComparisonItems: Failed:", err);
       setError(ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setIsLoading(false);
+      console.log('🏁 fetchComparisonItems: Finished');
     }
   }, []);
 
@@ -93,11 +101,17 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Ensure a session exists and fetch items
     const initializeSessionAndFetchItems = async () => {
+      console.log('🚀 ComparisonProvider: Initializing session...');
       try {
-        await getComparisonSession(); // This will create a session if one doesn't exist
+        console.log('📡 ComparisonProvider: Getting comparison session...');
+        const session = await getComparisonSession(); // This will create a session if one doesn't exist
+        console.log('✅ ComparisonProvider: Session obtained:', session.session_id);
+        
+        console.log('🔄 ComparisonProvider: Fetching comparison items...');
         await fetchComparisonItems();
+        console.log('✅ ComparisonProvider: Initialization complete');
       } catch (err) {
-        console.error("Error initializing comparison session:", err);
+        console.error("❌ ComparisonProvider: Error initializing comparison session:", err);
         setError(ERROR_MESSAGES.NETWORK_ERROR);
         setIsLoading(false);
       }
@@ -122,34 +136,53 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
 
   // Add phone to comparison
   const addPhone = useCallback(async (phone: Phone) => {
+    console.log('➕ addPhone: Starting for phone:', phone.name, phone.slug);
+    
     // Validate phone data
     if (!isValidPhone(phone)) {
+      console.log('❌ addPhone: Invalid phone data');
       setComparisonError('INVALID_PHONE_DATA');
       return;
     }
 
     // Check if phone is already selected
     if (selectedPhones.some(p => p.slug === phone.slug)) {
+      console.log('⚠️ addPhone: Phone already selected');
       setComparisonError('PHONE_ALREADY_SELECTED');
       return;
     }
 
     // Check maximum limit
     if (selectedPhones.length >= MAX_PHONES) {
+      console.log('⚠️ addPhone: Maximum phones reached');
       setComparisonError('MAX_PHONES_REACHED');
       return;
     }
 
     try {
+      console.log('🔄 addPhone: Setting loading state...');
       setIsLoading(true);
+      
+      console.log('📡 addPhone: Calling addComparisonItem API...');
       await addComparisonItem(phone.slug!); // Use non-null assertion as isValidPhone checks for slug
+      console.log('✅ addPhone: API call successful');
+      
+      // Add a small delay to ensure backend processing is complete
+      console.log('⏳ addPhone: Waiting 500ms for backend processing...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('🔄 addPhone: Fetching updated comparison items...');
       await fetchComparisonItems(); // Re-fetch to get updated list from backend
+      console.log('✅ addPhone: Fetch completed');
+      
       setError(null); // Clear any previous errors
+      console.log('🎉 addPhone: Successfully completed');
     } catch (err) {
-      console.error("Failed to add phone to comparison:", err);
+      console.error("❌ addPhone: Failed to add phone to comparison:", err);
       setComparisonError('NETWORK_ERROR');
     } finally {
       setIsLoading(false);
+      console.log('🏁 addPhone: Finished');
     }
   }, [selectedPhones, setComparisonError, fetchComparisonItems]);
 
