@@ -153,8 +153,7 @@ export async function fetchPhones({
   sort?: SortOrder;
   filters?: FilterState;
 } = {}): Promise<PhoneListResponse> {
-  // For debugging - log the filters being applied
-  console.log("Applying filters:", filters);
+
 
   // Set up pagination parameters
   const skip = (page - 1) * pageSize;
@@ -214,8 +213,7 @@ export async function fetchPhones({
     params.append("sort", sort);
   }
 
-  // Log the API request URL for debugging
-  console.log(`API Request: ${API_BASE}/api/v1/phones?${params.toString()}`);
+
 
   // Fetch phones from API
   const res = await fetch(`${API_BASE}/api/v1/phones?${params.toString()}`);
@@ -235,9 +233,7 @@ export async function fetchPhones({
     );
   }
 
-  console.log(
-    `Total phones: ${totalCount}, showing ${items.length} items on page ${page}`
-  );
+
 
   return { items, total: totalCount };
 }
@@ -308,8 +304,7 @@ export async function fetchPhoneBySlug(slug: string): Promise<Phone> {
       );
     }
 
-    // Log the error for debugging
-    console.error("Phone fetch error:", error);
+
 
     // Re-throw the error with a more descriptive message if it's not already an Error object
     if (error instanceof Error) {
@@ -333,7 +328,6 @@ export async function fetchBrands(): Promise<string[]> {
     const res = await fetch(`${API_BASE}/api/v1/phones/brands`);
 
     if (!res.ok) {
-      console.error(`Failed to fetch brands: HTTP error ${res.status}`);
       return [];
     }
 
@@ -345,11 +339,9 @@ export async function fetchBrands(): Promise<string[]> {
     } else if (data && Array.isArray(data.brands)) {
       return data.brands;
     } else {
-      console.error("Unexpected response format for brands:", data);
       return [];
     }
   } catch (error) {
-    console.error("Error fetching brands:", error);
     return [];
   }
 }
@@ -369,16 +361,12 @@ export async function fetchCameraSetups(): Promise<string[]> {
     const res = await fetch(`${API_BASE}/api/v1/phones?${params.toString()}`);
 
     if (!res.ok) {
-      console.error(
-        `Failed to fetch phones for camera setups: HTTP error ${res.status}`
-      );
       return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
     }
 
     const data = await res.json();
 
     if (!data || !Array.isArray(data.items)) {
-      console.error("Unexpected response format for phones:", data);
       return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
     }
 
@@ -402,7 +390,6 @@ export async function fetchCameraSetups(): Promise<string[]> {
       ? uniqueCameraSetups
       : ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback if no values found
   } catch (error) {
-    console.error("Error extracting camera setups:", error);
     // Return common camera setups as fallback
     return ["Single", "Dual", "Triple", "Quad", "Penta"];
   }
@@ -445,7 +432,6 @@ export async function fetchPhonesBySlugs(phoneSlugs: string[], signal?: AbortSig
         
         // Handle specific status codes
         if (res.status === 404) {
-          console.warn('Bulk fetch by slugs endpoint not available, falling back to individual fetches');
           return await fetchIndividualPhonesBySlugs(phoneSlugs, signal);
         } else if (res.status === 429) {
           // Extract retry-after header if available
@@ -470,13 +456,11 @@ export async function fetchPhonesBySlugs(phoneSlugs: string[], signal?: AbortSig
     } catch (error: any) {
       // Handle network errors specifically
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        console.error('Network error in bulk phone fetch by slugs:', error);
         throw error;
       }
       
       // Handle insufficient resources error
       if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-        console.error('Insufficient resources error in bulk phone fetch by slugs:', error);
         throw error;
       }
       
@@ -487,7 +471,6 @@ export async function fetchPhonesBySlugs(phoneSlugs: string[], signal?: AbortSig
       
       // For other errors, try fallback
       if (!error.statusCode) {
-        console.warn('Unknown error in bulk fetch by slugs, trying individual fetches:', error);
         return await fetchIndividualPhonesBySlugs(phoneSlugs, signal);
       }
       
@@ -499,13 +482,10 @@ export async function fetchPhonesBySlugs(phoneSlugs: string[], signal?: AbortSig
     // Use retry service for the main operation
     return await retryService.executeWithRetry(fetchOperation, signal);
   } catch (error) {
-    console.error('All retry attempts failed for bulk phone fetch by slugs:', error);
-    
     // Last resort: try individual fetches without retry
     try {
       return await fetchIndividualPhonesBySlugs(phoneSlugs, signal);
     } catch (fallbackError) {
-      console.error('Fallback individual fetches by slugs also failed:', fallbackError);
       throw new Error('Failed to fetch phone data by slugs after all retry attempts');
     }
   }
@@ -522,7 +502,6 @@ async function fetchIndividualPhonesBySlugs(phoneSlugs: string[], signal?: Abort
     try {
       return await fetchPhoneBySlug(slug);
     } catch (error) {
-      console.warn(`Failed to fetch phone with slug ${slug}:`, error);
       return null;
     }
   });
@@ -555,15 +534,11 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
     const optionsPromise = fetch(`${API_BASE}/api/v1/phones/filter-options`)
       .then((res) => {
         if (!res.ok) {
-          console.error(
-            `Failed to fetch filter options: HTTP error ${res.status}`
-          );
           return {};
         }
         return res.json();
       })
       .catch((error) => {
-        console.error("Error fetching filter options:", error);
         return {};
       });
 
@@ -591,7 +566,6 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
           : defaultFilterOptions.cameraSetups,
     };
   } catch (error) {
-    console.error("Error fetching filter options:", error);
     return defaultFilterOptions;
   }
 }

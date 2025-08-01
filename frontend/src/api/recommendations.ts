@@ -37,12 +37,8 @@ export async function fetchRecommendations(
   limit: number = 8,
   signal?: AbortSignal
 ): Promise<SmartRecommendation[]> {
-  // Debug logging
-  console.log('fetchRecommendations API called with phoneSlug:', phoneSlug, 'type:', typeof phoneSlug);
-  
   // Validate phone slug before making API calls
   if (!isValidPhoneSlug(phoneSlug)) {
-    console.error('API validation failed for phoneSlug:', phoneSlug);
     throw new Error('Invalid phone slug. Please provide a valid phone slug.');
   }
   
@@ -81,17 +77,11 @@ export async function fetchRecommendations(
     // Check if all recommendations have invalid slugs
     const allInvalid = data.length > 0 && data.every(rec => !rec.phone || !isValidPhoneSlug(rec.phone.slug));
     if (allInvalid) {
-      console.error('API returned recommendations with all invalid phone slugs:', data);
       throw new Error('The recommendation service returned invalid data. Please try again later.');
     }
     
     // Filter out recommendations with invalid phone slugs
     const validRecommendations = data.filter(rec => rec.phone && isValidPhoneSlug(rec.phone.slug));
-    
-    // If we filtered out some but not all recommendations, log a warning
-    if (validRecommendations.length < data.length && validRecommendations.length > 0) {
-      console.warn(`Filtered out ${data.length - validRecommendations.length} invalid recommendations`);
-    }
     
     return validRecommendations;
   } catch (error) {
@@ -104,9 +94,6 @@ export async function fetchRecommendations(
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       throw new Error('Network error. Please check your internet connection and try again.');
     }
-    
-    // Log the error for debugging
-    console.error('Recommendation fetch error:', error);
     
     // Re-throw the error with a more descriptive message if it's not already an Error object
     if (error instanceof Error) {
@@ -125,7 +112,6 @@ export async function fetchRecommendations(
 export async function prefetchPhoneDetails(phoneSlug: string): Promise<void> {
   // Validate phone slug before making API calls
   if (!isValidPhoneSlug(phoneSlug)) {
-    console.warn('Invalid phone slug for prefetching:', phoneSlug);
     return;
   }
 
@@ -157,15 +143,8 @@ export async function prefetchPhoneDetails(phoneSlug: string): Promise<void> {
       
       // Store in cache using our cache manager
       setCacheItem(cacheKey, data, CACHE_TTL.PHONE_DETAILS);
-    } else if (response.status === 404) {
-      console.warn(`Phone with slug ${phoneSlug} not found during prefetch.`);
-    } else {
-      console.warn(`Failed to prefetch phone details: HTTP error ${response.status}`);
     }
   } catch (error) {
     // Silently fail on prefetch errors (including aborts)
-    if (error instanceof Error && error.name !== 'AbortError') {
-      console.warn('Prefetch failed:', error);
-    }
   }
 }

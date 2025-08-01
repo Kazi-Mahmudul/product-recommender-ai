@@ -1,6 +1,11 @@
 import os
 import sys
+import logging
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Add the project root directory to Python path
 project_root = str(Path(__file__).parent.parent)
@@ -18,12 +23,12 @@ def main():
     
     try:
         # Load the data
-        print(f"Loading data from {csv_path}...")
+        logger.info(f"Loading data from {csv_path}...")
         phones = load_data_from_csv(db, csv_path)
-        print(f"Successfully loaded {len(phones)} phones into the database")
+        logger.info(f"Successfully loaded {len(phones)} phones into the database")
         
     except Exception as e:
-        print(f"Error loading data: {str(e)}")
+        logger.error(f"Error loading data: {str(e)}")
         raise
     finally:
         db.close()

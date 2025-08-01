@@ -1,129 +1,105 @@
-# Mobile Phone Recommender API
+# ePick - Smart Phone Recommendation Platform
 
-A scalable FastAPI-based API for storing and serving mobile phone data. This API is designed to power an AI-based product recommendation and comparison system.
+ePick is an intelligent mobile phone recommendation platform designed for the Bangladesh market. It combines comprehensive phone data with AI-powered recommendations to help users make informed purchasing decisions.
 
-## Project Structure
+## 🚀 Key Features
 
-```
-product_recommender/
-├── .env                    # Environment variables
-├── alembic.ini             # Alembic configuration
-├── requirements.txt        # Dependencies
-├── .gitignore              # Git ignore file
-├── alembic/                # Database migrations
-│   └── versions/           
-├── app/
-│   ├── __init__.py
-│   ├── main.py             # FastAPI application
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py       # Configuration from environment
-│   │   └── database.py     # Database connection
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── phone.py        # SQLAlchemy models
-│   ├── schemas/
-│   │   ├── __init__.py
-│   │   └── phone.py        # Pydantic models
-│   ├── crud/
-│   │   ├── __init__.py
-│   │   └── phone.py        # Database operations
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── api.py          # API router
-│   │   └── endpoints/
-│   │       ├── __init__.py
-│   │       └── phones.py   # Phone endpoints
-│   └── utils/
-│       ├── __init__.py
-│       └── data_loader.py  # CSV to DB loader
-└── scripts/
-    └── load_data.py        # Script to load initial data
-```
+- **Smart Recommendations**: AI-powered phone suggestions based on user preferences and requirements
+- **Comprehensive Database**: Extensive collection of mobile phones with detailed specifications
+- **Advanced Filtering**: Multi-criteria search and filtering capabilities
+- **Price Comparison**: Real-time price tracking and comparison across different models
+- **User-Friendly Interface**: Intuitive web interface for easy phone discovery
+- **Comparison Tools**: Side-by-side phone comparison functionality
 
-## Setup Instructions
+## 🏗️ Architecture
 
-### 1. Prerequisites
+ePick is built with a modern, scalable architecture:
+
+- **Backend**: FastAPI with PostgreSQL database
+- **Frontend**: React with TypeScript
+- **AI Integration**: Gemini AI for intelligent recommendations
+- **Caching**: Redis for performance optimization
+- **Authentication**: JWT-based user authentication
+
+## 📱 Live Demo
+
+- **Website**: [https://pickbd.vercel.app](https://pickbd.vercel.app)
+- **API Documentation**: [https://pickbd-ai.onrender.com/api/v1/docs](https://pickbd-ai.onrender.com/api/v1/docs)
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Python 3.8+
-- MySQL 8.0+
+- PostgreSQL 12+
+- Node.js 16+
 - Git
 
-### 2. Create MySQL Database
+### Backend Setup
 
-Connect to MySQL and run:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/pickbd.git
+   cd pickbd
+   ```
 
-```sql
-CREATE DATABASE product_recommender;
-CREATE USER 'product_user'@'localhost' IDENTIFIED BY 'secure_password';
-GRANT ALL PRIVILEGES ON product_recommender.* TO 'product_user'@'localhost';
-FLUSH PRIVILEGES;
-```
+2. **Set up Python environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-### 3. Clone Repository
+3. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your actual database credentials, API keys, and service URLs
+   ```
 
-```bash
-git clone <repository-url>
-cd product_recommender
-```
+4. **Set up database**
+   ```bash
+   # Create PostgreSQL database
+   createdb pickbd
+   
+   # Run migrations
+   alembic upgrade head
+   
+   # Load initial data
+   python scripts/load_data.py --csv data/phones.csv
+   ```
 
-### 4. Create Virtual Environment
+5. **Start the backend server**
+   ```bash
+   uvicorn app.main:app --reload
+   ```
 
-```bash
-python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
-```
+### Frontend Setup
 
-### 5. Install Dependencies
+1. **Navigate to frontend directory**
+   ```bash
+   cd frontend
+   ```
 
-```bash
-pip install -r requirements.txt
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-### 6. Configure Environment Variables
+3. **Configure environment**
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your API endpoints
+   ```
 
-Copy the example `.env` file and modify it:
+4. **Start the development server**
+   ```bash
+   npm start
+   ```
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your database credentials:
-
-```
-DATABASE_URL=mysql+pymysql://product_user:secure_password@localhost/product_recommender
-DEBUG=True
-API_PREFIX=/api/v1
-```
-
-### 7. Create Database Tables
-
-Option 1: Using the script:
-
-```bash
-python scripts/load_data.py --create-tables
-```
-
-Option 2: Using Alembic:
-
-```bash
-alembic revision --autogenerate -m "Create initial tables"
-alembic upgrade head
-```
-
-### 8. Load Data
-
-```bash
-python scripts/load_data.py --csv mobiledokan_data.csv
-```
-
-### 9. Run the API
-
-```bash
-uvicorn app.main:app --reload
-```
-
-The API will be available at http://localhost:8000
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/api/v1/docs
 
 ## API Documentation
 
@@ -149,16 +125,96 @@ This API will be integrated with:
 - Chart-based visualization
 - Recommendation engine
 
-## Deployment
+## 🚀 Production Deployment
 
-For production deployment:
-1. Set `DEBUG=False` in `.env`
-2. Use a proper WSGI server like Gunicorn
-3. Set up a reverse proxy with Nginx
-4. Configure SSL/TLS
+### Environment Configuration
 
-Example production deployment:
+For production deployment, ensure the following environment variables are properly configured:
 
 ```bash
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
+# Production settings
+DEBUG=False
+LOG_LEVEL=INFO
+ENVIRONMENT=production
+
+# Database (use your actual production database URL)
+DATABASE_URL=postgresql://username:password@host:port/database
+
+# Security (MUST be changed from defaults)
+SECRET_KEY=your-very-secure-secret-key-here
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+
+# External Services (configure with your actual service URLs)
+GEMINI_SERVICE_URL=https://your-gemini-service.com
+REDIS_HOST=your-redis-host
+REDIS_PASSWORD=your-redis-password
+
+# Email (configure with your email service)
+EMAIL_HOST=smtp.youremailprovider.com
+EMAIL_USER=your-email@yourdomain.com
+EMAIL_PASS=your-secure-email-password
 ```
+
+### Backend Deployment
+
+1. **Using Docker** (Recommended)
+   ```bash
+   docker build -t pickbd-backend .
+   docker run -p 8000:8000 --env-file .env pickbd-backend
+   ```
+
+2. **Using Gunicorn**
+   ```bash
+   gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000
+   ```
+
+3. **Using Uvicorn**
+   ```bash
+   uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+   ```
+
+### Frontend Deployment
+
+1. **Build for production**
+   ```bash
+   cd frontend
+   npm run build
+   ```
+
+2. **Deploy to Vercel** (Recommended)
+   ```bash
+   vercel --prod
+   ```
+
+3. **Deploy to Netlify**
+   ```bash
+   npm run build
+   # Upload dist folder to Netlify
+   ```
+
+### Database Migration
+
+For production database setup:
+
+```bash
+# Run migrations
+alembic upgrade head
+
+# Load production data
+python scripts/load_data.py --csv production_data.csv
+```
+
+### Monitoring and Logging
+
+The application includes production-ready logging configuration:
+- Structured logging with appropriate levels
+- Error tracking and monitoring
+- Performance metrics collection
+
+### Security Considerations
+
+- Use HTTPS in production
+- Configure proper CORS origins
+- Set secure session cookies
+- Use environment variables for sensitive data
+- Regular security updates

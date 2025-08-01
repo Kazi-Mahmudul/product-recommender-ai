@@ -1,3 +1,12 @@
+"""
+Application configuration settings.
+
+SECURITY NOTE: This file contains default values for development.
+For production deployment, all sensitive values should be overridden
+using environment variables. Never commit actual production credentials
+to version control.
+"""
+
 from pydantic_settings import BaseSettings
 from typing import List
 import os
@@ -14,15 +23,17 @@ class Settings(BaseSettings):
     
     # Database settings
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/pickbd")
-    LOCAL_DATABASE_URL: str = os.getenv("LOCAL_DATABASE_URL", "postgresql://product_user1:secure_password@localhost:5432/product_recommender")
+    LOCAL_DATABASE_URL: str = os.getenv("LOCAL_DATABASE_URL", "postgresql://user:password@localhost:5432/pickbd_local")
     
-    # CORS settings
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "https://pickbd.vercel.app",
-        "https://pickbd-ai.onrender.com"
-    ]
+    # CORS settings - Load from environment variable for production
+    CORS_ORIGINS: List[str] = (
+        os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+        if os.getenv("CORS_ORIGINS") 
+        else [
+            "http://localhost:3000",
+            "http://localhost:8000"
+        ]
+    )
     
     # Redis cache settings
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
@@ -34,7 +45,7 @@ class Settings(BaseSettings):
     # Gemini service settings
     GEMINI_SERVICE_URL: str = os.getenv(
         "GEMINI_SERVICE_URL",
-        "http://localhost:3001" if os.getenv("DEBUG", "True").lower() == "true" else "https://gemini-api-wm3b.onrender.com"
+        "http://localhost:3001"  # Default to localhost for development
     )
 
     # Authentication settings
@@ -53,6 +64,10 @@ class Settings(BaseSettings):
     
     # Monitoring settings
     MONITORING_API_KEY: str = os.getenv("MONITORING_API_KEY", "")
+    
+    # Logging settings
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO" if not DEBUG else "DEBUG")
+    LOG_FORMAT: str = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     class Config:
         case_sensitive = True

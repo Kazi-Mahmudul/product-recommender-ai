@@ -1,6 +1,12 @@
 from sqlalchemy import inspect
 from pathlib import Path
 import sys
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # Ensure the project root is in sys.path so 'app' is importable
 backend_dir = Path(__file__).resolve().parent
 project_root = backend_dir.parent
@@ -11,9 +17,9 @@ from app.core.database import engine
 def check_table_schema():
     inspector = inspect(engine)
     columns = inspector.get_columns('phones')
-    print("\nPhone table columns:")
+    logger.info("Phone table columns:")
     for column in columns:
-        print(f"- {column['name']}: {column['type']}")
+        logger.info(f"- {column['name']}: {column['type']}")
 
 if __name__ == "__main__":
     check_table_schema() 

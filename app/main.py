@@ -8,11 +8,16 @@ from sqlalchemy import text
 from app.api.api import api_router
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.logging_config import setup_logging, get_logger
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.core.tasks import cleanup_expired_sessions
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path=".env")
+
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,12 +32,16 @@ scheduler = BackgroundScheduler()
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Starting up application...")
     scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
     scheduler.start()
+    logger.info("Application startup complete")
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    logger.info("Shutting down application...")
     scheduler.shutdown()
+    logger.info("Application shutdown complete")
 
 # Set up CORS middleware with production settings
 app.add_middleware(
@@ -108,5 +117,7 @@ if __name__ == "__main__":
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8000)),
         workers=int(os.getenv("WORKERS", 1)),
-        reload=settings.DEBUG
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower(),
+        access_log=settings.DEBUG
     )

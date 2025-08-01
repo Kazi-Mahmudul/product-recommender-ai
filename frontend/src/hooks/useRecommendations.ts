@@ -92,17 +92,8 @@ export const useRecommendations = (phoneSlug: string) => {
   // Function to fetch recommendations from the API with retry logic
   const fetchRecommendationsData = useCallback(
     async (forceRefresh = false) => {
-      // Debug logging
-      console.log(
-        "fetchRecommendationsData called with phoneSlug:",
-        phoneSlug,
-        "type:",
-        typeof phoneSlug
-      );
-
       // Validate phone slug before making API calls
       if (!isValidPhoneSlug(phoneSlug)) {
-        console.error("Invalid phone slug detected:", phoneSlug);
         setError("Invalid phone slug. Please provide a valid phone slug.");
         setLoading(false);
         return;
@@ -144,10 +135,6 @@ export const useRecommendations = (phoneSlug: string) => {
 
         // Check if we have any valid recommendations after filtering
         if (validRecommendations.length === 0 && data.length > 0) {
-          console.warn(
-            "All recommendations had invalid phone slugs. Original data:",
-            data
-          );
           setError(
             "No valid recommendations found. Please try a different phone."
           );
@@ -169,7 +156,6 @@ export const useRecommendations = (phoneSlug: string) => {
       } catch (err: any) {
         // Don't set error state if the request was aborted
         if (err.name === "AbortError") {
-          console.log("Request was aborted");
           return;
         }
 
