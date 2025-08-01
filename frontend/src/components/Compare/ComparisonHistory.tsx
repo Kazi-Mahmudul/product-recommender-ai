@@ -113,7 +113,7 @@ const ComparisonHistory: React.FC<ComparisonHistoryProps> = ({
                   <div
                     key={item.id}
                     onClick={() => handleHistoryItemClick(item)}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-[#2d5016] dark:hover:border-[#4ade80] hover:shadow-md cursor-pointer transition-all duration-200"
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-brand dark:hover:border-[#4ade80] hover:shadow-md cursor-pointer transition-all duration-200"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

@@ -1,13 +1,16 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone } from "../../api/phones";
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown from 'react-markdown'
+import AIVerdictErrorFallback from './AIVerdictErrorFallback';
 
 interface AIVerdictBlockProps {
   phones: Phone[];
   verdict: string | null;
   isLoading: boolean;
   error: string | null;
+  characterCount?: number;
+  retryCount?: number;
   onGenerateVerdict: () => void;
   onRetry: () => void;
 }
@@ -17,6 +20,8 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
   verdict,
   isLoading,
   error,
+  characterCount = 0,
+  retryCount = 0,
   onGenerateVerdict,
   onRetry,
 }) => {
@@ -135,8 +140,8 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
       <div className="p-4">
         {/* Loading State */}
         {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400">
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400 mb-4">
               <svg
                 className="animate-spin w-5 h-5"
                 fill="none"
@@ -156,39 +161,21 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span className="text-sm font-medium">Analyzing phones...</span>
+              <span className="text-sm font-medium">
+                {retryCount > 0 ? `Enhancing analysis... (Attempt ${retryCount + 1})` : 'Analyzing phones...'}
+              </span>
             </div>
+            {retryCount > 0 && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                <p>Generating more comprehensive analysis</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* Error State */}
         {error && !isLoading && (
-          <div className="text-center py-6">
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg
-                className="w-6 h-6 text-red-600 dark:text-red-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-            <p className="text-red-600 dark:text-red-400 text-sm mb-4">
-              {error}
-            </p>
-            <button
-              onClick={onRetry}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
-            >
-              Try Again
-            </button>
-          </div>
+          <AIVerdictErrorFallback onRetry={onRetry} />
         )}
 
         {/* Verdict Content */}
@@ -342,24 +329,41 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
       {/* Footer disclaimer */}
       {verdict && (
         <div className="relative px-6 py-4 bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-750 dark:to-blue-900/10 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-              <svg
-                className="w-2.5 h-2.5 text-white"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-2.5 h-2.5 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                🤖 AI-generated insights • Please verify specifications before purchase
+              </p>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-              🤖 AI-generated insights • Please verify specifications before
-              purchase
-            </p>
+            {characterCount > 0 && (
+              <div className="flex items-center space-x-2">
+                {retryCount > 0 && (
+                  <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    Enhanced ({retryCount} retry)
+                  </span>
+                )}
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                  characterCount >= 800 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-200' 
+                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-200'
+                }`}>
+                  {characterCount} chars
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

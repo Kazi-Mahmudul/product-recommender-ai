@@ -40,9 +40,12 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
         {/* Image Container with Gradient Background */}
         <div className="relative h-48 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-4">
           <img
-            src={phone.img_url || "/phone.png"}
+            src={phone.img_url || "/no-image-placeholder.svg"}
             alt={phone.name}
             className="h-40 object-contain transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              e.currentTarget.src = "/no-image-placeholder.svg";
+            }}
             loading="lazy"
           />
           

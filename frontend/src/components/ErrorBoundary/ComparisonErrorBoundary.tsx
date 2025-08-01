@@ -1,14 +1,7 @@
-/**
- * Error boundary component specifically for comparison features
- * Handles catastrophic failures and provides recovery options
- */
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { requestManager } from '../../services/requestManager';
 
 interface Props {
   children: ReactNode;
-  fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
@@ -16,244 +9,160 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
-  retryCount: number;
 }
 
-export class ComparisonErrorBoundary extends Component<Props, State> {
-  private maxRetries = 3;
+class ComparisonErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null,
+    errorInfo: null,
+  };
 
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      retryCount: 0,
-    };
-  }
-
-  static getDerivedStateFromError(error: Error): Partial<State> {
-    // Update state so the next render will show the fallback UI
+  public static getDerivedStateFromError(error: Error): State {
     return {
       hasError: true,
       error,
+      errorInfo: null,
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error details
-    console.error('ComparisonErrorBoundary caught an error:', error, errorInfo);
-
-    // Update state with error info
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Comparison Error Boundary caught an error:', error, errorInfo);
+    
     this.setState({
+      error,
       errorInfo,
     });
 
-    // Call optional error handler
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
 
-    // Cancel any pending requests to prevent further issues
-    try {
-      requestManager.cancelAllRequests();
-      requestManager.clearCache();
-    } catch (cleanupError) {
-      console.error('Error during cleanup:', cleanupError);
+    // Log error to monitoring service if available
+    if ((window as any).gtag) {
+      (window as any).gtag('event', 'exception', {
+        description: `Comparison Error: ${error.message}`,
+        fatal: false,
+      });
     }
-
-    // Report error to monitoring service (if available)
-    this.reportError(error, errorInfo);
   }
 
-  private reportError = (error: Error, errorInfo: ErrorInfo) => {
-    // In a real application, you would send this to your error reporting service
-    // For now, we'll just log it
-    const errorReport = {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      retryCount: this.state.retryCount,
-    };
-
-    console.error('Error Report:', errorReport);
-
-    // Example: Send to error reporting service
-    // errorReportingService.report(errorReport);
-  };
-
   private handleRetry = () => {
-    if (this.state.retryCount < this.maxRetries) {
-      this.setState(prevState => ({
-        hasError: false,
-        error: null,
-        errorInfo: null,
-        retryCount: prevState.retryCount + 1,
-      }));
-
-      // Clear any cached data that might be causing issues
-      try {
-        requestManager.clearCache();
-      } catch (error) {
-        console.error('Error clearing cache during retry:', error);
-      }
-    }
-  };
-
-  private handleReset = () => {
     this.setState({
       hasError: false,
       error: null,
       errorInfo: null,
-      retryCount: 0,
     });
-
-    // Clear all cached data and pending requests
-    try {
-      requestManager.cancelAllRequests();
-      requestManager.clearCache();
-    } catch (error) {
-      console.error('Error during reset:', error);
-    }
-
-    // Reload the page as a last resort
+    
+    // Reload the page to reset the comparison state
     window.location.reload();
   };
 
-  private getErrorMessage = (error: Error): string => {
-    // Provide user-friendly error messages based on error type
-    if (error.message?.includes('ChunkLoadError')) {
-      return 'The application needs to be updated. Please refresh the page.';
-    }
-    
-    if (error.message?.includes('Network Error') || error.message?.includes('Failed to fetch')) {
-      return 'Network connection issue. Please check your internet connection and try again.';
-    }
-    
-    if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-      return 'The server is experiencing high load. Please try again in a moment.';
-    }
-    
-    if (error.name === 'TypeError' && error.message?.includes('Cannot read property')) {
-      return 'A data loading issue occurred. Please try refreshing the page.';
-    }
-    
-    return 'An unexpected error occurred while loading the comparison data.';
+  private handleGoHome = () => {
+    window.location.href = '/';
   };
 
-  render() {
+  public render() {
     if (this.state.hasError) {
-      // Custom fallback UI
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      const canRetry = this.state.retryCount < this.maxRetries;
-      const errorMessage = this.state.error ? this.getErrorMessage(this.state.error) : 'An unexpected error occurred.';
-
       return (
         <div className="min-h-screen bg-[#fdfbf9] dark:bg-[#121212] pt-16">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="text-center">
               {/* Error Icon */}
-              <div className="mb-6">
-                <svg 
-                  className="w-16 h-16 mx-auto text-red-500" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={1.5} 
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" 
-                  />
-                </svg>
+              <div className="mx-auto mb-6">
+                <div className="w-24 h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto">
+                  <svg
+                    className="w-12 h-12 text-red-600 dark:text-red-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
               </div>
 
-              {/* Error Title */}
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Something went wrong
-              </h1>
-
               {/* Error Message */}
-              <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-md mx-auto">
-                {errorMessage}
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                Comparison Error
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+                We encountered an unexpected error while loading the comparison. 
+                This might be due to a temporary issue with the data or network connection.
               </p>
 
-              {/* Retry Information */}
-              {this.state.retryCount > 0 && (
-                <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Retry attempt {this.state.retryCount} of {this.maxRetries}
-                  </p>
+              {/* Error Details (Development Mode) */}
+              {process.env.NODE_ENV === 'development' && this.state.error && (
+                <div className="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-left max-w-2xl mx-auto">
+                  <h3 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
+                    Error Details (Development Mode):
+                  </h3>
+                  <pre className="text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap overflow-auto">
+                    {this.state.error.message}
+                    {this.state.errorInfo?.componentStack}
+                  </pre>
                 </div>
               )}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                {canRetry && (
-                  <button
-                    onClick={this.handleRetry}
-                    className="px-6 py-3 bg-[#2d5016] hover:bg-[#3d6b1f] text-white font-medium rounded-lg transition-colors duration-200"
+                <button
+                  onClick={this.handleRetry}
+                  className="inline-flex items-center px-6 py-3 bg-[#377D5B] hover:bg-[#377D5B]/90 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    Try Again
-                  </button>
-                )}
-                
-                <button
-                  onClick={this.handleReset}
-                  className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors duration-200"
-                >
-                  Reset Application
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  Try Again
                 </button>
-                
                 <button
-                  onClick={() => window.location.href = '/'}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg transition-colors duration-200"
+                  onClick={this.handleGoHome}
+                  className="inline-flex items-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
                 >
-                  Go to Home
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                    />
+                  </svg>
+                  Go Home
                 </button>
               </div>
 
-              {/* Technical Details (Development Only) */}
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="mt-8 text-left">
-                  <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                    Technical Details (Development Only)
-                  </summary>
-                  <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm">
-                    <div className="mb-4">
-                      <strong className="text-red-600 dark:text-red-400">Error:</strong>
-                      <pre className="mt-1 text-xs overflow-x-auto text-gray-800 dark:text-gray-200">
-                        {this.state.error.message}
-                      </pre>
-                    </div>
-                    
-                    {this.state.error.stack && (
-                      <div className="mb-4">
-                        <strong className="text-red-600 dark:text-red-400">Stack Trace:</strong>
-                        <pre className="mt-1 text-xs overflow-x-auto text-gray-800 dark:text-gray-200">
-                          {this.state.error.stack}
-                        </pre>
-                      </div>
-                    )}
-                    
-                    {this.state.errorInfo?.componentStack && (
-                      <div>
-                        <strong className="text-red-600 dark:text-red-400">Component Stack:</strong>
-                        <pre className="mt-1 text-xs overflow-x-auto text-gray-800 dark:text-gray-200">
-                          {this.state.errorInfo.componentStack}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                </details>
-              )}
+              {/* Help Text */}
+              <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-2xl mx-auto">
+                <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                  What you can do:
+                </h3>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 text-left space-y-1">
+                  <li>• Check your internet connection and try again</li>
+                  <li>• Clear your browser cache and cookies</li>
+                  <li>• Try comparing different phones</li>
+                  <li>• Contact support if the problem persists</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>

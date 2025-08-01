@@ -43,9 +43,12 @@ const CompareSelection: React.FC<CompareSelectionProps> = ({
               }`}
             >
               <img 
-                src={phone.img_url || "/phone.png"} 
+                src={phone.img_url || "/no-image-placeholder.svg"} 
                 alt={phone.name} 
                 className="w-5 h-5 object-contain rounded-full"
+                onError={(e) => {
+                  e.currentTarget.src = "/no-image-placeholder.svg";
+                }}
               />
               <span className="text-xs font-medium truncate max-w-[100px]">{phone.name}</span>
               <button

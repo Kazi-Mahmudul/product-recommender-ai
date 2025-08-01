@@ -58,7 +58,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
     model: phone?.model || "Unknown Model",
     price: phone?.price || "",
     price_original: phone?.price_original || 0,
-    img_url: phone?.img_url || "https://via.placeholder.com/300x300?text=No+Image",
+    img_url: phone?.img_url || "/no-image-placeholder.svg",
     primary_camera_mp: phone?.primary_camera_mp,
     main_camera: phone?.main_camera,
     front_camera: phone?.front_camera,
@@ -120,7 +120,8 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
             className="w-24 h-32 object-contain rounded-lg bg-white p-2 border border-gray-100 dark:border-gray-700"
             loading="lazy"
             onError={(e) => {
-              e.currentTarget.src = "https://via.placeholder.com/300x300?text=No+Image";
+              // Use local SVG placeholder to avoid external service dependency
+              e.currentTarget.src = "/no-image-placeholder.svg";
             }}
           />
           
