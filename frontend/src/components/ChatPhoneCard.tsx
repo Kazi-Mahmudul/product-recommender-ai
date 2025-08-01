@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
 import { getThemeClasses } from "../utils/colorUtils";
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
 import { Phone } from "../api/phones";
@@ -8,14 +7,12 @@ import { Phone } from "../api/phones";
 interface ChatPhoneCardProps {
   phone: Phone;
   darkMode: boolean;
-  onAddToCompare?: (phone: Phone) => void;
   isTopResult?: boolean;
 }
 
 const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
   phone,
   darkMode,
-  onAddToCompare,
   isTopResult = false,
 }) => {
   const navigate = useNavigate();
@@ -27,16 +24,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
     }
   };
 
-  const handleAddToCompare = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click from triggering
-    if (onAddToCompare) {
-      onAddToCompare(phone);
-    }
-  };
-
-  // Determine if this is a top result card (larger, more detailed) or a regular result
   return isTopResult ? (
-    // Top result card - larger with more details
     <div
       className={`rounded-2xl shadow-lg p-6 flex flex-col md:flex-row items-center gap-6 mx-auto w-full max-w-md 
         ${darkMode ? "bg-gray-900 border-gray-700" : "bg-[#fff7f0] border-[#eae4da]"} border
@@ -120,25 +108,10 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           >
             View Details
           </button>
-
-          {onAddToCompare && (
-            <button
-              className={`flex items-center gap-1 ${
-                darkMode
-                  ? "bg-gray-800 hover:bg-gray-700 text-white"
-                  : "bg-[#eae4da] hover:bg-[#d4c8b8] text-[#6b4b2b]"
-              } font-medium rounded-full px-3 py-1.5 text-sm transition-colors`}
-              onClick={handleAddToCompare}
-            >
-              <Plus size={16} />
-              Compare
-            </button>
-          )}
         </div>
       </div>
     </div>
   ) : (
-    // Regular result card - smaller and more compact
     <div
       className={`rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300 ${
         darkMode ? "bg-gray-900 border-gray-700" : "bg-white border-[#eae4da]"
@@ -159,18 +132,6 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#377D5B] text-white text-xs font-medium">
           {phone.brand}
         </div>
-
-        {onAddToCompare && (
-          <div className="absolute top-2 right-2">
-            <button
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 dark:bg-gray-800/90 shadow-sm backdrop-blur-sm text-[#377D5B] dark:text-white hover:bg-[#377D5B] hover:text-white transition-colors duration-200"
-              onClick={handleAddToCompare}
-              aria-label="Compare"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="p-3">

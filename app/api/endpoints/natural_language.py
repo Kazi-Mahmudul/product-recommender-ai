@@ -11,6 +11,7 @@ from app.crud import phone as phone_crud
 from app.schemas.phone import Phone
 from app.core.database import get_db
 from app.core.config import settings
+from app.services.ai_service import AIService
 
 router = APIRouter()
 
@@ -361,6 +362,7 @@ async def process_natural_language_query(
     try:
         print(f"Processing query: {query}")
         print(f"Gemini service URL: {settings.GEMINI_SERVICE_URL}")
+        filters = {}
         
         # Call Gemini service to parse the query
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -416,7 +418,10 @@ async def process_natural_language_query(
                     return JSONResponse(content=comparison)
                 elif result.get("type") == "chat":
                     print("Processing chat query")
-                    return JSONResponse(content={"type": "chat", "data": result.get("data", "I'm here to help you with smartphone questions!")})
+                    ai_service = AIService()
+                    all_phones = phone_crud.get_all_phones(db)
+                    chat_response = await ai_service.generate_chat_recommendation(query, all_phones)
+                    return JSONResponse(content={"type": "chat", "data": chat_response})
                 else:
                     print(f"Unknown response type: {result.get('type')}")
                     filters = result.get("filters", {})
@@ -447,7 +452,6 @@ async def process_natural_language_query(
                     results = phone.all()
                     logging.warning(f"Full spec fallback by model results count: {len(results)}")
             return JSONResponse(content=[phone_crud.phone_to_dict(r) for r in results])
-
         try:
             # Use the parsed filters to get recommendations
             recommendations = phone_crud.get_smart_recommendations(
