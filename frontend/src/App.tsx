@@ -19,7 +19,6 @@ import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ComparisonProvider } from "./context/ComparisonContext";
 import ComparisonWidget from "./components/ComparisonWidget";
-import ComparisonDebug from "./components/ComparisonDebug";
 
 interface Message {
   id: string;
@@ -662,9 +661,6 @@ function App() {
         
         {/* Comparison Widget - shown on all pages except chat */}
         {location.pathname !== "/chat" && <ComparisonWidget />}
-        
-        {/* Debug Component - Remove this after debugging */}
-        <ComparisonDebug />
       </div>
     </ComparisonProvider>
   );

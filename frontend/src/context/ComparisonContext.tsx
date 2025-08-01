@@ -167,9 +167,8 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
       await addComparisonItem(phone.slug!); // Use non-null assertion as isValidPhone checks for slug
       console.log('✅ addPhone: API call successful');
       
-      // Add a small delay to ensure backend processing is complete
-      console.log('⏳ addPhone: Waiting 500ms for backend processing...');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Small delay to ensure backend consistency
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       console.log('🔄 addPhone: Fetching updated comparison items...');
       await fetchComparisonItems(); // Re-fetch to get updated list from backend

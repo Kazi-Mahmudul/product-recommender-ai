@@ -17,130 +17,131 @@ export interface ComparisonSession {
   items: ComparisonItem[];
 }
 
-// Store session ID in localStorage for cross-origin compatibility
+// Production-ready session management with fallback strategies
 const SESSION_STORAGE_KEY = 'comparison_session_id';
+const SESSION_EXPIRY_KEY = 'comparison_session_expiry';
 
 function getStoredSessionId(): string | null {
+  // Check if session has expired
+  const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
+  if (expiry && new Date().getTime() > parseInt(expiry)) {
+    // Session expired, clear it
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(SESSION_EXPIRY_KEY);
+    return null;
+  }
+  
   return localStorage.getItem(SESSION_STORAGE_KEY);
 }
 
 function storeSessionId(sessionId: string): void {
+  // Store session ID with 24-hour expiry (matching backend)
+  const expiryTime = new Date().getTime() + (24 * 60 * 60 * 1000); // 24 hours
   localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  localStorage.setItem(SESSION_EXPIRY_KEY, expiryTime.toString());
+}
+
+function clearStoredSession(): void {
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  localStorage.removeItem(SESSION_EXPIRY_KEY);
 }
 
 export async function getComparisonSession(): Promise<ComparisonSession> {
-  console.log('🔍 getComparisonSession: Making API call...');
   const response = await fetch(`${API_BASE}/api/v1/comparison/session`, {
     method: 'GET',
     credentials: 'include', // Include cookies in the request
   });
-  console.log('📡 getComparisonSession: Response status:', response.status);
   
   if (!response.ok) {
     throw new Error(`Failed to get comparison session: ${response.statusText}`);
   }
   
   const session = await response.json();
-  console.log('📦 getComparisonSession: Session data:', session);
   
-  // Store session ID for future requests
+  // Store session ID for cross-origin compatibility
   storeSessionId(session.session_id);
-  console.log('💾 getComparisonSession: Stored session ID:', session.session_id);
   
   return session;
 }
 
 export async function addComparisonItem(slug: string): Promise<ComparisonItem> {
-  console.log('➕ addComparisonItem: Making API call for slug:', slug);
-  
-  // Get stored session ID
+  // Get stored session ID for cross-origin compatibility
   const sessionId = getStoredSessionId();
-  console.log('💾 addComparisonItem: Using stored session ID:', sessionId);
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   
-  // Add session ID as header if available
+  // Add session ID as header for cross-origin support
   if (sessionId) {
     headers['X-Session-ID'] = sessionId;
   }
   
   const response = await fetch(`${API_BASE}/api/v1/comparison/items/${slug}`, {
     method: 'POST',
-    credentials: 'include', // Include cookies in the request
+    credentials: 'include', // Include cookies when possible
     headers,
   });
-  console.log('📡 addComparisonItem: Response status:', response.status);
-  console.log('🍪 addComparisonItem: Response headers:', Object.fromEntries(response.headers.entries()));
   
   if (!response.ok) {
     throw new Error(`Failed to add comparison item: ${response.statusText}`);
   }
-  const data = await response.json();
-  console.log('📦 addComparisonItem: Response data:', data);
   
-  // Store session ID from response if available
+  const data = await response.json();
+  
+  // Update stored session ID if provided in response
   if (data.session_id) {
     storeSessionId(data.session_id);
-    console.log('💾 addComparisonItem: Updated stored session ID:', data.session_id);
   }
   
   return data;
 }
 
 export async function removeComparisonItem(slug: string): Promise<void> {
-  console.log('🗑️ removeComparisonItem: Making API call for slug:', slug);
-  
-  // Get stored session ID
+  // Get stored session ID for cross-origin compatibility
   const sessionId = getStoredSessionId();
-  console.log('💾 removeComparisonItem: Using stored session ID:', sessionId);
   
   const headers: Record<string, string> = {};
   
-  // Add session ID as header if available
+  // Add session ID as header for cross-origin support
   if (sessionId) {
     headers['X-Session-ID'] = sessionId;
   }
   
   const response = await fetch(`${API_BASE}/api/v1/comparison/items/${slug}`, {
     method: 'DELETE',
-    credentials: 'include', // Include cookies in the request
+    credentials: 'include', // Include cookies when possible
     headers,
   });
   
   if (!response.ok) {
     throw new Error(`Failed to remove comparison item: ${response.statusText}`);
   }
-  console.log('✅ removeComparisonItem: Successfully removed:', slug);
 }
 
+// Export session management functions for advanced use cases
+export { clearStoredSession };
+
 export async function getComparisonItems(): Promise<ComparisonItem[]> {
-  console.log('🔍 getComparisonItems: Making API call...');
-  
-  // Get stored session ID
+  // Get stored session ID for cross-origin compatibility
   const sessionId = getStoredSessionId();
-  console.log('💾 getComparisonItems: Using stored session ID:', sessionId);
   
   const headers: Record<string, string> = {};
   
-  // Add session ID as header if available
+  // Add session ID as header for cross-origin support
   if (sessionId) {
     headers['X-Session-ID'] = sessionId;
   }
   
   const response = await fetch(`${API_BASE}/api/v1/comparison/items`, {
     method: 'GET',
-    credentials: 'include', // Include cookies in the request
+    credentials: 'include', // Include cookies when possible
     headers,
   });
-  console.log('📡 getComparisonItems: Response status:', response.status);
-  console.log('🍪 getComparisonItems: Response headers:', Object.fromEntries(response.headers.entries()));
   
   if (!response.ok) {
     throw new Error(`Failed to get comparison items: ${response.statusText}`);
   }
-  const data = await response.json();
-  console.log('📦 getComparisonItems: Response data:', data);
-  return data;
+  
+  return response.json();
 }
