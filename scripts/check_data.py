@@ -1,12 +1,17 @@
 """Script to check data in the phones table."""
 import os
 import sys
+import logging
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # Load environment variables from .env file
 load_dotenv()
-print("Loaded DATABASE_URL:", os.getenv("DATABASE_URL"))
+logger.info("Database connection configured")
 
 def get_db_connection():
     """Create and return a database connection."""
@@ -29,40 +34,40 @@ def check_data():
         """))
         
         columns = [dict(row) for row in result.mappings()]
-        print("\nTable columns:")
+        logger.info("Table columns:")
         for col in columns:
-            print(f"- {col['column_name']} ({col['data_type']}, nullable: {col['is_nullable']})")
+            logger.info(f"- {col['column_name']} ({col['data_type']}, nullable: {col['is_nullable']})")
         
         # Get row count
         result = conn.execute(text("SELECT COUNT(*) FROM phones"))
         count = result.scalar()
-        print(f"\nTotal rows: {count}")
+        logger.info(f"Total rows: {count}")
         
         # Get sample data (first 3 rows)
         if count > 0:
-            print("\nSample data (first 3 rows):")
+            logger.info("Sample data (first 3 rows):")
             result = conn.execute(text("SELECT * FROM phones LIMIT 3"))
             rows = [dict(row) for row in result.mappings()]
             
             for i, row in enumerate(rows, 1):
-                print(f"\nRow {i}:")
+                logger.info(f"Row {i}:")
                 for key, value in row.items():
-                    print(f"  {key}: {str(value)[:100]}{'...' if len(str(value)) > 100 else ''}")
+                    logger.info(f"  {key}: {str(value)[:100]}{'...' if len(str(value)) > 100 else ''}")
         
         # Check for null values in key columns
-        print("\nChecking for null values in key columns:")
+        logger.info("Checking for null values in key columns:")
         key_columns = ['name', 'brand', 'price', 'display_type', 'camera_setup', 'battery_type']
         for col in key_columns:
             result = conn.execute(
                 text(f"SELECT COUNT(*) FROM phones WHERE {col} IS NULL"),
             )
             null_count = result.scalar()
-            print(f"- {col}: {null_count} null values ({null_count/count*100:.1f}%)" if count > 0 else "0 rows")
+            logger.info(f"- {col}: {null_count} null values ({null_count/count*100:.1f}%)" if count > 0 else "0 rows")
 
 if __name__ == "__main__":
-    print("Checking data in the 'phones' table...\n")
+    logger.info("Checking data in the 'phones' table...")
     try:
         check_data()
     except Exception as e:
-        print(f"\n❌ Error checking data: {str(e)}")
+        logger.error(f"Error checking data: {str(e)}")
         sys.exit(1)

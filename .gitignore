@@ -26,14 +26,8 @@ htmlcov/
 
 # Data files
 data/
-*.csv
-
 data_cleaning/
 *.csv
-
-*.csv
-
-data_cleaning/
 
 # Alembic
 alembic/versions/*.py
@@ -57,12 +51,10 @@ venv.bak/
 logs/
 *.log
 
-# Local development
-.DS_Store
-
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # Jupyter Notebook
 .ipynb_checkpoints

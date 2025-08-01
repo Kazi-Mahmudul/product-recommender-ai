@@ -227,7 +227,8 @@ class PerformanceMonitor {
    * Logs performance data to console (development only)
    */
   private log(message: string, data?: any): void {
-    if (!this.isEnabled) return;
+    // Disabled in production - no console output
+    if (!this.isEnabled || process.env.NODE_ENV === 'production') return;
 
     const timestamp = new Date().toISOString();
     const logData = {
@@ -286,7 +287,9 @@ export const debugUtils = {
    */
   enable(): void {
     performanceMonitor.setEnabled(true);
-    console.log('🔍 Comparison debug mode enabled');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 Comparison debug mode enabled');
+    }
   },
 
   /**
@@ -294,23 +297,29 @@ export const debugUtils = {
    */
   disable(): void {
     performanceMonitor.setEnabled(false);
-    console.log('🔍 Comparison debug mode disabled');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 Comparison debug mode disabled');
+    }
   },
 
   /**
    * Prints current performance stats
    */
   stats(): void {
-    const stats = performanceMonitor.getStats();
-    console.table(stats);
+    if (process.env.NODE_ENV !== 'production') {
+      const stats = performanceMonitor.getStats();
+      console.table(stats);
+    }
   },
 
   /**
    * Prints detailed metrics
    */
   metrics(): void {
-    const metrics = performanceMonitor.getDetailedMetrics();
-    console.table(metrics);
+    if (process.env.NODE_ENV !== 'production') {
+      const metrics = performanceMonitor.getDetailedMetrics();
+      console.table(metrics);
+    }
   },
 
   /**
@@ -318,7 +327,9 @@ export const debugUtils = {
    */
   clear(): void {
     performanceMonitor.clearMetrics();
-    console.log('🔍 Metrics cleared');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 Metrics cleared');
+    }
   },
 
   /**

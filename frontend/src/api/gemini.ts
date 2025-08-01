@@ -5,17 +5,12 @@ const GEMINI_API = process.env.REACT_APP_GEMINI_API;
 
 export async function fetchGeminiSummary(prompt: string): Promise<string> {
   if (!GEMINI_API) {
-    console.error("Gemini API URL not configured");
     throw new Error("AI service configuration missing");
   }
 
   if (!prompt || prompt.trim() === "") {
-    console.error("Empty prompt provided to fetchGeminiSummary");
     throw new Error("Invalid prompt provided");
   }
-
-  console.log(`[Gemini API] Sending request to: ${GEMINI_API}`);
-  console.log(`[Gemini API] Prompt length: ${prompt.length} characters`);
 
   try {
     // Add timeout to prevent hanging requests
@@ -31,8 +26,6 @@ export async function fetchGeminiSummary(prompt: string): Promise<string> {
 
     clearTimeout(timeoutId);
 
-    console.log(`[Gemini API] Response status: ${res.status}`);
-
     if (!res.ok) {
       let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
       try {
@@ -41,7 +34,6 @@ export async function fetchGeminiSummary(prompt: string): Promise<string> {
       } catch {
         // If we can't parse the error response, use the status text
       }
-      console.error(`[Gemini API] Error response: ${errorMessage}`);
       
       if (res.status === 400) {
         throw new Error("Invalid request to AI service");
@@ -60,21 +52,17 @@ export async function fetchGeminiSummary(prompt: string): Promise<string> {
     const summary = data.summary || data.result || "";
     
     if (!summary) {
-      console.warn("[Gemini API] Empty response received");
       throw new Error("AI service returned empty response");
     }
 
-    console.log(`[Gemini API] Success - Summary length: ${summary.length} characters`);
     return summary;
 
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.error("[Gemini API] Request timeout");
       throw new Error("AI service request timed out. Please try again.");
     }
     
     if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-      console.error("[Gemini API] Network error:", error);
       throw new Error("Unable to connect to AI service. Please check your internet connection.");
     }
 
@@ -83,8 +71,6 @@ export async function fetchGeminiSummary(prompt: string): Promise<string> {
       throw error;
     }
 
-    // Log unexpected errors
-    console.error("[Gemini API] Unexpected error:", error);
     throw new Error("An unexpected error occurred while generating the summary");
   }
 }
@@ -690,11 +676,8 @@ REQUIRED OUTPUT FORMAT (JSON only, no markdown or code blocks):
 
 Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making a purchase decision.`;
 
-  console.log(`[Pros/Cons AI] Generating enhanced analysis for ${phone.name} (${phoneCategory})`);
-  
   try {
     const text = await fetchGeminiSummary(prompt);
-    console.log(`[Pros/Cons AI] Raw response length: ${text.length} characters`);
     
     // Enhanced JSON parsing with multiple fallback attempts
     let parsedResult = null;
@@ -703,7 +686,6 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
     try {
       parsedResult = JSON.parse(text);
     } catch (e) {
-      console.log(`[Pros/Cons AI] Direct JSON parse failed, trying cleanup...`);
     }
     
     // Attempt 2: Clean up common formatting issues
@@ -716,7 +698,6 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
           .trim();
         parsedResult = JSON.parse(cleanedText);
       } catch (e) {
-        console.log(`[Pros/Cons AI] Cleaned JSON parse failed, trying extraction...`);
       }
     }
     
@@ -728,7 +709,6 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
           parsedResult = JSON.parse(jsonMatch[0]);
         }
       } catch (e) {
-        console.log(`[Pros/Cons AI] JSON extraction failed, trying advanced parsing...`);
       }
     }
     
@@ -756,14 +736,12 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
           }
         }
       } catch (e) {
-        console.log(`[Pros/Cons AI] Advanced JSON extraction failed, using fallback parsing...`);
       }
     }
     
     // Attempt 5: Try to extract structured content from unstructured text
     if (!parsedResult) {
       try {
-        console.log(`[Pros/Cons AI] Attempting unstructured text parsing...`);
         const prosMatch = text.match(/(?:pros?|advantages?|positives?|strengths?)[\s:]*\n?([\s\S]*?)(?:\n\s*(?:cons?|disadvantages?|negatives?|weaknesses?)|$)/i);
         const consMatch = text.match(/(?:cons?|disadvantages?|negatives?|weaknesses?)[\s:]*\n?([\s\S]*?)$/i);
         
@@ -783,7 +761,6 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
           parsedResult = { pros: extractedPros, cons: extractedCons };
         }
       } catch (e) {
-        console.log(`[Pros/Cons AI] Unstructured text parsing failed:`, e);
       }
     }
     
@@ -803,7 +780,6 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
         .slice(0, 4);
       
       if (validPros.length >= 2 && validCons.length >= 1) {
-        console.log(`[Pros/Cons AI] Successfully parsed: ${validPros.length} pros, ${validCons.length} cons`);
         return { pros: validPros, cons: validCons };
       }
     }
@@ -812,12 +788,9 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
     throw new Error("Failed to parse AI response into valid pros/cons format");
     
   } catch (error) {
-    console.error(`[Pros/Cons AI] Error during AI generation:`, error);
-    
     // Enhanced intelligent fallback with retry mechanism
     try {
       // Try a simpler prompt as fallback
-      console.log(`[Pros/Cons AI] Attempting simplified prompt as fallback...`);
       
       const simplifiedPrompt = `Analyze this smartphone and list its pros and cons:
       
@@ -842,26 +815,20 @@ Format your response as JSON with "pros" and "cons" arrays.`;
               Array.isArray(simplifiedResult.pros) && Array.isArray(simplifiedResult.cons) &&
               simplifiedResult.pros.length >= 2 && simplifiedResult.cons.length >= 1) {
             
-            console.log(`[Pros/Cons AI] Simplified prompt succeeded with ${simplifiedResult.pros.length} pros, ${simplifiedResult.cons.length} cons`);
             return {
               pros: simplifiedResult.pros.slice(0, 5),
               cons: simplifiedResult.cons.slice(0, 4)
             };
           }
         } catch (e) {
-          console.log(`[Pros/Cons AI] Simplified prompt parsing failed, using intelligent fallback`);
         }
       } catch (e) {
-        console.log(`[Pros/Cons AI] Simplified prompt generation failed, using intelligent fallback`);
       }
       
       // If all AI attempts fail, use our intelligent fallback
-      console.log(`[Pros/Cons AI] Using intelligent fallback generation for ${phone.name}`);
       return generateIntelligentFallback(phone, phoneCategory);
       
     } catch (fallbackError) {
-      console.error(`[Pros/Cons AI] Fallback generation failed:`, fallbackError);
-      
       // Ultimate fallback with minimal generic content
       return {
         pros: [
