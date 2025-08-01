@@ -14,6 +14,9 @@ const ComparisonWidget: React.FC = () => {
     clearComparison
   } = useComparison();
 
+  // Debug logging
+  console.log('🔍 ComparisonWidget: Render with', selectedPhones.length, 'phones:', selectedPhones.map(p => p.name));
+
   // Don't render if no phones are selected
   if (selectedPhones.length === 0) {
     return null;
