@@ -81,11 +81,11 @@ const ComparisonWidget: React.FC = () => {
                 >
                   {/* Phone Image */}
                   <img
-                    src={phone.img_url || '/phone.png'}
+                    src={phone.img_url || '/no-image-placeholder.svg'}
                     alt={phone.name}
                     className="w-6 h-6 object-contain rounded flex-shrink-0"
                     onError={(e) => {
-                      e.currentTarget.src = '/phone.png';
+                      e.currentTarget.src = "/no-image-placeholder.svg";
                     }}
                   />
                   
@@ -127,7 +127,7 @@ const ComparisonWidget: React.FC = () => {
                 disabled={!canCompare}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   canCompare
-                    ? 'bg-[#2d5016] hover:bg-[#3d6b1f] text-white'
+                    ? 'bg-brand hover:bg-brand-darkGreen hover:text-black text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                 }`}
                 title={!canCompare ? 'Select at least 2 phones to compare' : 'Compare selected phones'}

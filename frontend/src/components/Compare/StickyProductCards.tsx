@@ -39,11 +39,11 @@ const StickyProductCards: React.FC<StickyProductCardsProps> = ({
                 <div className="relative mb-3">
                   <div className="flex justify-center">
                     <img
-                      src={phone.img_url || "https://via.placeholder.com/120x160?text=No+Image"}
+                      src={phone.img_url || "/no-image-placeholder.svg"}
                       alt={phone.name}
                       className="w-20 h-24 object-contain rounded-md bg-white p-1"
                       onError={(e) => {
-                        e.currentTarget.src = "https://via.placeholder.com/120x160?text=No+Image";
+                        e.currentTarget.src = "/no-image-placeholder.svg";
                       }}
                     />
                   </div>
@@ -144,7 +144,7 @@ const StickyProductCards: React.FC<StickyProductCardsProps> = ({
                 onClick={onAddPhone}
                 className="w-full h-full min-h-[200px] bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-[#2d5016] dark:hover:border-[#4ade80] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 flex flex-col items-center justify-center p-4 touch-manipulation"
               >
-                <div className="w-12 h-12 bg-[#2d5016] dark:bg-[#4ade80] rounded-full flex items-center justify-center mb-3">
+                <div className="w-12 h-12 bg-brand dark:bg-[#4ade80] rounded-full flex items-center justify-center mb-3">
                   <svg className="w-6 h-6 text-white dark:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>

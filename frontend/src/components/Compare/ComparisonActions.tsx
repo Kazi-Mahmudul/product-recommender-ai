@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Phone } from '../../api/phones';
+import { BRAND_COLORS } from '../../utils/colorSystem';
 import { 
   generateComparisonPDF, 
   generateShareableUrl, 
@@ -29,9 +30,26 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
       await generateComparisonPDF(phones, verdict || undefined);
       // Save to history when user exports
       saveComparisonToHistory(phones);
+      
+      // Show success feedback
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMessage.textContent = '✓ PDF exported successfully!';
+      document.body.appendChild(successMessage);
+      setTimeout(() => {
+        document.body.removeChild(successMessage);
+      }, 3000);
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export PDF. Please try again.');
+      
+      // Show error feedback
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = '✗ Failed to export PDF. Please try again.';
+      document.body.appendChild(errorMessage);
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 3000);
     } finally {
       setIsExporting(false);
     }
@@ -91,7 +109,11 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
           <button
             onClick={handleExportPDF}
             disabled={isExporting}
-            className="flex items-center justify-center px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200"
+            className={`flex items-center justify-center px-4 py-3 font-medium rounded-lg transition-colors duration-200 ${
+              isExporting 
+                ? 'bg-gray-400 cursor-not-allowed text-white' 
+                : `bg-[${BRAND_COLORS.green}] hover:bg-[${BRAND_COLORS.green}]/90 text-white`
+            }`}
             aria-label={isExporting ? 'Exporting comparison to PDF...' : 'Export comparison as PDF'}
           >
             {isExporting ? (
@@ -118,7 +140,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
             className={`flex items-center justify-center px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
               copySuccess 
                 ? 'bg-green-600 text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                : `bg-[${BRAND_COLORS.darkGreen}] hover:bg-[${BRAND_COLORS.darkGreen}]/90 text-black`
             }`}
             aria-label={copySuccess ? 'Link copied to clipboard' : 'Copy comparison link to clipboard'}
           >
@@ -145,7 +167,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
             className={`flex items-center justify-center px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
               shareSuccess 
                 ? 'bg-green-600 text-white' 
-                : 'bg-[#2d5016] hover:bg-[#3d6b1f] text-white'
+                : `bg-[${BRAND_COLORS.green}] hover:bg-[${BRAND_COLORS.green}]/90 text-white`
             }`}
             aria-label={shareSuccess ? 'Comparison shared successfully' : 'Share comparison with others'}
           >

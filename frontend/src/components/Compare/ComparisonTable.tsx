@@ -208,11 +208,11 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 >
                   <div className="flex flex-col items-center">
                     <img
-                      src={phone.img_url || "https://via.placeholder.com/60x80?text=No+Image"}
+                      src={phone.img_url || "/no-image-placeholder.svg"}
                       alt={phone.name}
                       className="w-12 h-16 object-contain rounded mb-2 bg-white dark:bg-gray-600"
                       onError={(e) => {
-                        e.currentTarget.src = "https://via.placeholder.com/60x80?text=No+Image";
+                        e.currentTarget.src = "/no-image-placeholder.svg";
                       }}
                     />
                     <div className="text-xs text-gray-500 dark:text-gray-400">

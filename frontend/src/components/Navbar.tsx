@@ -211,6 +211,9 @@ const Navbar: React.FC<NavbarProps> = ({
                                 src={result.img_url}
                                 alt={result.name}
                                 className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/no-image-placeholder.svg";
+                                }}
                               />
                             ) : (
                               <Smartphone

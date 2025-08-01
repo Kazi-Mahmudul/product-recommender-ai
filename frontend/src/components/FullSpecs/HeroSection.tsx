@@ -24,7 +24,7 @@ const specIcons: Record<string, React.ReactNode> = {
 
 const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCompare, tagline, loadingTagline }) => {
   // For carousel, but fallback to single image
-  const images = phone.img_url ? [phone.img_url] : ["/phone.png"];
+  const images = phone.img_url ? [phone.img_url] : ["/no-image-placeholder.svg"];
   const [imgIdx, setImgIdx] = useState(0);
   
   // Use comparison context to check selection state
@@ -52,6 +52,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
             src={images[imgIdx]}
             alt={phone.name}
             className="w-48 h-60 sm:w-64 sm:h-80 md:w-56 md:h-72 lg:w-72 lg:h-96 object-contain rounded-xl bg-gray-100 dark:bg-gray-800 transition-all duration-300"
+            onError={(e) => {
+              e.currentTarget.src = "/no-image-placeholder.svg";
+            }}
           />
           {images.length > 1 && (
             <>

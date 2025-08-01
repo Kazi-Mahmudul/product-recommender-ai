@@ -3,13 +3,16 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Phone } from '../api/phones';
+import { toast } from 'react-toastify';
 import { fetchGeminiSummary } from '../api/gemini';
+import {Phone} from '../api/phones'
 
 export interface AIVerdictState {
   verdict: string | null;
   isLoading: boolean;
   error: string | null;
+  characterCount: number;
+  retryCount: number;
 }
 
 export interface AIVerdictActions {
@@ -25,7 +28,11 @@ export function useAIVerdict(): [AIVerdictState, AIVerdictActions] {
   const [verdict, setVerdict] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [characterCount, setCharacterCount] = useState<number>(0);
+  const [retryCount, setRetryCount] = useState<number>(0);
   const [lastPrompt, setLastPrompt] = useState<string>('');
+  const [lastPhones, setLastPhones] = useState<Phone[]>([]);
+  const [lastUserContext, setLastUserContext] = useState<string | undefined>();
 
   /**
    * Build a structured prompt for phone comparison
@@ -55,18 +62,23 @@ Phone ${index + 1}: ${phone.brand} ${phone.name}
 
     const contextSection = userContext ? `\nUser Context: ${userContext}\n` : '';
 
-    return `You are an expert smartphone reviewer providing a concise comparison for a user.
+    return `You are an expert smartphone reviewer providing a comprehensive comparison analysis for a user.
 
 ${contextSection}
-Please analyze these ${phones.length} smartphones and provide a brief verdict, highlighting the key differences and declaring a winner.
+Please provide a detailed analysis (approximately 1000 characters) covering:
+
+**Overview**: Brief introduction to the comparison
+**Key Differences**: Major distinguishing factors between the phones
+**Strengths & Weaknesses**: For each phone, highlight what it does well and where it falls short
+**Final Recommendation**: Clear winner with detailed reasoning
 
 ${phoneDescriptions}
 
-Keep the response under 500 characters, focusing on the most important factors for a purchasing decision. Use Markdown for formatting (e.g., **bolding**, *italics*, and lists).`.trim();
+Format your response with clear sections and use markdown for emphasis. Target length: 800-1200 characters for comprehensive analysis that helps users make informed decisions.`.trim();
   }, []);
 
   /**
-   * Generate AI verdict for phone comparison
+   * Generate AI verdict for phone comparison with retry logic for short responses
    */
   const generateVerdict = useCallback(async (phones: Phone[], userContext?: string): Promise<void> => {
     if (phones.length === 0) {
@@ -77,34 +89,73 @@ Keep the response under 500 characters, focusing on the most important factors f
     setIsLoading(true);
     setError(null);
     setVerdict(null);
+    setRetryCount(0);
+    setLastPhones(phones);
+    setLastUserContext(userContext);
+
+    const attemptGeneration = async (attempt: number = 0): Promise<void> => {
+      try {
+        const prompt = buildComparisonPrompt(phones, userContext);
+        setLastPrompt(prompt);
+        
+        const aiResponse = await fetchGeminiSummary(prompt);
+        
+        if (aiResponse && aiResponse.trim()) {
+          const trimmedResponse = aiResponse.trim();
+          const charCount = trimmedResponse.length;
+          setCharacterCount(charCount);
+          
+          // Check if response is too short and we haven't exceeded max retries
+          if (charCount < 800 && attempt < 2) {
+            console.log(`Response too short (${charCount} chars), retrying... (attempt ${attempt + 1})`);
+            setRetryCount(attempt + 1);
+            
+            // Enhanced prompt for retry
+            const enhancedPrompt = `${prompt}
+
+IMPORTANT: The previous response was too brief (${charCount} characters). Please provide a more comprehensive analysis with at least 800-1000 characters. Include more detailed explanations for each section, specific examples, and thorough reasoning for your recommendations.`;
+            
+            setLastPrompt(enhancedPrompt);
+            const retryResponse = await fetchGeminiSummary(enhancedPrompt);
+            
+            if (retryResponse && retryResponse.trim()) {
+              const retryTrimmed = retryResponse.trim();
+              setCharacterCount(retryTrimmed.length);
+              setVerdict(retryTrimmed);
+              toast.success('Successfully generated AI verdict.');
+            } else {
+              // If retry fails, use original response
+              setVerdict(trimmedResponse);
+              toast.success('Successfully generated AI verdict.');
+            }
+          } else {
+            setVerdict(trimmedResponse);
+            toast.success('Successfully generated AI verdict.');
+          }
+        } else {
+          throw new Error('Empty response from AI service');
+        }
+      } catch (error) {
+        console.error('Error generating AI verdict:', error);
+        
+        let errorMessage = 'Failed to generate AI verdict. Please try again.';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('timeout')) {
+            errorMessage = 'AI service request timed out. Please try again.';
+          } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+          } else if (error.message.includes('rate limit')) {
+            errorMessage = 'Too many requests. Please wait a moment and try again.';
+          }
+        }
+        
+        setError(errorMessage);
+      }
+    };
 
     try {
-      const prompt = buildComparisonPrompt(phones, userContext);
-      setLastPrompt(prompt);
-      
-      const aiResponse = await fetchGeminiSummary(prompt);
-      
-      if (aiResponse && aiResponse.trim()) {
-        setVerdict(aiResponse.trim());
-      } else {
-        throw new Error('Empty response from AI service');
-      }
-    } catch (error) {
-      console.error('Error generating AI verdict:', error);
-      
-      let errorMessage = 'Failed to generate AI verdict. Please try again.';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('timeout')) {
-          errorMessage = 'AI service request timed out. Please try again.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else if (error.message.includes('rate limit')) {
-          errorMessage = 'Too many requests. Please wait a moment and try again.';
-        }
-      }
-      
-      setError(errorMessage);
+      await attemptGeneration();
     } finally {
       setIsLoading(false);
     }
@@ -146,12 +197,16 @@ Keep the response under 500 characters, focusing on the most important factors f
     setError(null);
     setIsLoading(false);
     setLastPrompt('');
+    setCharacterCount(0);
+    setRetryCount(0);
   }, []);
 
   const state: AIVerdictState = {
     verdict,
     isLoading,
-    error
+    error,
+    characterCount,
+    retryCount
   };
 
   const actions = useMemo(() => ({

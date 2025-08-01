@@ -298,11 +298,11 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onSelect, isExcluded, isSe
     >
       <div className="flex items-center gap-3">
         <img
-          src={phone.img_url || "https://via.placeholder.com/60x80?text=No+Image"}
+          src={phone.img_url || "/no-image-placeholder.svg"}
           alt={phone.name}
           className="w-12 h-16 object-contain rounded bg-gray-50 dark:bg-gray-600"
           onError={(e) => {
-            e.currentTarget.src = "https://via.placeholder.com/60x80?text=No+Image";
+            e.currentTarget.src = "/no-image-placeholder.svg";
           }}
         />
         <div className="flex-1 min-w-0">

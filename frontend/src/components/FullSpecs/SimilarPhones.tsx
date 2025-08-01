@@ -18,7 +18,14 @@ const SimilarPhones: React.FC<SimilarPhonesProps> = ({ phones, loading, onRegene
     <div className="flex gap-4 overflow-x-auto">
       {phones.map((phone) => (
         <div key={phone.id} className="min-w-[160px] max-w-[180px] bg-brand/5 dark:bg-gray-800 rounded-lg p-2 flex flex-col items-center shadow">
-          <img src={phone.img_url || "/phone.png"} alt={phone.name} className="w-16 h-20 object-contain rounded bg-white" />
+          <img 
+            src={phone.img_url || "/no-image-placeholder.svg"} 
+            alt={phone.name} 
+            className="w-16 h-20 object-contain rounded bg-white"
+            onError={(e) => {
+              e.currentTarget.src = "/no-image-placeholder.svg";
+            }}
+          />
           <div className="font-bold text-sm mt-2 text-center text-brand">{phone.name}</div>
           <div className="text-xs text-gray-600 dark:text-gray-300">{phone.price}</div>
         </div>
