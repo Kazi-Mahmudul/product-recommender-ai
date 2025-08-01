@@ -31,7 +31,8 @@ class Settings(BaseSettings):
         if os.getenv("CORS_ORIGINS") 
         else [
             "http://localhost:3000",
-            "http://localhost:8000"
+            "http://localhost:8000",
+            "https://pickbd.vercel.app"
         ]
     )
     
