@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     
     # CORS settings - Load from environment variable for production
     CORS_ORIGINS: List[str] = (
-        os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+        os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000,https://pickbd.vercel.app").split(",")
         if os.getenv("CORS_ORIGINS") 
         else [
             "http://localhost:3000",
