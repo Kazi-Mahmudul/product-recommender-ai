@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api import deps
 from app.crud import comparison as crud_comparison
 from app.schemas.comparison import ComparisonSession, ComparisonItem
+from app.utils.session_manager import SessionManager
 import uuid
 import logging
 from typing import List, Optional
@@ -92,28 +93,14 @@ def add_item(
     db: Session = Depends(deps.get_db)
 ):
     try:
-        # Try to get session ID from cookie first, then from header
-        session_id = comparison_session_id
-        if session_id is None and x_session_id:
-            try:
-                session_id = uuid.UUID(x_session_id)
-                logger.info(f"Using session ID from header: {session_id}")
-            except ValueError:
-                logger.warning(f"Invalid session ID in header: {x_session_id}")
-                session_id = None
+        # Get session ID using production-ready session manager
+        session_id = SessionManager.get_session_id(comparison_session_id, x_session_id)
         
         # If no session ID found, create a new session
         if session_id is None:
             session_id = uuid.uuid4()
             session = crud_comparison.create_comparison_session(db, session_id=session_id)
-            response.set_cookie(
-                key="comparison_session_id",
-                value=str(session.session_id),
-                httponly=True,
-                secure=False,  # Allow non-HTTPS for development
-                samesite="lax",  # More permissive for cross-origin
-                max_age=86400  # 1 day
-            )
+            SessionManager.set_session_cookie(response, session.session_id)
             session_id = session.session_id
             logger.info(f"Created new session for add_item: {session_id}")
         
@@ -137,15 +124,8 @@ def remove_item(
     db: Session = Depends(deps.get_db)
 ):
     try:
-        # Try to get session ID from cookie first, then from header
-        session_id = comparison_session_id
-        if session_id is None and x_session_id:
-            try:
-                session_id = uuid.UUID(x_session_id)
-                logger.info(f"Using session ID from header for remove_item: {session_id}")
-            except ValueError:
-                logger.warning(f"Invalid session ID in header: {x_session_id}")
-                session_id = None
+        # Get session ID using production-ready session manager
+        session_id = SessionManager.get_session_id(comparison_session_id, x_session_id)
         
         # If no session ID found, return success (nothing to remove)
         if session_id is None:
@@ -170,19 +150,12 @@ def get_items(
     db: Session = Depends(deps.get_db)
 ):
     try:
-        # Try to get session ID from cookie first, then from header
-        session_id = comparison_session_id
-        if session_id is None and x_session_id:
-            try:
-                session_id = uuid.UUID(x_session_id)
-                logger.info(f"Using session ID from header for get_items: {session_id}")
-            except ValueError:
-                logger.warning(f"Invalid session ID in header: {x_session_id}")
-                session_id = None
+        # Get session ID using production-ready session manager
+        session_id = SessionManager.get_session_id(comparison_session_id, x_session_id)
         
         # If no session ID found, return empty list
         if session_id is None:
-            logger.info("No session ID found (cookie or header), returning empty comparison list")
+            logger.info("No session ID found, returning empty comparison list")
             return []
         
         items = crud_comparison.get_comparison_items(db, session_id=session_id)
