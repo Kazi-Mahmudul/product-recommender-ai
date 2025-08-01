@@ -686,3 +686,7 @@ def get_phones_by_fuzzy_names(db: Session, names: list, limit: int = 5, score_cu
         else:
             print(f"No good match for '{name}' (best: '{match}', score: {score})")
     return matched_phones[:limit]
+
+def get_all_phones(db: Session) -> List[Phone]:
+    """Get all phones from the database."""
+    return db.query(Phone).all()

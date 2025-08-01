@@ -674,3 +674,64 @@ Each highlight should be on a new line with no additional text or explanation.
         
         # Limit to top 3 highlights
         return valid_highlights[:3]
+
+    async def generate_chat_recommendation(self, query: str, phones: List[Phone]) -> Dict[str, Any]:
+        """
+        Generate a chat recommendation based on a user query and a list of phones.
+
+        Args:
+            query: The user's natural language query.
+            phones: A list of phones to choose from.
+
+        Returns:
+            A dictionary containing the AI's response and a list of recommended phones.
+        """
+        prompt = self._create_chat_recommendation_prompt(query, phones)
+        response_text = await self._call_gemini_api(prompt)
+
+        if not response_text:
+            return {"ai_reply": "Sorry, I couldn't process that request.", "recommended_phones": []}
+
+        ai_reply, recommended_phone_names = self._parse_chat_recommendation_response(response_text)
+
+        recommended_phones = [p for p in phones if p.name in recommended_phone_names]
+
+        return {"ai_reply": ai_reply, "recommended_phones": recommended_phones}
+
+    def _create_chat_recommendation_prompt(self, query: str, phones: List[Phone]) -> str:
+        """
+        Creates a prompt for the AI to generate chat-based phone recommendations.
+        """
+        phone_list = "\n".join([f"- {phone.name}" for phone in phones])
+        prompt = f"""As a helpful AI assistant, your task is to recommend the best phones based on the user's query from the provided list.
+
+        User Query: "{query}"
+
+        Available Phones:
+        {phone_list}
+
+        Please select the top 3 phones that best match the user's needs. Your response should be short, simple, and friendly.
+        Format your response as follows:
+        AI Reply: [Your brief, friendly reply to the user]
+        Recommended Phones: [List of the top 3 phone names, each on a new line]
+        """
+        return prompt
+
+    def _parse_chat_recommendation_response(self, response: str) -> Tuple[str, List[str]]:
+        """
+        Parses the AI's response to extract the reply and recommended phone names.
+        """
+        lines = response.strip().split('\n')
+        ai_reply = ""
+        recommended_phones = []
+
+        for line in lines:
+            if line.startswith("AI Reply:"):
+                ai_reply = line.replace("AI Reply:", "").strip()
+            elif line.startswith("Recommended Phones:"):
+                # This is the line with the header, the next lines are the phones
+                pass
+            elif ai_reply: # Only start collecting phones after the AI reply
+                recommended_phones.append(line.strip("- "))
+
+        return ai_reply, recommended_phones
