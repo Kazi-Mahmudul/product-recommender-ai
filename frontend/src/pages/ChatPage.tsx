@@ -79,13 +79,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
     setChatHistory(newChatHistory);
 
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/api/v1/natural-language/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: messageToSend }),
+      });
 
       if (!res.ok) {
         const err = await res.json();

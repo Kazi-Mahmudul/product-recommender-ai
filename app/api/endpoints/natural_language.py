@@ -6,6 +6,7 @@ import os
 import re
 import numpy as np
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone
@@ -14,6 +15,9 @@ from app.core.config import settings
 from app.services.ai_service import AIService
 
 router = APIRouter()
+
+class NaturalLanguageQuery(BaseModel):
+    query: str
 
 @router.get("/health")
 async def health_check():
@@ -353,13 +357,14 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
 
 @router.post("/query")
 async def process_natural_language_query(
-    query: str,
+    request: NaturalLanguageQuery,
     db: Session = Depends(get_db)
 ):
     """
     Process a natural language query and return relevant phone recommendations, QA, comparison, or error as JSON.
     """
     try:
+        query = request.query
         print(f"Processing query: {query}")
         print(f"Gemini service URL: {settings.GEMINI_SERVICE_URL}")
         filters = {}
