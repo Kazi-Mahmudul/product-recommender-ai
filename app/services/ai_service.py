@@ -702,15 +702,21 @@ Each highlight should be on a new line with no additional text or explanation.
         """
         Creates a prompt for the AI to generate chat-based phone recommendations.
         """
-        phone_list = "\n".join([f"- {phone.name}" for phone in phones])
-        prompt = f"""As a helpful AI assistant, your task is to recommend the best phones based on the user's query from the provided list.
+        phone_specs_list = []
+        for i, phone in enumerate(phones):
+            specs = self._format_phone_specs(phone)
+            phone_specs_list.append(f"Phone {i+1}: {phone.name}\n{specs}")
+        
+        phones_detailed = "\n\n".join(phone_specs_list)
+
+        prompt = f"""As a helpful AI assistant, your task is to recommend the best phones based on the user's query from the provided detailed list of phones.
 
         User Query: "{query}"
 
-        Available Phones:
-        {phone_list}
+        Available Phones (with detailed specifications):
+        {phones_detailed}
 
-        Please select the top 3 phones that best match the user's needs. Your response should be short, simple, and friendly.
+        Please select the top 3 phones that best match the user's needs based on their specifications. Your response should be short, simple, and friendly.
         Format your response as follows:
         AI Reply: [Your brief, friendly reply to the user]
         Recommended Phones: [List of the top 3 phone names, each on a new line]

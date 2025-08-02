@@ -424,8 +424,16 @@ async def process_natural_language_query(
                 elif result.get("type") == "chat":
                     print("Processing chat query")
                     ai_service = AIService()
-                    all_phones = phone_crud.get_all_phones(db)
-                    chat_response = await ai_service.generate_chat_recommendation(query, all_phones)
+                    # Pre-filter a diverse set of phones for the AI to consider
+                    # This can be based on popularity, new releases, or a broad search
+                    # For now, let's get a limited number of phones with good overall scores
+                    filtered_phones = phone_crud.get_smart_recommendations(
+                        db=db,
+                        min_overall_device_score=7.0, # Example: only consider phones with a decent score
+                        limit=10 # Limit to 10 phones to keep payload small
+                    )
+                    print(f"Pre-filtered {len(filtered_phones)} phones for chat recommendation.")
+                    chat_response = await ai_service.generate_chat_recommendation(query, filtered_phones)
                     return JSONResponse(content={"type": "chat", "data": chat_response})
                 else:
                     print(f"Unknown response type: {result.get('type')}")
