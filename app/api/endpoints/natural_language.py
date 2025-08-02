@@ -6,18 +6,13 @@ import os
 import re
 import numpy as np
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone
 from app.core.database import get_db
 from app.core.config import settings
-from app.services.ai_service import AIService
 
 router = APIRouter()
-
-class NaturalLanguageQuery(BaseModel):
-    query: str
 
 @router.get("/health")
 async def health_check():
@@ -357,17 +352,15 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
 
 @router.post("/query")
 async def process_natural_language_query(
-    request: NaturalLanguageQuery,
+    query: str,
     db: Session = Depends(get_db)
 ):
     """
     Process a natural language query and return relevant phone recommendations, QA, comparison, or error as JSON.
     """
     try:
-        query = request.query
         print(f"Processing query: {query}")
         print(f"Gemini service URL: {settings.GEMINI_SERVICE_URL}")
-        filters = {}
         
         # Call Gemini service to parse the query
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -423,18 +416,7 @@ async def process_natural_language_query(
                     return JSONResponse(content=comparison)
                 elif result.get("type") == "chat":
                     print("Processing chat query")
-                    ai_service = AIService()
-                    # Pre-filter a diverse set of phones for the AI to consider
-                    # This can be based on popularity, new releases, or a broad search
-                    # For now, let's get a limited number of phones with good overall scores
-                    filtered_phones = phone_crud.get_smart_recommendations(
-                        db=db,
-                        min_overall_device_score=7.0, # Example: only consider phones with a decent score
-                        limit=10 # Limit to 10 phones to keep payload small
-                    )
-                    print(f"Pre-filtered {len(filtered_phones)} phones for chat recommendation.")
-                    chat_response = await ai_service.generate_chat_recommendation(query, filtered_phones)
-                    return JSONResponse(content={"type": "chat", "data": chat_response})
+                    return JSONResponse(content={"type": "chat", "data": result.get("data", "I'm here to help you with smartphone questions!")})
                 else:
                     print(f"Unknown response type: {result.get('type')}")
                     filters = result.get("filters", {})
@@ -465,6 +447,7 @@ async def process_natural_language_query(
                     results = phone.all()
                     logging.warning(f"Full spec fallback by model results count: {len(results)}")
             return JSONResponse(content=[phone_crud.phone_to_dict(r) for r in results])
+
         try:
             # Use the parsed filters to get recommendations
             recommendations = phone_crud.get_smart_recommendations(
@@ -554,3 +537,4 @@ async def process_natural_language_query(
     except Exception as e:
         print(f"Unexpected error: {e}")
         return JSONResponse(content={"error": "I'm experiencing some technical difficulties. Please try again in a moment."}, status_code=500)
+    

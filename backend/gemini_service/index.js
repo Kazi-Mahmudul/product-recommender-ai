@@ -4,16 +4,6 @@ const dotenv = require("dotenv");
 const path = require("path");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Initialize Google Generative AI model
-let genAI;
-let model;
-
-// Import AI quota management components
-const ConfigurationManager = require("./managers/ConfigurationManager");
-const QuotaTracker = require("./managers/QuotaTracker");
-const HealthMonitor = require("./managers/HealthMonitor");
-const AIServiceManager = require("./managers/AIServiceManager");
-
 // Load environment variables from multiple possible locations
 const envPaths = [
   path.resolve(__dirname, "../../.env"),  // Root directory
@@ -41,65 +31,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize AI quota management system
-let aiServiceManager;
-let configManager;
-let quotaTracker;
-let healthMonitor;
-
-try {
-  // Initialize configuration manager
-  configManager = new ConfigurationManager();
-  
-  // Replace environment variable placeholders with actual values
-  const config = configManager.config;
-  for (const provider of config.providers) {
-    if (provider.apiKey && provider.apiKey.startsWith('GOOGLE_API_KEY')) {
-      provider.apiKey = process.env.GOOGLE_API_KEY;
-      
-      // Initialize Google Generative AI with the API key
-      if (provider.name === 'gemini' && provider.enabled) {
-        console.log(`[${new Date().toISOString()}] 🔧 Initializing Google Generative AI with API key: ${provider.apiKey.substring(0, 5)}...`);
-        console.log(`[${new Date().toISOString()}] 🔧 Using model: ${provider.model || "gemini-pro"}`);
-        try {
-          genAI = new GoogleGenerativeAI(provider.apiKey);
-          model = genAI.getGenerativeModel({ model: provider.model || "gemini-pro" });
-          console.log(`[${new Date().toISOString()}] ✅ Successfully initialized Google Generative AI model`);
-        } catch (error) {
-          console.error(`[${new Date().toISOString()}] ❌ Failed to initialize Google Generative AI model:`, error.message);
-        }
-      }
-    } else if (provider.apiKey && provider.apiKey.startsWith('OPENAI_API_KEY')) {
-      provider.apiKey = process.env.OPENAI_API_KEY;
-    }
-  }
-  
-  // Check if at least one provider has a valid API key
-  const validProviders = config.providers.filter(p => p.enabled && p.apiKey && p.apiKey.trim() !== '');
-  if (validProviders.length === 0) {
-    console.error("❌ No valid API keys found for enabled providers.");
-    console.error("Please set GOOGLE_API_KEY or OPENAI_API_KEY in your environment variables.");
-    process.exit(1);
-  }
-  
-  // Initialize quota tracker
-  quotaTracker = new QuotaTracker(configManager);
-  
-  // Initialize health monitor
-  healthMonitor = new HealthMonitor(config.providers, configManager);
-  
-  // Initialize AI service manager
-  aiServiceManager = new AIServiceManager(configManager, quotaTracker, healthMonitor);
-  
-  // Start periodic health checks
-  healthMonitor.startPeriodicHealthChecks(config.monitoring?.healthCheckInterval || 30000);
-  
-  console.log(`[${new Date().toISOString()}] 🎯 AI quota management system initialized with ${validProviders.length} provider(s)`);
-  
-} catch (error) {
-  console.error("❌ Failed to initialize AI quota management system:", error.message);
+// Check if GOOGLE_API_KEY is available
+if (!process.env.GOOGLE_API_KEY) {
+  console.error("❌ GOOGLE_API_KEY is missing. Please set it in your deployment environment variables.");
+  console.error("This can be done in Render dashboard under Environment Variables section.");
+  console.error("Or copy the .env file to the gemini_service directory.");
   process.exit(1);
 }
+
+// Initialize Google Generative AI
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.0-flash`);
 
 // Health check endpoints
 app.get("/", (req, res) => {
@@ -121,27 +65,167 @@ function cleanJsonResponse(text) {
   }
 }
 
-// Main query parser using AI Service Manager
+// Main Gemini prompt-based parser
 async function parseQuery(query) {
   try {
-    console.log(`[${new Date().toISOString()}] 🔹 Processing query with AI Service Manager: "${query}"`);
+    console.log(`[${new Date().toISOString()}] 🔹 Sending query to Gemini: "${query}"`);
+    console.log(`[${new Date().toISOString()}] 🔹 Using API key: ${process.env.GOOGLE_API_KEY ? 'Present' : 'Missing'}`);
+    console.log(`[${new Date().toISOString()}] 🔹 API key length: ${process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.length : 0}`);
     
-    // Use AIServiceManager to handle the query with fallback support
-    const result = await aiServiceManager.parseQuery(query);
-    
-    console.log(`[${new Date().toISOString()}] ✅ Successfully processed query with source: ${result.source}`);
-    return result;
+    const prompt = `You are a powerful and versatile smart assistant for ePick, a smartphone recommendation platform.
+Your job is to detect the user's intent and respond with a JSON object.
+
+AVAILABLE PHONE FEATURES:
+- Basic: name, brand, model, price, price_original, price_category
+- Display: display_type, screen_size_numeric, display_resolution, ppi_numeric, refresh_rate_numeric, screen_protection, display_brightness, aspect_ratio, hdr_support, display_score
+- Performance: chipset, cpu, gpu, ram, ram_gb, ram_type, internal_storage, storage_gb, storage_type, performance_score
+- Camera: camera_setup, primary_camera_resolution, selfie_camera_resolution, primary_camera_video_recording, selfie_camera_video_recording, primary_camera_ois, primary_camera_aperture, selfie_camera_aperture, camera_features, autofocus, flash, settings, zoom, shooting_modes, video_fps, camera_count, primary_camera_mp, selfie_camera_mp, camera_score
+- Battery: battery_type, capacity, battery_capacity_numeric, quick_charging, wireless_charging, reverse_charging, has_fast_charging, has_wireless_charging, charging_wattage, battery_score
+- Design: build, weight, thickness, colors, waterproof, ip_rating, ruggedness
+- Connectivity: network, speed, sim_slot, volte, bluetooth, wlan, gps, nfc, usb, usb_otg, connectivity_score
+- Security: fingerprint_sensor, finger_sensor_type, finger_sensor_position, face_unlock, light_sensor, infrared, fm_radio, security_score
+- Software: operating_system, os_version, user_interface, status, made_by, release_date, release_date_clean, is_new_release, age_in_months, is_upcoming
+- Derived Scores: overall_device_score, performance_score, display_score, camera_score, battery_score, security_score, connectivity_score, is_popular_brand
+
+Classify the intent as one of the following:
+- "recommendation": Suggest phones based on filters (price, camera, battery, etc.)
+- "qa": Answer specific technical questions about smartphones
+- "comparison": Compare multiple phones with insights
+- "chat": Friendly conversations, jokes, greetings, small talk
+
+RESPONSE FORMAT:
+For recommendation queries:
+{
+  "type": "recommendation",
+  "filters": {
+    "max_price": number,
+    "min_price": number,
+    "brand": string,
+    "price_category": string,
+    "min_ram_gb": number,
+    "max_ram_gb": number,
+    "min_storage_gb": number,
+    "max_storage_gb": number,
+    "min_display_score": number,
+    "max_display_score": number,
+    "min_camera_score": number,
+    "max_camera_score": number,
+    "min_battery_score": number,
+    "max_battery_score": number,
+    "min_performance_score": number,
+    "max_performance_score": number,
+    "min_security_score": number,
+    "max_security_score": number,
+    "min_connectivity_score": number,
+    "max_connectivity_score": number,
+    "min_overall_device_score": number,
+    "max_overall_device_score": number,
+    "min_refresh_rate_numeric": number,
+    "max_refresh_rate_numeric": number,
+    "min_screen_size_numeric": number,
+    "max_screen_size_numeric": number,
+    "min_ppi_numeric": number,
+    "max_ppi_numeric": number,
+    "min_battery_capacity_numeric": number,
+    "max_battery_capacity_numeric": number,
+    "min_primary_camera_mp": number,
+    "max_primary_camera_mp": number,
+    "min_selfie_camera_mp": number,
+    "max_selfie_camera_mp": number,
+    "min_camera_count": number,
+    "max_camera_count": number,
+    "has_fast_charging": boolean,
+    "has_wireless_charging": boolean,
+    "is_popular_brand": boolean,
+    "is_new_release": boolean,
+    "is_upcoming": boolean,
+    "display_type": string,
+    "camera_setup": string,
+    "battery_type": string,
+    "chipset": string,
+    "operating_system": string,
+    "limit": number
+  }
+}
+
+For other queries:
+{
+  "type": "qa" | "comparison" | "chat",
+  "data": string
+}
+
+Examples:
+- "best phones under 30000 BDT" → { "type": "recommendation", "filters": { "max_price": 30000 } }
+- "phones with good camera under 50000" → { "type": "recommendation", "filters": { "max_price": 50000, "min_camera_score": 7.0 } }
+- "Samsung phones with 8GB RAM" → { "type": "recommendation", "filters": { "brand": "Samsung", "min_ram_gb": 8 } }
+- "phones with 120Hz refresh rate" → { "type": "recommendation", "filters": { "min_refresh_rate_numeric": 120 } }
+- "phones with wireless charging" → { "type": "recommendation", "filters": { "has_wireless_charging": true } }
+- "new release phones" → { "type": "recommendation", "filters": { "is_new_release": true } }
+- "What is the refresh rate of Galaxy A55?" → { "type": "qa", "data": "I'll check the refresh rate of Galaxy A55 for you." }
+- "Compare POCO X6 vs Redmi Note 13 Pro" → { "type": "comparison", "data": "I'll compare POCO X6 and Redmi Note 13 Pro for you." }
+- "Hi, how are you?" → { "type": "chat", "data": "I'm great! How can I help you today?" }
+
+Only return valid JSON — no markdown formatting. User query: ${query}`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const rawText = response.text();
+    const cleanedText = cleanJsonResponse(rawText);
+
+    console.log(
+      `[${new Date().toISOString()}] 🔹 Gemini Raw Response:\n${rawText}`
+    );
+    console.log(
+      `[${new Date().toISOString()}] 🔹 Cleaned JSON Attempt:\n${cleanedText}`
+    );
+
+    // Parse and validate response
+    const parsed = JSON.parse(cleanedText);
+    const allowedTypes = ["recommendation", "qa", "comparison", "chat"];
+
+    if (!parsed.type || !allowedTypes.includes(parsed.type)) {
+      throw new Error(`Unexpected response type: ${parsed.type}`);
+    }
+
+    console.log(`[${new Date().toISOString()}] ✅ Successfully parsed response type: ${parsed.type}`);
+    return parsed;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] ❌ Error processing query:`, error.message);
+    console.error(
+      `[${new Date().toISOString()}] ❌ Error parsing Gemini response:`,
+      error
+    );
+    console.error(
+      `[${new Date().toISOString()}] ❌ Error details:`,
+      {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    );
     
-    // Return a fallback response for any unexpected errors
-    return {
-      type: "chat",
-      data: "Sorry, I'm having trouble processing your request right now. Please try again in a moment.",
-      source: "error_fallback",
-      error: error.message
-    };
+    // Provide more specific error messages based on the error type
+    if (error.message.includes('API_KEY') || error.message.includes('authentication')) {
+      return {
+        type: "chat",
+        data: "I'm having trouble with my AI service configuration. Please contact support.",
+      };
+    } else if (error.message.includes('quota') || error.message.includes('limit') || error.message.includes('rate')) {
+      return {
+        type: "chat",
+        data: "I'm experiencing high usage right now. Please try again in a moment.",
+      };
+    } else if (error.message.includes('JSON') || error.message.includes('parse')) {
+      return {
+        type: "chat",
+        data: "I'm having trouble understanding your request. Could you try rephrasing it?",
+      };
+    } else {
+      return {
+        type: "chat",
+        data: "Sorry, I couldn't understand that. Can you please rephrase your question?",
+      };
+    }
   }
 }
 
@@ -222,6 +306,7 @@ app.post("/", async (req, res) => {
   }
 });
 
+// POST endpoint to process user query
 app.post("/parse-query", async (req, res) => {
   const { query } = req.body;
 
@@ -245,40 +330,8 @@ app.post("/parse-query", async (req, res) => {
   }
 });
 
-// Graceful shutdown handler
-process.on('SIGINT', () => {
-  console.log('\n🔄 Gracefully shutting down...');
-  
-  if (healthMonitor) {
-    healthMonitor.cleanup();
-  }
-  
-  if (quotaTracker) {
-    quotaTracker.cleanup();
-  }
-  
-  console.log('✅ Cleanup completed');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  console.log('\n🔄 Received SIGTERM, shutting down gracefully...');
-  
-  if (healthMonitor) {
-    healthMonitor.cleanup();
-  }
-  
-  if (quotaTracker) {
-    quotaTracker.cleanup();
-  }
-  
-  console.log('✅ Cleanup completed');
-  process.exit(0);
-});
-
 // Start the server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 ePick Gemini AI API running on http://localhost:${PORT}`);
-  console.log(`🎯 AI quota management system active with fallback support`);
 });
