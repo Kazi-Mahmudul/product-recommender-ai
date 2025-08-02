@@ -208,7 +208,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
       setChatHistory([
         {
           user: "",
-          bot: `Hi there 👋\n\nI’m your ePick assistant — here to help you find and compare the best smartphones in Bangladesh.\n\nAsk anything, and let’s explore the perfect pick together! 🌿📱\n\nHere are some things you can try:`,
+          bot: `Hi there 👋\n\nI’m ePick AI — here to help you find and compare the best smartphones in Bangladesh.\n\nAsk anything, and let’s explore the perfect pick together! 🌿📱\n\nHere are some things you can try:`,
         },
       ]);
     }

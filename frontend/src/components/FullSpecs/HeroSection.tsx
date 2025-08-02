@@ -127,7 +127,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
             onClick={onAddToCompare}
             className={`flex-1 rounded-lg px-3 py-2 font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 ${
               isSelected
-                ? 'bg-[#2d5016] hover:bg-[#3d6b1f] text-white focus:ring-[#2d5016]'
+                ? 'bg-brand hover:bg-brand-darkGreen text-white hover:text-black focus:ring-brand'
                 : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
             }`}
             title={isSelected ? 'Remove from comparison' : 'Add to comparison'}

@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ChatPhoneCard from "./ChatPhoneCard";
-import ChatComparisonChart from "./ChatComparisonChart";
-import ChatSpecTable from "./ChatSpecTable";
 import CompareSelection from "./CompareSelection";
 import { navigateToPhoneDetails, navigateToComparison } from "../utils/navigationUtils";
 
@@ -56,68 +54,18 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
     }
   };
   
-  // Generate comparison data for the chart
-  const generateComparisonData = () => {
-    if (phones.length < 2) return null;
-    
-    // Define the features to compare
-    const featureKeys = [
-      { key: "overall_device_score" as keyof Phone, label: "Overall Score" },
-      { key: "performance_score" as keyof Phone, label: "Performance" },
-      { key: "display_score" as keyof Phone, label: "Display" },
-    ];
-    
-    // Generate the features array with percentages
-    const features = featureKeys.map(feature => {
-      const raw = phones.map(phone => (phone[feature.key] as number | undefined) ?? 0);
-      const max = Math.max(...raw.filter(v => !isNaN(Number(v))).map(v => Number(v)));
-      const percent = raw.map(v => max > 0 ? (Number(v) / max) * 100 : 0);
-      
-      return {
-        key: feature.key,
-        label: feature.key.toString().replace("_", " ").replace(/\w\S*/g, (w: string) => (w.replace(/^\w/, (c: string) => c.toUpperCase()))),
-        raw,
-        percent,
-      };
-    });
-    
-    return {
-      phones,
-      features: features.filter(f => f.raw.some(v => v > 0)), // Only include features with data
-    };
-  };
-  
-  const comparisonData = generateComparisonData();
   
   return (
     <div className="space-y-6 p-4">
+      <p className="text-base font-semibold">📱 Here are some of the best phones according to your query right now:</p>
       {/* Top Phone Card */}
       {phones.length > 0 && (
         <ChatPhoneCard
           phone={phones[0]}
           darkMode={darkMode}
-          onAddToCompare={handleAddToCompare}
           isTopResult={true}
         />
       )}
-      
-      {/* Device Score Chart (if we have comparison data) */}
-      {comparisonData && comparisonData.features.length > 0 && (
-        <ChatComparisonChart
-          phones={comparisonData.phones}
-          features={comparisonData.features}
-          darkMode={darkMode}
-          onPhoneSelect={handleViewDetails}
-          onViewDetailedComparison={phonesToCompare.length >= 2 ? handleCompareSelected : undefined}
-        />
-      )}
-      
-      {/* Specification Table */}
-      <ChatSpecTable
-        phones={phonesWithIds}
-        darkMode={darkMode}
-        onPhoneSelect={handleViewDetails}
-      />
       
       {/* Additional Recommendations (if more than one phone) */}
       {phones.length > 1 && (
@@ -131,7 +79,6 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
                 key={index}
                 phone={phone}
                 darkMode={darkMode}
-                onAddToCompare={handleAddToCompare}
               />
             ))}
           </div>
