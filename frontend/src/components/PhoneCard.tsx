@@ -105,7 +105,7 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
         {/* Price and Action */}
         <div className="flex items-center justify-between">
           <div className="font-bold text-lg text-brand dark:text-white">
-            <span className="text-brand-darkGreen dark:text-brand-darkGreen font-normal text-xs mr-1">৳</span> {phone.price}
+            <span className="text-brand dark:text-brand-darkGreen font-normal text-base mr-1">৳</span> {phone.price}
           </div>
           <button
             className="bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm"

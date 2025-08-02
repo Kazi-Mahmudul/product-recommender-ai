@@ -1,36 +1,44 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { getThemeClasses } from "../utils/colorUtils";
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
+import { useComparison } from "../context/ComparisonContext";
 import { Phone } from "../api/phones";
 
 interface ChatPhoneCardProps {
   phone: Phone;
   darkMode: boolean;
-  onAddToCompare?: (phone: Phone) => void;
   isTopResult?: boolean;
 }
 
-const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ 
-  phone, 
-  darkMode, 
-  onAddToCompare,
-  isTopResult = false
-}) => {
-  const navigate = useNavigate();
-  const themeClasses = getThemeClasses(darkMode);
-  
+
+  const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode, 
+    isTopResult = false }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const navigate = useNavigate();
+    const themeClasses = getThemeClasses(darkMode);
+
+  // Use comparison context
+  const { addPhone, removePhone, isPhoneSelected } = useComparison();
+
+  // Check if this phone is selected for comparison
+  const isSelected = isPhoneSelected(phone.slug!); 
+
   const handleViewDetails = () => {
     if (phone.id) {
       navigate(generatePhoneDetailUrl(phone));
     }
   };
-  
-  const handleAddToCompare = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click from triggering
-    if (onAddToCompare) {
-      onAddToCompare(phone);
+
+
+   // Handle compare button click
+   const handleCompareClick = () => {
+    if (isSelected) {
+      removePhone(phone.slug!);
+    } else {
+      addPhone(phone);
     }
   };
 
@@ -113,18 +121,22 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
             View Details
           </button>
           
-          {onAddToCompare && (
-            <button
-              className={`flex items-center gap-1 ${
-                darkMode 
-                  ? "bg-gray-800 hover:bg-gray-700 text-white" 
-                  : "bg-[#eae4da] hover:bg-[#d4c8b8] text-[#6b4b2b]"
-              } font-medium rounded-full px-3 py-1.5 text-sm transition-colors`}
-              onClick={handleAddToCompare}
-            >
-              <Plus size={16} />
-              Compare
-            </button>
+          {/* Compare Button */}
+          <button
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 ${
+              isSelected
+                ? 'bg-brand hover:bg-brand-darkGreen text-white hover:text-black focus:ring-brand'
+                : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
+            }`}
+            title={isSelected ? 'Remove from comparison' : 'Add to comparison'}
+            onClick={handleCompareClick}
+          >
+            {isSelected ? 'Added to Compare' : '+ Compare'}
+          </button>
+          {showTooltip && (
+            <div className="absolute -bottom-10 right-0 px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 text-brand dark:text-white text-xs font-medium shadow-soft z-20 whitespace-nowrap transition-opacity duration-200">
+              {isSelected ? "Remove from comparison" : "Add to comparison"}
+            </div>
           )}
         </div>
       </div>
@@ -148,18 +160,29 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#377D5B] text-white text-xs font-medium">
           {phone.brand}
         </div>
-        
-        {onAddToCompare && (
-          <div className="absolute top-2 right-2">
-            <button
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 dark:bg-gray-800/90 shadow-sm backdrop-blur-sm text-[#377D5B] dark:text-white hover:bg-[#377D5B] hover:text-white transition-colors duration-200"
-              onClick={handleAddToCompare}
-              aria-label="Compare"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        )}
+        {/* Compare Button */}
+          <div className="absolute top-4 right-4">
+          <button
+            className={`w-8 h-8 flex items-center justify-center rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 ${
+              isSelected
+                ? 'bg-brand text-white hover:bg-brand-darkGreen'
+                : 'bg-white/90 dark:bg-card/90 text-brand dark:text-white hover:bg-brand hover:text-white'
+            }`}
+            onClick={handleCompareClick}
+            aria-label={isSelected ? "Remove from comparison" : "Add to comparison"}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            onFocus={() => setShowTooltip(true)}
+            onBlur={() => setShowTooltip(false)}
+          >
+            {isSelected ? <Check size={16} /> : <Plus size={16} />}
+          </button>
+          {showTooltip && (
+            <div className="absolute -bottom-10 right-0 px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 text-brand dark:text-white text-xs font-medium shadow-soft z-20 whitespace-nowrap transition-opacity duration-200">
+              {isSelected ? "Remove from comparison" : "Add to comparison"}
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="p-3">
@@ -179,9 +202,10 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         </div>
         
         <div className="flex items-center justify-between">
-          <div className="font-bold text-sm text-[#377D5B] dark:text-[#80EF80]">
-            <span className="text-[#80EF80] dark:text-[#80EF80] font-normal text-xs mr-0.5">৳</span> {phone.price}
+          <div className="font-semibold text-xs text-[#377D5B] dark:text-[#80EF80]">
+            <span className="text-brand dark:text-[#80EF80] font-normal text-base">৳</span> {phone.price}
           </div>
+          <div>
           <button
             className="bg-[#377D5B] hover:bg-[#377D5B]/90 text-white rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
             onClick={(e) => {
@@ -191,6 +215,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           >
             Details
           </button>
+          </div>
         </div>
       </div>
     </div>
