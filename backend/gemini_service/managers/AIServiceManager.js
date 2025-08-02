@@ -382,13 +382,11 @@ class AIServiceManager {
     }
     
     // Skip actual API call if no real API key or test key
-    if (!provider.apiKey || provider.apiKey.startsWith('TEST_') || provider.apiKey === 'GOOGLE_API_KEY' || provider.apiKey === 'test-key-1') {
-      // Return simulated response for testing
-      return {
-        type: "recommendation",
-        filters: this.parseQueryToFilters(query),
-        confidence: 0.9
-      };
+    if (!provider.apiKey || provider.apiKey.startsWith('TEST_') || provider.apiKey === 'GOOGLE_API_KEY') {
+        // If no valid API key is found, throw an authentication error
+        const error = new Error('Invalid or missing API key for Gemini');
+        error.status = 401; // Unauthorized
+        throw error;
     }
     
     try {
