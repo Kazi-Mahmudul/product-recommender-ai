@@ -356,12 +356,36 @@ class AIServiceManager {
     // For now, we'll simulate the request based on provider type
     
     switch (provider.type) {
+      case 'gemini':
+        return await this.makeGeminiApiRequest(provider, query);
       case 'google-generative-ai':
         return await this.makeGeminiRequest(provider, query);
       case 'openai':
         return await this.makeOpenAIRequest(provider, query);
       default:
         throw new Error(`Unsupported provider type: ${provider.type}`);
+    }
+  }
+
+    /**
+   * Makes a request to the Gemini API.
+   * @param {object} provider - The provider configuration.
+   * @param {string} query - The user's query.
+   * @returns {Promise<object>} The response from the Gemini API.
+   */  async makeGeminiApiRequest(provider, query) {
+    const axios = require('axios');
+    try {
+      const response = await axios.post('https://gemini-api-wm3b.onrender.com', { query });
+      return {
+        type: 'chat',
+        data: {
+          ai_reply: response.data.response,
+          recommended_phones: [],
+        },
+      };
+    } catch (error) {
+      console.error('Error making Gemini API request:', error);
+      throw error;
     }
   }
 
