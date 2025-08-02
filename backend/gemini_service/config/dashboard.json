@@ -1,0 +1,68 @@
+{
+  "title": "AI Quota Management System",
+  "theme": "default",
+  "layout": {
+    "grid": {
+      "columns": "auto-fit",
+      "minWidth": "300px",
+      "gap": "1.5rem"
+    }
+  },
+  "widgets": [
+    {
+      "id": "system-status",
+      "title": "📊 System Status",
+      "type": "status",
+      "enabled": true,
+      "refreshInterval": 30000
+    },
+    {
+      "id": "provider-health",
+      "title": "🔌 Provider Health",
+      "type": "providers",
+      "enabled": true,
+      "refreshInterval": 30000
+    },
+    {
+      "id": "performance-metrics",
+      "title": "📈 Performance Metrics",
+      "type": "metrics",
+      "enabled": true,
+      "refreshInterval": 30000
+    },
+    {
+      "id": "active-alerts",
+      "title": "🚨 Active Alerts",
+      "type": "alerts",
+      "enabled": true,
+      "refreshInterval": 15000
+    }
+  ],
+  "actions": [
+    {
+      "id": "refresh-providers",
+      "title": "🔄 Refresh Providers",
+      "type": "button",
+      "enabled": true
+    },
+    {
+      "id": "export-metrics",
+      "title": "📊 Export Metrics",
+      "type": "button",
+      "enabled": true
+    },
+    {
+      "id": "debug-mode",
+      "title": "🐛 Debug Mode",
+      "type": "button",
+      "enabled": true,
+      "style": "danger"
+    },
+    {
+      "id": "normal-mode",
+      "title": "ℹ️ Normal Mode",
+      "type": "button",
+      "enabled": true
+    }
+  ]
+}
