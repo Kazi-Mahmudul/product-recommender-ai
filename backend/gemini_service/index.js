@@ -306,7 +306,6 @@ app.post("/", async (req, res) => {
   }
 });
 
-// POST endpoint to process user query
 app.post("/parse-query", async (req, res) => {
   const { query } = req.body;
 
