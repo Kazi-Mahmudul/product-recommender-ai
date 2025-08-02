@@ -1,0 +1,36 @@
+{
+  "dashboard": {
+    "port": 3001,
+    "refreshInterval": 30000,
+    "enableAuth": false,
+    "authToken": "monitoring-token-rowo8e0an"
+  },
+  "alerts": {
+    "enableAlerts": true,
+    "alertCooldown": 300000,
+    "maxActiveAlerts": 50,
+    "alertRetention": 86400000,
+    "thresholds": {
+      "responseTime": 5000,
+      "errorRate": 0.1,
+      "quotaUsage": 0.9,
+      "providerFailures": 3,
+      "memoryUsage": 0.85
+    },
+    "notifications": {
+      "console": true,
+      "webhook": null,
+      "email": null
+    }
+  },
+  "metrics": {
+    "aggregationInterval": 60000,
+    "retentionPeriod": 604800000,
+    "enableDetailedMetrics": true
+  },
+  "healthChecks": {
+    "interval": 30000,
+    "timeout": 10000,
+    "retries": 3
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "providers": {
+    "gemini": {
+      "name": "gemini",
+      "type": "google-generative-ai",
+      "enabled": true,
+      "priority": 1,
+      "apiKey": "${GOOGLE_API_KEY}",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "model": "gemini-pro",
+      "timeout": 10000,
+      "retries": 3,
+      "limits": {
+        "requestsPerMinute": 60,
+        "requestsPerHour": 1000,
+        "requestsPerDay": 10000
+      }
+    },
+    "openai": {
+      "name": "openai",
+      "type": "openai",
+      "enabled": true,
+      "priority": 2,
+      "apiKey": "test-openai-key",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-3.5-turbo",
+      "timeout": 10000,
+      "retries": 3,
+      "limits": {
+        "requestsPerMinute": 50,
+        "requestsPerHour": 800,
+        "requestsPerDay": 8000
+      }
+    },
+    "claude": {
+      "name": "claude",
+      "type": "anthropic",
+      "enabled": false,
+      "priority": 3,
+      "apiKey": "test-claude-key",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "model": "claude-3-sonnet-20240229",
+      "timeout": 10000,
+      "retries": 3,
+      "limits": {
+        "requestsPerMinute": 40,
+        "requestsPerHour": 600,
+        "requestsPerDay": 6000
+      }
+    }
+  },
+  "fallback": {
+    "enabled": true,
+    "timeout": 5000,
+    "retries": 1
+  },
+  "system": {
+    "defaultProvider": "gemini",
+    "enableHealthChecks": true,
+    "healthCheckInterval": 30000,
+    "enableMetrics": true,
+    "enableLogging": true
+  }
+}

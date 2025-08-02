@@ -1,0 +1,82 @@
+{
+  "rules": [
+    {
+      "name": "high_response_time",
+      "enabled": true,
+      "severity": "warning",
+      "description": "Triggers when average response time exceeds threshold",
+      "cooldown": 300000,
+      "metadata": {
+        "category": "performance",
+        "documentation": "High response times may indicate system overload or provider issues"
+      }
+    },
+    {
+      "name": "high_error_rate",
+      "enabled": true,
+      "severity": "error",
+      "description": "Triggers when error rate exceeds threshold",
+      "cooldown": 300000,
+      "metadata": {
+        "category": "reliability",
+        "documentation": "High error rates indicate system reliability issues"
+      }
+    },
+    {
+      "name": "provider_failure",
+      "enabled": true,
+      "severity": "error",
+      "description": "Triggers when multiple providers fail",
+      "cooldown": 600000,
+      "metadata": {
+        "category": "availability",
+        "documentation": "Multiple provider failures may require immediate attention"
+      }
+    },
+    {
+      "name": "high_quota_usage",
+      "enabled": true,
+      "severity": "warning",
+      "description": "Triggers when quota usage is high",
+      "cooldown": 900000,
+      "metadata": {
+        "category": "quota",
+        "documentation": "High quota usage may lead to service interruption"
+      }
+    },
+    {
+      "name": "high_memory_usage",
+      "enabled": true,
+      "severity": "warning",
+      "description": "Triggers when memory usage is high",
+      "cooldown": 600000,
+      "metadata": {
+        "category": "resources",
+        "documentation": "High memory usage may indicate memory leaks or high load"
+      }
+    },
+    {
+      "name": "fallback_mode_active",
+      "enabled": true,
+      "severity": "warning",
+      "description": "Triggers when system is running in fallback mode",
+      "cooldown": 1800000,
+      "metadata": {
+        "category": "availability",
+        "documentation": "Fallback mode indicates all AI providers are unavailable"
+      }
+    }
+  ],
+  "customRules": {
+    "description": "Add custom alert rules here",
+    "example": {
+      "name": "custom_rule",
+      "enabled": false,
+      "severity": "info",
+      "description": "Example custom rule",
+      "cooldown": 300000,
+      "condition": "// JavaScript function that returns true/false",
+      "message": "// JavaScript function that returns alert message"
+    }
+  }
+}
