@@ -435,10 +435,10 @@ function App() {
     };
 
     return (
-      <main className="flex flex-col items-center min-h-screen lg:mt-16 pt-16">
+      <main className="flex flex-col items-center min-h-screen pt-16">
         <div className="w-full max-w-7xl px-2 md:px-6 mx-auto">
           {/* Hero Section and Search Form */}
-          <section className="w-full mt-6 relative overflow-hidden rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-8 md:py-12 mb-12">
+          <section className="w-full mt-6 relative overflow-hidden rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-8 md:py-2 mb-12">
             {/* Decorative elements - contained within the section */}
             <div className="absolute top-0 right-0 w-72 h-72 bg-brand/10 rounded-full filter blur-3xl -z-10 animate-float"></div>
             <div
@@ -480,24 +480,24 @@ function App() {
                   <div
                     className={`relative w-full flex items-center bg-white dark:bg-[#232323] border ${darkMode ? "border-gray-700" : "border-[#eae4da]"} rounded-2xl shadow-lg p-2 md:p-4 transition-all duration-200 hover:shadow-xl`}
                   >
-                    <span className="pl-1 pr-2 text-brand flex items-center">
+                    <span className="pl-1 md:pr-2 text-brand flex items-center">
                       <Search className="h-5 w-5" />
                     </span>
                     <input
                       value={homeInput}
                       onChange={(e) => setHomeInput(e.target.value)}
                       placeholder={examplePlaceholders[placeholderIndex]}
-                      className={`flex-grow px-2 py-2 md:py-3 rounded-lg bg-transparent focus:outline-none text-base md:text-lg ${darkMode ? "text-white placeholder-gray-400" : "text-gray-900 placeholder-gray-500"}`}
+                      className={`flex-grow px-1 py-2 md:py-3 rounded-lg bg-transparent focus:outline-none text-sm md:text-lg ${darkMode ? "text-white placeholder-gray-400" : "text-gray-900 placeholder-gray-500"}`}
                       disabled={homeIsTyping}
                     />
                     <button
                       type="submit"
-                      className="ml-2 flex items-center justify-center text-brand hover:text-brand-darkGreen rounded-xl px-4 py-2 transition-all duration-200"
+                      className="mr-2 md:mr-0 md:ml-2 flex items-center justify-center text-brand hover:text-brand-darkGreen rounded-xl md:px-4 md:py-2 transition-all duration-200"
                       disabled={homeIsTyping || !homeInput.trim()}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6"
+                        className="h-4 w-4 md:h-6 md:w-6"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"

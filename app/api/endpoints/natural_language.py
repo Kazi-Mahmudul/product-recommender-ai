@@ -414,6 +414,24 @@ async def process_natural_language_query(
                     if isinstance(comparison, dict) and comparison.get("error"):
                         return JSONResponse(content=comparison, status_code=400)
                     return JSONResponse(content=comparison)
+                elif result.get("type") == "drill_down":
+                    print("Processing drill-down query")
+                    from app.services.drill_down_handler import DrillDownHandler
+                    
+                    command = result.get("command")
+                    target = result.get("target")
+                    
+                    # Try to get phone names from recent context (this would need to be implemented)
+                    # For now, we'll return a message asking for context
+                    drill_down_response = DrillDownHandler.process_drill_down_command(
+                        db=db,
+                        command=command,
+                        target=target,
+                        phone_names=None,  # Would need context management
+                        context=None
+                    )
+                    
+                    return JSONResponse(content=drill_down_response)
                 elif result.get("type") == "chat":
                     print("Processing chat query")
                     return JSONResponse(content={"type": "chat", "data": result.get("data", "I'm here to help you with smartphone questions!")})
@@ -523,9 +541,9 @@ async def process_natural_language_query(
             if not valid_recommendations:
                 return JSONResponse(content={"type": "chat", "data": "I couldn't find any phones matching your criteria. Try adjusting your search parameters."})
                 
-            # If limit is not specified in the query but we have results, return top 5 by default
+            # If limit is not specified in the query but we have results, return top 3 by default for better UX
             if filters.get("limit") is None and valid_recommendations:
-                return JSONResponse(content=valid_recommendations[:5])
+                return JSONResponse(content=valid_recommendations[:3])
             return JSONResponse(content=valid_recommendations)
         except Exception as e:
             print(f"Database error: {e}")

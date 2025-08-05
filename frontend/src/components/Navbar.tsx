@@ -146,7 +146,7 @@ const Navbar: React.FC<NavbarProps> = ({
         ))}
       </ul>
 
-      <div className="flex items-center space-x-5 relative">
+      <div className="flex items-center space-x-1 md:space-x-5 relative">
         {/* Search Button */}
         <div className="relative" ref={searchRef}>
           <button

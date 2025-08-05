@@ -1,17 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  Legend,
-  LabelList,
-} from "recharts";
+// Recharts imports removed as they're now handled by EnhancedComparison component
 import ChatPhoneRecommendation from "../components/ChatPhoneRecommendation";
+import EnhancedComparison from "../components/EnhancedComparison";
+import {
+  ChatContextManager,
+  ChatContext,
+} from "../services/chatContextManager";
+import { ErrorHandler } from "../services/errorHandler";
+import { AIResponseEnhancer } from "../services/aiResponseEnhancer";
+import { useMobileResponsive } from "../hooks/useMobileResponsive";
+import { useFeatureFlags } from "../utils/featureFlags";
 
 interface ChatMessage {
   user: string;
@@ -25,176 +24,60 @@ interface ChatPageProps {
 }
 
 const SUGGESTED_QUERIES = [
-  "Best phones under 20,000 BDT",
-  "Phones with 120Hz refresh rate",
-  "Samsung phones with wireless charging",
-  "What is the battery capacity of Samsung Galaxy A55?",
-  "Compare Xiaomi POCO X6 vs Redmi Note 13 Pro",
-  "New release phones 2025",
-  "Phones with good camera under 50,000",
-  "What is the refresh rate of iPhone 15?",
-  "Phones with high camera score",
-  "Budget phones with good performance",
-  "What is the screen size of iPhone 16 Pro?",
+  // Budget-friendly options
+  "Best phones under 25,000 BDT",
+  "Budget phones with great cameras",
+  "Affordable phones with good performance",
+
+  // Mid-range recommendations
+  "Best phones under 50,000 BDT",
+  "Mid-range phones with 120Hz display",
+  "Phones with wireless charging under 60,000",
+
+  // Premium options
+  "Latest flagship phones 2025",
+  "Premium phones with best cameras",
+  "High-end gaming phones",
+
+  // Feature-specific queries
+  "Phones with longest battery life",
+  "Best camera phones for photography",
   "Phones with fast charging support",
+
+  // Brand comparisons
+  "Samsung vs iPhone comparison",
+  "Compare Xiaomi POCO X6 vs Realme GT Neo",
+  "Best OnePlus phones available",
+
+  // Specific information
+  "What's new in iPhone 15 series?",
+  "Samsung Galaxy A55 full specifications",
+  "Which phones support 5G in Bangladesh?",
 ];
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE;
 const GEMINI_API_URL = process.env.REACT_APP_GEMINI_API;
 
-// Helper: Check if a message is a comparison response
-function isComparisonResponse(bot: any): bot is { type: string; phones: any[]; features: any[] } {
-  return bot && typeof bot === "object" && bot.type === "comparison" && Array.isArray(bot.phones) && Array.isArray(bot.features);
-}
+// Comparison-related functions moved to EnhancedComparison component
 
-// Helper: Generate summary text for comparison
-function generateComparisonSummary(phones: any[], features: any[]) {
-  if (!phones || !features) return "";
-  let summary = "";
-  features.forEach((f) => {
-    const maxIdx = f.percent.indexOf(Math.max(...f.percent));
-    summary += `${phones[maxIdx].name} leads in ${f.label}. `;
-  });
-  return summary;
-}
-
-// Custom label component for percentage display on bars
-const CustomBarLabel = (props: any) => {
-  const { x, y, width, height, value } = props;
-  if (value > 0) {
-    return (
-      <text
-        x={x + width / 2}
-        y={y + height / 2}
-        fill="white"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize="12"
-        fontWeight="bold"
-      >
-        {value.toFixed(1)}%
-      </text>
-    );
-  }
-  return null;
-};
-
-// Custom label for LabelList (shows correct % for every phone, responsive, mode-aware)
-const CustomBarLabelList = (props: any) => {
-  const { x, y, width, height, value, fill } = props;
-  const isMobile = window.innerWidth < 640;
-  if (value > 0) {
-    return (
-      <text
-        x={x + width / 2}
-        y={y + height / 2}
-        fill={fill || '#fff'}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={isMobile ? 10 : 12}
-        fontWeight={700}
-      >
-        {value.toFixed(1)}%
-      </text>
-    );
-  }
-  return null;
-};
-
-// Custom XAxis tick for wrapping and responsive font
-const CustomXAxisTick = (props: any) => {
-  const { x, y, payload, width } = props;
-  const isMobile = window.innerWidth < 640;
-  const words = String(payload.value).split(" ");
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text
-        x={0}
-        y={0}
-        textAnchor="middle"
-        fill={props.darkMode ? "#fff" : "#6b4b2b"}
-        fontSize={isMobile ? 10 : 13}
-        fontWeight={600}
-      >
-        {words.map((word: string, idx: number) => (
-          <tspan key={idx} x={0} dy={idx === 0 ? 0 : 12}>
-            {word}
-          </tspan>
-        ))}
-      </text>
-    </g>
-  );
-};
-
-// Add a hook to track window width
-function useWindowWidth() {
-  const [width, setWidth] = React.useState(window.innerWidth);
-  React.useEffect(() => {
-    const handleResize = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  return width;
-}
-
-const formatComparisonSummary = (phones: any[], features: any[], summary: string, darkMode: boolean) => {
-  if (!phones || !features) return null;
-  // Compose bullet points using feature.raw values
-  const points: string[] = [];
-  const getVals = (key: string, unit: string = "", isInt = false, addTaka = false) => {
-    const f = features.find((f: any) => f.key === key);
-    if (!f) return null;
-    return f.raw.map((v: any, i: number) => {
-      let val = v !== undefined && v !== null ? (isInt ? parseInt(v) : v) + unit : "N/A";
-      if (addTaka && val !== "N/A") val = val + " Taka";
-      return `${phones[i].name}: ${val}`;
-    }).join(" | ");
-  };
-  // Price
-  const priceVals = getVals("price_original", "", false, true);
-  if (priceVals) points.push(`Price: ${priceVals}`);
-  // RAM
-  const ramVals = getVals("ram_gb", "GB", true);
-  if (ramVals) points.push(`RAM: ${ramVals}`);
-  // Storage
-  const storageVals = getVals("storage_gb", "GB", true);
-  if (storageVals) points.push(`Storage: ${storageVals}`);
-  // Main Camera
-  const mainCamVals = getVals("primary_camera_mp", "MP");
-  if (mainCamVals) points.push(`Main Camera: ${mainCamVals}`);
-  // Front Camera
-  const frontCamVals = getVals("selfie_camera_mp", "MP");
-  if (frontCamVals) points.push(`Front Camera: ${frontCamVals}`);
-  // Display
-  const displayVals = getVals("display_score");
-  if (displayVals) points.push(`Display Score: ${displayVals}`);
-  // Battery
-  const batteryVals = getVals("battery_capacity_numeric", "mAh", true);
-  if (batteryVals) points.push(`Battery: ${batteryVals}`);
-  return (
-    <ul className={`text-left mt-2 space-y-1 ${darkMode ? "text-[#e2b892]" : "text-[#6b4b2b]"}`}>
-      {points.map((pt, idx) => (
-        <li key={idx} className="list-disc ml-6 text-sm sm:text-base">{pt}</li>
-      ))}
-    </ul>
-  );
-};
-
-const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
+const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const location = useLocation();
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-  const windowWidth = useWindowWidth();
-
-  useEffect(() => {
-    if (location.state?.initialMessage) {
-      handleSendMessage(location.state.initialMessage);
+  const [chatContext, setChatContext] = useState<ChatContext>(() => {
+    try {
+      return ChatContextManager.loadContext();
+    } catch (err) {
+      return ErrorHandler.handleContextError(err as Error);
     }
-  }, [location.state]);
+  });
+  const [retryCount, setRetryCount] = useState(0);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const {} = useMobileResponsive();
+  const featureFlags = useFeatureFlags();
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -208,122 +91,273 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
       setChatHistory([
         {
           user: "",
-          bot: `Hi there 👋\n\nI’m ePick AI — here to help you find and compare the best smartphones in Bangladesh.\n\nAsk anything, and let’s explore the perfect pick together! 🌿📱\n\nHere are some things you can try:`,
+          bot: `Hi there! 👋 Welcome to ePick AI\n\nI'm your personal smartphone advisor, here to help you discover the perfect phone that matches your needs and budget in Bangladesh. 🇧🇩📱\n\n✨ **What I can help you with:**
+            • Find phones within your budget
+            • Compare specifications side-by-side
+            • Get detailed reviews and insights
+            • Discover the latest releases
+            • Answer technical questions\n\n💡 **Try asking me something like:**
+            "Best phones under 30,000 BDT" or "Compare iPhone vs Samsung" \n\n Let's find your perfect phone together! 🚀`,
         },
       ]);
     }
   }, [chatHistory.length, showWelcome]);
 
-  const handleSendMessage = async (initialMessage?: string) => {
-    const messageToSend = initialMessage || message;
-    if (!messageToSend.trim()) return;
+  const handleSendMessage = useCallback(
+    async (initialMessage?: string) => {
+      const messageToSend = initialMessage || message;
+      if (!messageToSend.trim()) return;
 
-    setMessage("");
-    setIsLoading(true);
-    setError(null);
-    setShowWelcome(false);
+      setMessage("");
+      setIsLoading(true);
+      setError(null);
+      setShowWelcome(false);
 
-    const newChatHistory = [
-      ...chatHistory.filter((msg) => msg.user || msg.bot),
-      { user: messageToSend, bot: "" },
-    ];
-    setChatHistory(newChatHistory);
+      const newChatHistory = [
+        ...chatHistory.filter((msg) => msg.user || msg.bot),
+        { user: messageToSend, bot: "" },
+      ];
+      setChatHistory(newChatHistory);
 
-    try {
-      // 1. Send to Gemini intent parser
-      const geminiRes = await fetch(`${GEMINI_API_URL}/parse-query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: messageToSend }),
-      });
+      // Create the message object for context tracking
+      const messageForContext: ChatMessage = {
+        user: messageToSend,
+        bot: "",
+        phones: [],
+      };
 
-      if (!geminiRes.ok) {
-        const err = await geminiRes.json();
-        throw new Error(err.detail || "Failed to parse query");
-      }
+      try {
+        // 1. Send to Gemini intent parser
+        const geminiRes = await fetch(`${GEMINI_API_URL}/parse-query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: messageToSend }),
+        });
 
-      const result = await geminiRes.json();
-
-      if (result.type === "recommendation") {
-        const phonesRes = await fetch(
-          `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-
-        if (!phonesRes.ok) {
-          const err = await phonesRes.json();
-          throw new Error(err.detail || "Failed to fetch phones");
+        if (!geminiRes.ok) {
+          const err = await geminiRes.json();
+          throw new Error(err.detail || "Failed to parse query");
         }
 
-        const phoneData = await phonesRes.json();
+        const result = await geminiRes.json();
 
-        setChatHistory((prev) => {
-          const updated = [...prev];
-          if (Array.isArray(phoneData)) {
-            // Recommendation response with phone data
-            updated[updated.length - 1].bot =
-              "Based on your query, here are some recommendations:";
-            // Extract phone objects from the recommendation response
-            updated[updated.length - 1].phones = phoneData.map(item => item.phone || item);
-          } else if (phoneData.type === "qa" || phoneData.type === "chat") {
-            // QA or chat response
-            updated[updated.length - 1].bot = phoneData.data;
-          } else if (phoneData.type === "comparison") {
-            // Comparison response
-            updated[updated.length - 1].bot = phoneData;
-          } else {
-            // Fallback for other response types
-            updated[updated.length - 1].bot = typeof phoneData === "string" ? phoneData : JSON.stringify(phoneData);
-          }
-          return updated;
-        });
-      } else {
-        // For non-recommendation queries, call the backend directly
-        const phonesRes = await fetch(
-          `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+        if (result.type === "recommendation") {
+          const phonesRes = await fetch(
+            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
 
-        if (!phonesRes.ok) {
-          const err = await phonesRes.json();
-          throw new Error(err.detail || "Failed to process query");
+          if (!phonesRes.ok) {
+            const err = await phonesRes.json();
+            throw new Error(err.detail || "Failed to fetch phones");
+          }
+
+          const phoneData = await phonesRes.json();
+
+          setChatHistory((prev) => {
+            const updated = [...prev];
+            if (Array.isArray(phoneData)) {
+              // Recommendation response with phone data
+              updated[updated.length - 1].bot =
+                "Based on your query, here are some recommendations:";
+              // Extract phone objects from the recommendation response
+              const phones = phoneData.map((item) => item.phone || item);
+              updated[updated.length - 1].phones = phones;
+
+              // Update context with the complete message if enabled
+              if (featureFlags.contextManagement) {
+                messageForContext.bot = updated[updated.length - 1].bot;
+                messageForContext.phones = phones;
+                const updatedContext = ChatContextManager.updateWithMessage(
+                  chatContext,
+                  messageForContext
+                );
+                setChatContext(updatedContext);
+              }
+            } else if (phoneData.type === "qa" || phoneData.type === "chat") {
+              // QA or chat response
+              updated[updated.length - 1].bot = phoneData.data;
+
+              // Update context if enabled
+              if (featureFlags.contextManagement) {
+                messageForContext.bot = phoneData.data;
+                const updatedContext = ChatContextManager.updateWithMessage(
+                  chatContext,
+                  messageForContext
+                );
+                setChatContext(updatedContext);
+              }
+            } else if (phoneData.type === "comparison") {
+              // Comparison response
+              updated[updated.length - 1].bot = phoneData;
+
+              // Update context
+              messageForContext.bot = phoneData;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            } else {
+              // Fallback for other response types
+              updated[updated.length - 1].bot =
+                typeof phoneData === "string"
+                  ? phoneData
+                  : JSON.stringify(phoneData);
+
+              // Update context
+              messageForContext.bot = updated[updated.length - 1].bot;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            }
+            return updated;
+          });
+        } else {
+          // For non-recommendation queries, call the backend directly
+          const phonesRes = await fetch(
+            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+
+          if (!phonesRes.ok) {
+            const err = await phonesRes.json();
+            throw new Error(err.detail || "Failed to process query");
+          }
+
+          const responseData = await phonesRes.json();
+
+          setChatHistory((prev) => {
+            const updated = [...prev];
+            // Handle different response types
+            if (responseData.type === "qa" || responseData.type === "chat") {
+              updated[updated.length - 1].bot = responseData.data;
+
+              // Update context
+              messageForContext.bot = responseData.data;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            } else if (responseData.type === "comparison") {
+              updated[updated.length - 1].bot = responseData;
+
+              // Update context
+              messageForContext.bot = responseData;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            } else {
+              // Fallback for other response types
+              updated[updated.length - 1].bot =
+                typeof responseData === "string"
+                  ? responseData
+                  : JSON.stringify(responseData);
+
+              // Update context
+              messageForContext.bot = updated[updated.length - 1].bot;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            }
+            return updated;
+          });
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+
+        // Use enhanced error handling if enabled
+        if (featureFlags.errorRecovery) {
+          const errorRecovery = ErrorHandler.handleError(error, chatContext);
+
+          if (errorRecovery.retryAction && retryCount < 3) {
+            // Attempt retry
+            setRetryCount((prev) => prev + 1);
+            try {
+              await errorRecovery.retryAction();
+              // Retry the original request
+              handleSendMessage(messageToSend);
+              return;
+            } catch (retryError) {
+              // If retry fails, continue with error handling
+            }
+          }
+
+          // Reset retry count on successful error handling
+          setRetryCount(0);
         }
 
-        const responseData = await phonesRes.json();
+        // Generate enhanced error message if AI enhancements are enabled
+        const enhancedError = featureFlags.aiResponseEnhancements
+          ? AIResponseEnhancer.generateContextualErrorMessage(
+              error.message,
+              chatContext
+            )
+          : {
+              message: `Sorry, something went wrong: ${error.message}`,
+              suggestions: [],
+            };
 
+        setError(enhancedError.message);
         setChatHistory((prev) => {
           const updated = [...prev];
-          // Handle different response types
-          if (responseData.type === "qa" || responseData.type === "chat") {
-            updated[updated.length - 1].bot = responseData.data;
-          } else if (responseData.type === "comparison") {
-            updated[updated.length - 1].bot = responseData;
-          } else {
-            // Fallback for other response types
-            updated[updated.length - 1].bot = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
+          updated[updated.length - 1].bot = enhancedError.message;
+
+          // Add error suggestions if available
+          if (
+            enhancedError.suggestions &&
+            enhancedError.suggestions.length > 0
+          ) {
+            updated[updated.length - 1].bot +=
+              `\n\nHere are some things you can try:\n${enhancedError.suggestions.map((s) => `• ${s}`).join("\n")}`;
           }
+
+          // Update context even for error messages if context management is enabled
+          if (featureFlags.contextManagement) {
+            messageForContext.bot = updated[updated.length - 1].bot;
+            const updatedContext = ChatContextManager.updateWithMessage(
+              chatContext,
+              messageForContext
+            );
+            setChatContext(updatedContext);
+          }
+
           return updated;
         });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      setError(errorMessage);
-      setChatHistory((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1].bot =
-          `Sorry, something went wrong: ${errorMessage}`;
-        return updated;
-      });
-    } finally {
-      setIsLoading(false);
+    },
+    [
+      message,
+      chatHistory,
+      isLoading,
+      chatContext,
+      featureFlags.aiResponseEnhancements,
+      featureFlags.contextManagement,
+      featureFlags.errorRecovery,
+      retryCount,
+    ]
+  );
+
+  useEffect(() => {
+    if (location.state?.initialMessage) {
+      handleSendMessage(location.state.initialMessage);
     }
-  };
+  }, [handleSendMessage, location.state]);
 
   const handleSuggestionClick = (query: string) => {
     setShowWelcome(false);
@@ -343,25 +377,42 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-8 py-6 border-b rounded-t-3xl ${
+          className={`flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-b rounded-t-3xl ${
             darkMode
               ? "bg-[#232323] border-gray-800"
               : "bg-white border-[#eae4da]"
           }`}
         >
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-2xl text-brand">ePick AI</span>
-            <span className="text-lg">🤖</span>
+          <div className="flex items-center space-x-2 min-w-0 flex-1">
+            <span className="font-bold text-xl sm:text-2xl text-brand truncate">
+              ePick AI
+            </span>
+            <span className="text-base sm:text-lg">🤖</span>
           </div>
-          <button
-            className="px-4 py-2 rounded-full text-sm font-semibold bg-brand text-white shadow-md hover:opacity-90 transition"
-            onClick={() => {
-              setChatHistory([]);
-              setShowWelcome(true);
-            }}
-          >
-            New chat
-          </button>
+          <div className="flex gap-1 sm:gap-2 ml-2">
+            <button
+              className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-brand text-white shadow-md hover:opacity-90 transition whitespace-nowrap"
+              onClick={() => {
+                setChatHistory([]);
+                setShowWelcome(true);
+              }}
+            >
+              <span className="hidden sm:inline">New chat</span>
+              <span className="sm:hidden">New</span>
+            </button>
+            <button
+              className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-gray-500 text-white shadow-md hover:opacity-90 transition whitespace-nowrap"
+              onClick={() => {
+                const newContext = ChatContextManager.clearContext();
+                setChatContext(newContext);
+                setChatHistory([]);
+                setShowWelcome(true);
+              }}
+              title="Clear all preferences and start fresh"
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Chat Area */}
@@ -388,9 +439,43 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                       }`}
                     >
                       {/* Use our new ChatPhoneRecommendation component */}
-                      <ChatPhoneRecommendation 
+                      <ChatPhoneRecommendation
                         phones={chat.phones}
                         darkMode={darkMode}
+                        originalQuery={
+                          featureFlags.enhancedSuggestions
+                            ? chat.user || ""
+                            : ""
+                        }
+                        onSuggestionClick={
+                          featureFlags.enhancedSuggestions
+                            ? (suggestion) =>
+                                handleSendMessage(suggestion.query)
+                            : undefined
+                        }
+                        onDrillDownClick={
+                          featureFlags.drillDownMode
+                            ? (option) => {
+                                // Handle drill-down commands
+                                let query = "";
+                                switch (option.command) {
+                                  case "full_specs":
+                                    query =
+                                      "show full specifications for these phones";
+                                    break;
+                                  case "chart_view":
+                                    query =
+                                      "compare these phones in chart view";
+                                    break;
+                                  case "detail_focus":
+                                    query = `tell me more about the ${option.target || "features"} of these phones`;
+                                    break;
+                                }
+                                handleSendMessage(query);
+                              }
+                            : undefined
+                        }
+                        isLoading={isLoading}
                       />
                     </div>
                   </div>
@@ -410,71 +495,22 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode, setDarkMode }) => {
                   )
                 )}
 
-                {chat.bot && typeof chat.bot === "object" &&
+                {chat.bot &&
+                  typeof chat.bot === "object" &&
                   (chat.bot as any).type === "comparison" &&
                   Array.isArray((chat.bot as any).phones) &&
                   Array.isArray((chat.bot as any).features) && (
                     <div className="my-8">
-                      <div className="w-full overflow-x-auto" style={{ maxWidth: "100vw" }}>
-                        <div
-                          className="mx-auto"
-                          style={{
-                            minWidth: 400,
-                            width: "100%",
-                            maxWidth: 900,
-                            height: 350,
-                          }}
-                        >
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              data={(chat.bot as any).features.map((f: any) => {
-                                const obj: any = { feature: f.label };
-                                (chat.bot as any).phones.forEach((p: any, idx: number) => {
-                                  obj[p.name] = f.percent[idx];
-                                  obj[`${p.name}_raw`] = f.raw[idx];
-                                });
-                                return obj;
-                              })}
-                              margin={{ top: 20, right: 30, left: 20, bottom: windowWidth < 640 ? 80 : 60 }}
-                            >
-                              <XAxis
-                                dataKey="feature"
-                                tick={<CustomXAxisTick darkMode={darkMode} />}
-                                interval={0}
-                                height={windowWidth < 640 ? 50 : 70}
-                                tickMargin={windowWidth < 640 ? 16 : 24}
-                              />
-                              <YAxis
-                                domain={[0, 100]}
-                                tickFormatter={(v) => `${v}%`}
-                                tick={{ fontSize: windowWidth < 640 ? 10 : 12, fill: darkMode ? "#fff" : "#6b4b2b" }}
-                              />
-                              <Tooltip
-                                formatter={(value: any, name: string, props: any) => {
-                                  const raw = props.payload[`${name}_raw`];
-                                  return [`${value.toFixed(1)}% (${raw ?? "N/A"})`, name];
-                                }}
-                              />
-                              <Legend wrapperStyle={{ fontSize: windowWidth < 640 ? 12 : 14 }} />
-                              {(chat.bot as any).phones.map((p: any, idx: number) => (
-                                <Bar
-                                  key={p.name}
-                                  dataKey={p.name}
-                                  stackId="a"
-                                  fill={p.color}
-                                  radius={[0, 0, 0, 0]}
-                                  isAnimationActive={true}
-                                >
-                                  <LabelList dataKey={p.name} content={CustomBarLabelList} />
-                                </Bar>
-                              ))}
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                      <div className="mt-4 w-full flex justify-center">
-                        {formatComparisonSummary((chat.bot as any).phones, (chat.bot as any).features, (chat.bot as any).summary, darkMode)}
-                      </div>
+                      <EnhancedComparison
+                        phones={(chat.bot as any).phones}
+                        features={(chat.bot as any).features}
+                        summary={(chat.bot as any).summary || ""}
+                        darkMode={darkMode}
+                        onFeatureFocus={(feature) => {
+                          // Handle feature focus - could trigger detailed analysis
+                          console.log("Feature focused:", feature);
+                        }}
+                      />
                     </div>
                   )}
 
