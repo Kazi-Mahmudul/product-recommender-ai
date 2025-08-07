@@ -51,7 +51,15 @@ describe('Chat Services Integration Tests', () => {
         user: 'best phones under 30000',
         bot: 'Here are some recommendations',
         phones: [
-          { id: 1, name: 'Samsung Galaxy A55', brand: 'Samsung', price_original: 25000 }
+          { 
+            id: 1, 
+            name: 'Samsung Galaxy A55', 
+            brand: 'Samsung', 
+            model: 'Galaxy A55',
+            price: '৳25,000',
+            url: '/samsung-galaxy-a55',
+            price_original: 25000 
+          }
         ]
       };
       
@@ -302,7 +310,16 @@ describe('Chat Services Integration Tests', () => {
       
       // Generate enhanced response
       const phones = [
-        { id: 1, name: 'Samsung Galaxy A55', brand: 'Samsung', price_original: 25000, camera_score: 8.5 }
+        { 
+          id: 1, 
+          name: 'Samsung Galaxy A55', 
+          brand: 'Samsung', 
+          model: 'Galaxy A55',
+          price: '৳25,000',
+          url: '/samsung-galaxy-a55',
+          price_original: 25000, 
+          camera_score: 8.5 
+        }
       ];
       
       const enhanced = AIResponseEnhancer.enhanceRecommendationResponse(

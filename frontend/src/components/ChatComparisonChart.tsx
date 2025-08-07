@@ -302,9 +302,14 @@ const CustomTooltip = ({
     const bestValue = Math.max(...values);
     const worstValue = Math.min(...values);
 
-    // Calculate average value
+    // Calculate average value using original percentages
+    const originalValues = payload.map((entry: any) => 
+      entry.payload && entry.payload[`${entry.name}_original`] !== undefined 
+        ? entry.payload[`${entry.name}_original`] 
+        : entry.value || 0
+    );
     const avgValue =
-      values.reduce((sum: number, val: number) => sum + val, 0) / values.length;
+      originalValues.reduce((sum: number, val: number) => sum + val, 0) / originalValues.length;
 
     // Sort entries by value (highest first)
     const sortedPayload = [...payload].sort(
@@ -462,7 +467,10 @@ const CustomTooltip = ({
                         }`}
                         style={{ color: highlightColor || "inherit" }}
                       >
-                        {entry.value.toFixed(1)}%
+                        {(entry.payload && entry.payload[`${entry.name}_original`] !== undefined 
+                          ? entry.payload[`${entry.name}_original`] 
+                          : entry.value
+                        ).toFixed(1)}%
                       </span>
 
                       {/* Show difference from average */}
@@ -632,16 +640,32 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
 
       return features.map((feature) => {
         const obj: any = { feature: feature.label };
+        
+        // Find the maximum value in this feature to normalize properly
+        const maxValueInFeature = Math.max(...feature.percent.filter(val => typeof val === "number" && !isNaN(val)));
+        const shouldNormalize = maxValueInFeature > 0 && maxValueInFeature !== 100;
+        
         phones.forEach((phone, idx) => {
           // Add error handling for missing or invalid data
           const percentValue = feature.percent[idx];
           const rawValue = feature.raw[idx];
 
-          // Ensure percent value is a valid number
-          obj[phone.name] =
-            typeof percentValue === "number" && !isNaN(percentValue)
-              ? formatValue(percentValue)
-              : 0;
+          // Ensure percent value is a valid number and normalize if needed
+          let normalizedValue = 0;
+          if (typeof percentValue === "number" && !isNaN(percentValue)) {
+            // If the max value in this feature is not 100, normalize to 100 scale
+            normalizedValue = shouldNormalize 
+              ? (percentValue / maxValueInFeature) * 100 
+              : percentValue;
+            normalizedValue = formatValue(Math.min(100, Math.max(0, normalizedValue)));
+          }
+          
+          obj[phone.name] = normalizedValue;
+          
+          // Store original percentage for tooltip display
+          obj[`${phone.name}_original`] = typeof percentValue === "number" && !isNaN(percentValue) 
+            ? formatValue(percentValue) 
+            : 0;
 
           // Include raw value if available
           if (rawValue !== undefined && rawValue !== null) {
@@ -1042,11 +1066,17 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
               height: chartHeight,
               scrollbarWidth: "thin",
               scrollbarColor: darkMode ? "#555 #333" : "#ccc #f0f0f0",
+              // Ensure horizontal scrolling is always available on mobile
+              overflowX: windowWidth < BREAKPOINTS.md ? "scroll" : "auto",
+              WebkitOverflowScrolling: "touch", // Smooth scrolling on iOS
             }}
             aria-labelledby="chart-title"
           >
             <ResponsiveContainer
-              width={Math.max(800, phones.length * features.length * 40 + 200)}
+              width={Math.max(
+                windowWidth < BREAKPOINTS.md ? 600 : 800, 
+                phones.length * features.length * (windowWidth < BREAKPOINTS.sm ? 60 : 40) + 200
+              )}
               height="100%"
               aria-hidden="false"
             >
@@ -1146,6 +1176,7 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
                 {chartLayout.componentVisibility.yAxis && (
                   <YAxis
                     domain={[0, 100]}
+                    type="number"
                     tickFormatter={(v) => `${v}%`}
                     tick={{
                       fontSize: windowWidth < BREAKPOINTS.sm ? 9 : 11,
@@ -1161,7 +1192,8 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
                     }
                     allowDecimals={false}
                     minTickGap={5}
-                    padding={{ top: 10, bottom: 0 }}
+                    padding={{ top: 0, bottom: 0 }}
+                    includeHidden={false}
                     label={
                       chartLayout.componentVisibility.yAxis &&
                       windowWidth >= BREAKPOINTS.md

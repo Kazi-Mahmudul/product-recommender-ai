@@ -7,6 +7,7 @@ import {
   ChatContextManager,
   ChatContext,
 } from "../services/chatContextManager";
+import { QueryEnhancer } from "../services/queryEnhancer";
 import { ErrorHandler } from "../services/errorHandler";
 import { AIResponseEnhancer } from "../services/aiResponseEnhancer";
 import { useMobileResponsive } from "../hooks/useMobileResponsive";
@@ -108,6 +109,23 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       const messageToSend = initialMessage || message;
       if (!messageToSend.trim()) return;
 
+      // Enhance query with phone context if available
+      let enhancedMessage = messageToSend;
+      if (featureFlags.contextManagement && chatContext) {
+        try {
+          const recentPhoneContext = ChatContextManager.getRecentPhoneContext(chatContext, 600000); // 10 minutes
+          const enhancementResult = QueryEnhancer.enhanceQuery(messageToSend, recentPhoneContext);
+          
+          if (enhancementResult.contextUsed) {
+            enhancedMessage = enhancementResult.enhancedQuery;
+            console.log('Query enhanced:', QueryEnhancer.getEnhancementSummary(enhancementResult));
+          }
+        } catch (error) {
+          console.warn('Failed to enhance query with context:', error);
+          // Continue with original message if enhancement fails
+        }
+      }
+
       setMessage("");
       setIsLoading(true);
       setError(null);
@@ -127,11 +145,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       };
 
       try {
-        // 1. Send to Gemini intent parser
+        // 1. Send to Gemini intent parser (use enhanced message)
         const geminiRes = await fetch(`${GEMINI_API_URL}/parse-query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: messageToSend }),
+          body: JSON.stringify({ query: enhancedMessage }),
         });
 
         if (!geminiRes.ok) {
@@ -143,7 +161,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
         if (result.type === "recommendation") {
           const phonesRes = await fetch(
-            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
+            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(enhancedMessage)}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -221,7 +239,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         } else {
           // For non-recommendation queries, call the backend directly
           const phonesRes = await fetch(
-            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(messageToSend)}`,
+            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(enhancedMessage)}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -288,7 +306,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
             setRetryCount((prev) => prev + 1);
             try {
               await errorRecovery.retryAction();
-              // Retry the original request
+              // Retry the original request (use original message for retry to avoid double enhancement)
               handleSendMessage(messageToSend);
               return;
             } catch (retryError) {
@@ -447,16 +465,23 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                             ? chat.user || ""
                             : ""
                         }
+                        chatContext={chatContext}
+                        onContextUpdate={setChatContext}
                         onSuggestionClick={
                           featureFlags.enhancedSuggestions
-                            ? (suggestion) =>
-                                handleSendMessage(suggestion.query)
+                            ? (suggestion) => {
+                                // Use contextual query if available, otherwise fall back to regular query
+                                const queryToSend = 'contextualQuery' in suggestion 
+                                  ? suggestion.contextualQuery 
+                                  : suggestion.query;
+                                handleSendMessage(queryToSend);
+                              }
                             : undefined
                         }
                         onDrillDownClick={
                           featureFlags.drillDownMode
                             ? (option) => {
-                                // Handle drill-down commands
+                                // Handle drill-down commands with context
                                 let query = "";
                                 switch (option.command) {
                                   case "full_specs":

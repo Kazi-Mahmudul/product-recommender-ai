@@ -1,21 +1,55 @@
 // Suggestion generation service for creating contextual follow-up suggestions
 
 import { Phone } from '../api/phones';
-import { FollowUpSuggestion, SuggestionContext } from '../types/suggestions';
+import { FollowUpSuggestion, SuggestionContext, ContextualSuggestion } from '../types/suggestions';
+import { ContextualSuggestionGenerator } from './contextualSuggestionGenerator';
+import { ChatContextManager, PhoneRecommendationContext } from './chatContextManager';
 
 export class SuggestionGenerator {
   /**
    * Generate contextual follow-up suggestions based on current recommendations
+   * Enhanced to use contextual logic when phone context is available
    */
   static generateSuggestions(
     phones: Phone[],
     originalQuery: string,
-    chatHistory: any[] = []
-  ): FollowUpSuggestion[] {
+    chatHistory: any[] = [],
+    chatContext?: any
+  ): (FollowUpSuggestion | ContextualSuggestion)[] {
     if (!phones || phones.length === 0) {
       return this.getDefaultSuggestions();
     }
 
+    // Try to use contextual suggestions if context is available
+    if (chatContext) {
+      try {
+        const recentPhoneContext = ChatContextManager.getRecentPhoneContext(chatContext, 600000); // 10 minutes
+        
+        if (recentPhoneContext.length > 0) {
+          // Use contextual suggestion generator
+          return ContextualSuggestionGenerator.generateContextualSuggestions(
+            phones,
+            originalQuery,
+            recentPhoneContext
+          );
+        }
+      } catch (error) {
+        console.warn('Failed to generate contextual suggestions, falling back to regular suggestions:', error);
+      }
+    }
+
+    // Fallback to regular suggestion generation
+    return this.generateRegularSuggestions(phones, originalQuery, chatHistory);
+  }
+
+  /**
+   * Generate regular (non-contextual) suggestions - legacy behavior
+   */
+  static generateRegularSuggestions(
+    phones: Phone[],
+    originalQuery: string,
+    chatHistory: any[] = []
+  ): FollowUpSuggestion[] {
     const context = this.analyzeSuggestionContext(phones, originalQuery);
     const suggestions: FollowUpSuggestion[] = [];
 
@@ -35,6 +69,49 @@ export class SuggestionGenerator {
     return suggestions
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 5);
+  }
+
+  /**
+   * Generate suggestions with explicit context (for migration support)
+   */
+  static generateSuggestionsWithContext(
+    phones: Phone[],
+    originalQuery: string,
+    phoneContext: PhoneRecommendationContext[]
+  ): ContextualSuggestion[] {
+    return ContextualSuggestionGenerator.generateContextualSuggestions(
+      phones,
+      originalQuery,
+      phoneContext
+    );
+  }
+
+  /**
+   * Check if contextual suggestions are available
+   */
+  static hasContextualSuggestionsAvailable(chatContext?: any): boolean {
+    if (!chatContext) return false;
+    
+    try {
+      const recentContext = ChatContextManager.getRecentPhoneContext(chatContext, 600000);
+      return recentContext.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get suggestion generation mode for debugging
+   */
+  static getSuggestionMode(chatContext?: any): 'contextual' | 'regular' | 'default' {
+    if (!chatContext) return 'regular';
+    
+    try {
+      const recentContext = ChatContextManager.getRecentPhoneContext(chatContext, 600000);
+      return recentContext.length > 0 ? 'contextual' : 'regular';
+    } catch (error) {
+      return 'regular';
+    }
   }
 
   /**
@@ -69,7 +146,7 @@ export class SuggestionGenerator {
   }
 
   /**
-   * Generate filter-based suggestions
+   * Generate filter-based suggestions (enhanced to handle any phone query)
    */
   private static generateFilterSuggestions(context: SuggestionContext): FollowUpSuggestion[] {
     const suggestions: FollowUpSuggestion[] = [];
@@ -78,9 +155,9 @@ export class SuggestionGenerator {
     if (context.missingFeatures.includes('battery') || context.userIntent === 'battery') {
       suggestions.push({
         id: 'filter-battery',
-        text: 'Show only phones with best battery',
+        text: 'Show phones with better battery',
         icon: '🔋',
-        query: 'phones with best battery life above 4000mAh',
+        query: 'phones with better battery life than these',
         category: 'filter',
         priority: 8
       });
@@ -90,11 +167,50 @@ export class SuggestionGenerator {
     if (context.userIntent === 'gaming' || context.commonFeatures.includes('high_refresh_rate')) {
       suggestions.push({
         id: 'filter-gaming',
-        text: 'Which one is better for gaming?',
+        text: 'Which is better for gaming?',
         icon: '🎮',
         query: 'which of these phones is best for gaming performance',
         category: 'filter',
         priority: 7
+      });
+    }
+
+    // Camera-focused suggestions
+    if (context.userIntent === 'camera' || context.missingFeatures.includes('camera')) {
+      suggestions.push({
+        id: 'filter-camera',
+        text: 'Show phones with better cameras',
+        icon: '📸',
+        query: 'phones with better camera quality than these',
+        category: 'filter',
+        priority: 7
+      });
+    }
+
+    // Performance/Speed suggestions
+    if (context.userIntent === 'general' || context.userIntent === 'premium') {
+      suggestions.push({
+        id: 'filter-performance',
+        text: 'Which is fastest?',
+        icon: '⚡',
+        query: 'which of these phones has the best performance and speed',
+        category: 'filter',
+        priority: 6
+      });
+    }
+
+    // Storage suggestions
+    const lowStorageCount = context.phones.filter(p => 
+      !p.storage_gb || p.storage_gb < 128
+    ).length;
+    if (lowStorageCount >= context.phones.length * 0.5) {
+      suggestions.push({
+        id: 'filter-storage',
+        text: 'Show phones with more storage',
+        icon: '💾',
+        query: 'phones with more storage than these',
+        category: 'filter',
+        priority: 6
       });
     }
 
@@ -106,21 +222,29 @@ export class SuggestionGenerator {
         icon: '📶',
         query: 'do these phones support 5G network',
         category: 'filter',
-        priority: 6
+        priority: 5
       });
     }
 
-    // Camera-focused suggestions
-    if (context.userIntent === 'camera' || context.missingFeatures.includes('camera')) {
-      suggestions.push({
-        id: 'filter-camera',
-        text: 'Show phones with better cameras',
-        icon: '📸',
-        query: 'phones with best camera quality and features',
-        category: 'filter',
-        priority: 7
-      });
-    }
+    // Build quality and durability
+    suggestions.push({
+      id: 'filter-durability',
+      text: 'Which is most durable?',
+      icon: '🛡️',
+      query: 'which of these phones is most durable and has best build quality',
+      category: 'filter',
+      priority: 4
+    });
+
+    // Software and updates
+    suggestions.push({
+      id: 'filter-software',
+      text: 'Tell me about software updates',
+      icon: '🔄',
+      query: 'which phones get the best software updates and support',
+      category: 'filter',
+      priority: 4
+    });
 
     return suggestions;
   }
