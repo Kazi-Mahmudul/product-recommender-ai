@@ -12,6 +12,18 @@ export interface FollowUpSuggestion {
   priority: number; // Higher number = higher priority
 }
 
+export interface ContextualSuggestion extends FollowUpSuggestion {
+  contextualQuery: string; // Enhanced query with phone context
+  referencedPhones: string[]; // Phone names referenced in suggestion
+  contextType: 'comparison' | 'alternative' | 'specification' | 'filter' | 'general';
+  contextIndicator: {
+    icon: string;
+    tooltip: string;
+    description: string;
+  };
+  fallbackQuery?: string; // Used when context is unavailable
+}
+
 export interface SuggestionContext {
   phones: Phone[];
   commonFeatures: string[];

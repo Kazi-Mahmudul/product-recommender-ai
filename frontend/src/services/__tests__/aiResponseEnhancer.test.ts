@@ -49,7 +49,8 @@ const mockContext: ChatContext = {
     preferredPriceRange: null,
     brandInteractions: { 'Samsung': 2 },
     featureInteractions: { 'camera': 3 }
-  }
+  },
+  phoneRecommendations: []
 };
 
 describe('AIResponseEnhancer', () => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ChatPhoneCard from "./ChatPhoneCard";
 import CompareSelection from "./CompareSelection";
@@ -6,8 +6,10 @@ import FollowUpSuggestions from "./FollowUpSuggestions";
 import DrillDownOptions from "./DrillDownOptions";
 import { navigateToComparison } from "../utils/navigationUtils";
 import { SuggestionGenerator } from "../services/suggestionGenerator";
+import { ContextualSuggestionGenerator } from "../services/contextualSuggestionGenerator";
 import { RecommendationExplainer } from "../services/recommendationExplainer";
-import { FollowUpSuggestion, DrillDownOption } from "../types/suggestions";
+import { ChatContextManager } from "../services/chatContextManager";
+import { FollowUpSuggestion, DrillDownOption, ContextualSuggestion } from "../types/suggestions";
 
 // Import the Phone interface from api to ensure consistency
 import { Phone } from '../api/phones';
@@ -16,9 +18,11 @@ interface ChatPhoneRecommendationProps {
   phones: Phone[];
   darkMode: boolean;
   originalQuery?: string;
-  onSuggestionClick?: (suggestion: FollowUpSuggestion) => void;
+  onSuggestionClick?: (suggestion: FollowUpSuggestion | ContextualSuggestion) => void;
   onDrillDownClick?: (option: DrillDownOption) => void;
   isLoading?: boolean;
+  chatContext?: any; // Current chat context
+  onContextUpdate?: (context: any) => void; // Callback to update context
 }
 
 const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
@@ -27,7 +31,9 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
   originalQuery = '',
   onSuggestionClick,
   onDrillDownClick,
-  isLoading = false
+  isLoading = false,
+  chatContext,
+  onContextUpdate
 }) => {
   const navigate = useNavigate();
   const [phonesToCompare, setPhonesToCompare] = useState<Phone[]>([]);
@@ -48,11 +54,51 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
     return RecommendationExplainer.generateTopRecommendationSummary(displayPhones[0], originalQuery);
   }, [displayPhones, originalQuery]);
   
-  // Generate follow-up suggestions based on current recommendations
+  // Capture phone recommendation context when phones are displayed
+  useEffect(() => {
+    if (displayPhones.length > 0 && originalQuery && chatContext && onContextUpdate) {
+      try {
+        const updatedContext = ChatContextManager.addPhoneRecommendation(
+          chatContext,
+          displayPhones,
+          originalQuery
+        );
+        onContextUpdate(updatedContext);
+      } catch (error) {
+        console.warn('Failed to capture phone recommendation context:', error);
+      }
+    }
+  }, [displayPhones, originalQuery, chatContext, onContextUpdate]);
+
+  // Get recent phone contexts for contextual suggestions and UI display
+  const recentPhoneContext = useMemo(() => {
+    return chatContext 
+      ? ChatContextManager.getRecentPhoneContext(chatContext, 600000) // 10 minutes
+      : [];
+  }, [chatContext]);
+
+  // Generate contextual follow-up suggestions based on current and previous recommendations
   const suggestions = useMemo(() => {
     if (!displayPhones || displayPhones.length === 0) return [];
-    return SuggestionGenerator.generateSuggestions(displayPhones, originalQuery);
-  }, [displayPhones, originalQuery]);
+    
+    try {
+      // Use contextual suggestions if we have context, otherwise fall back to regular suggestions
+      if (recentPhoneContext.length > 0) {
+        return ContextualSuggestionGenerator.generateContextualSuggestions(
+          displayPhones,
+          originalQuery,
+          recentPhoneContext
+        );
+      } else {
+        // Fallback to regular suggestions but make them more comprehensive
+        return SuggestionGenerator.generateSuggestions(displayPhones, originalQuery, [], chatContext);
+      }
+    } catch (error) {
+      console.warn('Failed to generate contextual suggestions:', error);
+      // Fallback to regular suggestions
+      return SuggestionGenerator.generateSuggestions(displayPhones, originalQuery, [], chatContext);
+    }
+  }, [displayPhones, originalQuery, recentPhoneContext, chatContext]);
 
   // Generate drill-down options for power users
   const drillDownOptions = useMemo((): DrillDownOption[] => {
@@ -140,6 +186,7 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
         onSuggestionClick={onSuggestionClick || (() => {})}
         darkMode={darkMode}
         isLoading={isLoading}
+        phoneContext={recentPhoneContext}
       />
 
       {/* Drill-down Options for Power Users */}
