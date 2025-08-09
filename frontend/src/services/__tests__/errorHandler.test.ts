@@ -1,15 +1,6 @@
 // Unit tests for error handler service
 
-import { ErrorHandler } from "../errorHandler";
-import { ChatContextManager } from "../chatContextManager";
-
-// Mock ChatContextManager
-jest.mock("../chatContextManager");
-const mockChatContextManager = ChatContextManager as jest.Mocked<
-  typeof ChatContextManager
->;
-
-// Mock AIResponseEnhancer
+// Mock AIResponseEnhancer first
 jest.mock("../aiResponseEnhancer", () => ({
   AIResponseEnhancer: {
     generateContextualErrorMessage: jest.fn().mockReturnValue({
@@ -18,6 +9,16 @@ jest.mock("../aiResponseEnhancer", () => ({
     }),
   },
 }));
+
+// Mock ChatContextManager
+jest.mock("../chatContextManager");
+
+import { ErrorHandler } from "../errorHandler";
+import { ChatContextManager } from "../chatContextManager";
+
+const mockChatContextManager = ChatContextManager as jest.Mocked<
+  typeof ChatContextManager
+>;
 
 const mockContext = {
   sessionId: "test-session",
@@ -126,6 +127,7 @@ describe("ErrorHandler", () => {
         phones,
         mockContext
       );
+
 
       expect(suggestions.some((s) => s.includes("Samsung"))).toBe(true);
     });

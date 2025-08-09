@@ -65,6 +65,49 @@ function cleanJsonResponse(text) {
   }
 }
 
+// Enhanced contextual query detection
+function detectContextualQuery(query) {
+  const phonePatterns = [
+    /iPhone\s+\d+(?:\s+Pro(?:\s+Max)?)?/gi,
+    /Samsung\s+Galaxy\s+[A-Z]\d+(?:\s+\w+)*/gi,
+    /Galaxy\s+[A-Z]\d+(?:\s+\w+)*/gi,
+    /Xiaomi\s+\w+(?:\s+\w+)*/gi,
+    /Redmi\s+\w+(?:\s+\w+)*/gi,
+    /POCO\s+\w+(?:\s+\w+)*/gi,
+    /OnePlus\s+\w+(?:\s+\w+)*/gi,
+    /(Oppo|Vivo|Realme|Nothing|Google)\s+\w+(?:\s+\w+)*/gi
+  ];
+  
+  const contextualKeywords = [
+    'vs', 'versus', 'compare', 'comparison', 'against', 'better than',
+    'worse than', 'superior to', 'compared to', 'than', 'from',
+    'like', 'similar to', 'alternative to', 'instead of',
+    'replacement for', 'upgrade from', 'cheaper than', 'more expensive than'
+  ];
+  
+  // Extract phone names
+  const phoneMatches = [];
+  phonePatterns.forEach(pattern => {
+    const matches = query.match(pattern);
+    if (matches) {
+      phoneMatches.push(...matches);
+    }
+  });
+  
+  // Check for contextual keywords
+  const hasContextualKeywords = contextualKeywords.some(keyword => 
+    query.toLowerCase().includes(keyword)
+  );
+  
+  return {
+    isContextual: phoneMatches.length > 0 && (hasContextualKeywords || phoneMatches.length > 1),
+    phoneReferences: phoneMatches,
+    hasComparison: /\b(vs|versus|compare|comparison|against)\b/i.test(query),
+    hasAlternative: /\b(similar|alternative|like|instead)\b/i.test(query),
+    hasRelational: /\b(better|worse|cheaper|expensive|superior|inferior)\s+than\b/i.test(query)
+  };
+}
+
 // Main Gemini prompt-based parser
 async function parseQuery(query) {
   try {
@@ -72,8 +115,30 @@ async function parseQuery(query) {
     console.log(`[${new Date().toISOString()}] 🔹 Using API key: ${process.env.GOOGLE_API_KEY ? 'Present' : 'Missing'}`);
     console.log(`[${new Date().toISOString()}] 🔹 API key length: ${process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.length : 0}`);
     
+    // Detect if this is a contextual query
+    const contextInfo = detectContextualQuery(query);
+    console.log(`[${new Date().toISOString()}] 🔹 Contextual analysis:`, contextInfo);
+    
     const prompt = `You are a friendly, knowledgeable, and conversational AI assistant for ePick, a smartphone recommendation platform in Bangladesh.
 Your job is to understand the user's intent and respond with a JSON object while being helpful and engaging.
+
+CONTEXTUAL QUERY ENHANCEMENT:
+${contextInfo.isContextual ? `
+🎯 CONTEXTUAL QUERY DETECTED!
+- Phone references found: ${contextInfo.phoneReferences.join(', ')}
+- Has comparison intent: ${contextInfo.hasComparison}
+- Has alternative intent: ${contextInfo.hasAlternative}
+- Has relational intent: ${contextInfo.hasRelational}
+
+For contextual queries, you should:
+1. Recognize the specific phones mentioned
+2. Understand the relationship being requested (comparison, alternative, better/worse than, etc.)
+3. Generate appropriate filters that consider the context of the referenced phones
+4. For comparison queries, ensure you capture all phone names for comparison
+5. For "better than X" queries, set filters that find phones superior to X in relevant aspects
+6. For "cheaper than X" queries, set price filters below the reference phone's price
+7. For "similar to X" queries, set filters for phones in similar price/spec range
+` : ''}
 
 PERSONALITY GUIDELINES:
 - Be conversational and friendly, not robotic
@@ -173,17 +238,38 @@ For other queries:
 }
 
 Examples:
+
+BASIC QUERIES:
 - "best phones under 30000 BDT" → { "type": "recommendation", "filters": { "max_price": 30000 } }
 - "phones with good camera under 50000" → { "type": "recommendation", "filters": { "max_price": 50000, "min_camera_score": 7.0 } }
 - "Samsung phones with 8GB RAM" → { "type": "recommendation", "filters": { "brand": "Samsung", "min_ram_gb": 8 } }
 - "phones with 120Hz refresh rate" → { "type": "recommendation", "filters": { "min_refresh_rate_numeric": 120 } }
 - "phones with wireless charging" → { "type": "recommendation", "filters": { "has_wireless_charging": true } }
 - "new release phones" → { "type": "recommendation", "filters": { "is_new_release": true } }
+
+CONTEXTUAL QUERIES (with phone references):
+- "phones better than iPhone 14 Pro" → { "type": "recommendation", "filters": { "min_overall_device_score": 9.5, "min_price": 80000 }, "context_phones": ["iPhone 14 Pro"], "context_type": "better_than" }
+- "phones cheaper than Samsung Galaxy S23" → { "type": "recommendation", "filters": { "max_price": 70000 }, "context_phones": ["Samsung Galaxy S23"], "context_type": "cheaper_than" }
+- "phones with better camera than iPhone 14 Pro" → { "type": "recommendation", "filters": { "min_camera_score": 9.8 }, "context_phones": ["iPhone 14 Pro"], "context_type": "better_camera" }
+- "phones similar to OnePlus 11" → { "type": "recommendation", "filters": { "min_price": 45000, "max_price": 65000, "min_ram_gb": 8 }, "context_phones": ["OnePlus 11"], "context_type": "similar_to" }
+- "alternatives to Xiaomi 13 Pro" → { "type": "recommendation", "filters": { "min_price": 40000, "max_price": 55000 }, "context_phones": ["Xiaomi 13 Pro"], "context_type": "alternative_to" }
+- "phones with better battery than iPhone 14 Pro" → { "type": "recommendation", "filters": { "min_battery_capacity_numeric": 3500, "min_battery_score": 8.0 }, "context_phones": ["iPhone 14 Pro"], "context_type": "better_battery" }
+
+COMPARISON QUERIES:
+- "Compare POCO X6 vs Redmi Note 13 Pro" → { "type": "comparison", "data": ["POCO X6", "Redmi Note 13 Pro"], "reasoning": "User wants to compare two specific phone models" }
+- "iPhone 14 Pro vs Samsung Galaxy S23 camera quality" → { "type": "comparison", "data": ["iPhone 14 Pro", "Samsung Galaxy S23"], "focus": "camera", "reasoning": "User wants camera-focused comparison between two flagship phones" }
+- "Compare OnePlus 11 vs Xiaomi 13 Pro vs Samsung Galaxy S23" → { "type": "comparison", "data": ["OnePlus 11", "Xiaomi 13 Pro", "Samsung Galaxy S23"], "reasoning": "User wants three-way comparison of flagship phones" }
+
+QA QUERIES:
 - "What is the refresh rate of Galaxy A55?" → { "type": "qa", "data": "Great question! Let me check the refresh rate of the Galaxy A55 for you. This is important for smooth scrolling and gaming performance.", "reasoning": "User wants specific technical information about a phone's display refresh rate" }
-- "Compare POCO X6 vs Redmi Note 13 Pro" → { "type": "comparison", "data": "Excellent choice for comparison! Both are popular mid-range phones. Let me show you how they stack up against each other.", "reasoning": "User wants to compare two specific phone models" }
+- "Does iPhone 14 Pro have wireless charging?" → { "type": "qa", "data": "Let me check the wireless charging capability of the iPhone 14 Pro for you!", "reasoning": "User wants specific feature information about a phone" }
+
+DRILL-DOWN QUERIES:
 - "Show full specs" → { "type": "drill_down", "command": "full_specs", "reasoning": "User wants comprehensive technical details about the recommended phones" }
 - "Open chart view" → { "type": "drill_down", "command": "chart_view", "reasoning": "User prefers visual comparison with interactive charts" }
 - "Tell me more about the display" → { "type": "drill_down", "command": "detail_focus", "target": "display", "reasoning": "User wants detailed information about display quality and features" }
+
+CHAT QUERIES:
 - "Hi, how are you?" → { "type": "chat", "data": "Hi there! I'm doing great and excited to help you find the perfect smartphone! What kind of phone are you looking for today?", "reasoning": "Friendly greeting that transitions to helping with phone recommendations" }
 
 Only return valid JSON — no markdown formatting. User query: ${query}`;

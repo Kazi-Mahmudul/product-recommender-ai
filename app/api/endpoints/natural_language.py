@@ -1,18 +1,48 @@
-from typing import List, Union, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Union, Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 import httpx
 import os
 import re
 import numpy as np
+import json
+import uuid
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone
 from app.core.database import get_db
 from app.core.config import settings
+from app.services.contextual_query_processor import ContextualQueryProcessor
+from app.services.phone_name_resolver import PhoneNameResolver
+from app.services.context_manager import ContextManager
+from app.services.error_handler import (
+    handle_contextual_error, create_error_response, PhoneResolutionError,
+    ExternalServiceError, ValidationError
+)
 
 router = APIRouter()
+
+# Initialize services
+contextual_processor = ContextualQueryProcessor()
+phone_name_resolver = PhoneNameResolver()
+context_manager = ContextManager()
+
+# Pydantic models for request/response
+class ContextualQueryRequest(BaseModel):
+    query: str
+    session_id: Optional[str] = None
+    context: Optional[str] = None
+
+class ExplicitContextualQueryRequest(BaseModel):
+    query: str
+    referenced_phones: Optional[List[str]] = None
+    context_type: Optional[str] = None
+    session_id: Optional[str] = None
+
+class PhoneResolutionRequest(BaseModel):
+    phone_names: List[str]
 
 @router.get("/health")
 async def health_check():
@@ -272,6 +302,82 @@ def generate_comparison_summary(phones: List[Dict], features: List[Dict]) -> str
     else:
         return "Comparison completed."
 
+def generate_contextual_comparison_summary(phones: List[Dict], features: List[Dict], focus_area: str = None) -> str:
+    """Generate a contextual summary based on the focus area of the comparison"""
+    if not phones or not features:
+        return "Comparison completed."
+    
+    summary_parts = []
+    
+    if focus_area == "camera":
+        # Focus on camera-related comparisons
+        camera_score_feature = next((f for f in features if f["key"] == "camera_score"), None)
+        camera_mp_feature = next((f for f in features if f["key"] == "primary_camera_mp"), None)
+        
+        if camera_score_feature:
+            max_idx = camera_score_feature["raw"].index(max(camera_score_feature["raw"]))
+            summary_parts.append(f"For camera quality, {phones[max_idx]['name']} leads with the highest camera score.")
+        
+        if camera_mp_feature:
+            max_idx = camera_mp_feature["raw"].index(max(camera_mp_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} has the highest megapixel count.")
+    
+    elif focus_area == "battery":
+        # Focus on battery-related comparisons
+        battery_feature = next((f for f in features if f["key"] == "battery_capacity_numeric"), None)
+        battery_score_feature = next((f for f in features if f["key"] == "battery_score"), None)
+        
+        if battery_feature:
+            max_idx = battery_feature["raw"].index(max(battery_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} offers the largest battery capacity for longer usage.")
+        
+        if battery_score_feature:
+            max_idx = battery_score_feature["raw"].index(max(battery_score_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} has the best overall battery performance.")
+    
+    elif focus_area == "performance":
+        # Focus on performance-related comparisons
+        perf_feature = next((f for f in features if f["key"] == "performance_score"), None)
+        ram_feature = next((f for f in features if f["key"] == "ram_gb"), None)
+        
+        if perf_feature:
+            max_idx = perf_feature["raw"].index(max(perf_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} delivers the best performance for demanding tasks.")
+        
+        if ram_feature:
+            max_idx = ram_feature["raw"].index(max(ram_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} provides the most RAM for multitasking.")
+    
+    elif focus_area == "display":
+        # Focus on display-related comparisons
+        display_feature = next((f for f in features if f["key"] == "display_score"), None)
+        refresh_feature = next((f for f in features if f["key"] == "refresh_rate_numeric"), None)
+        
+        if display_feature:
+            max_idx = display_feature["raw"].index(max(display_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} offers the best display quality and visual experience.")
+        
+        if refresh_feature:
+            max_idx = refresh_feature["raw"].index(max(refresh_feature["raw"]))
+            summary_parts.append(f"{phones[max_idx]['name']} has the smoothest display with the highest refresh rate.")
+    
+    elif focus_area == "price":
+        # Focus on price-related comparisons
+        price_feature = next((f for f in features if f["key"] == "price_original"), None)
+        if price_feature:
+            max_idx = price_feature["raw"].index(max(price_feature["raw"]))
+            min_idx = price_feature["raw"].index(min(price_feature["raw"]))
+            summary_parts.append(f"{phones[min_idx]['name']} offers the best value at the lowest price, while {phones[max_idx]['name']} is the premium option.")
+    
+    else:
+        # Default comprehensive summary
+        return generate_comparison_summary(phones, features)
+    
+    if summary_parts:
+        return " ".join(summary_parts)
+    else:
+        return generate_comparison_summary(phones, features)
+
 def generate_comparison_response(db: Session, query: str, phone_names: list = None) -> dict:
     """Generate a structured response for comparison queries (2-5 phones, normalized features for charting)"""
     # Use provided phone_names or extract from query
@@ -289,16 +395,65 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
     if len(phones) < 2:
         return {"error": f"I couldn't find information about two or more phones: {', '.join(phone_names)}"}
 
-    # Key features for comparison - only numeric columns for better comparison
-    features = [
-        ("price_original", "Price"),
-        ("ram_gb", "RAM"),
-        ("storage_gb", "Storage"),
-        ("primary_camera_mp", "Main Camera"),
-        ("selfie_camera_mp", "Front Camera"),
-        ("display_score", "Display"),
-        ("battery_capacity_numeric", "Battery")
-    ]
+    # Determine focus area from query for contextual comparisons
+    focus_area = None
+    query_lower = query.lower()
+    if "camera" in query_lower:
+        focus_area = "camera"
+    elif "battery" in query_lower:
+        focus_area = "battery"
+    elif "performance" in query_lower or "speed" in query_lower:
+        focus_area = "performance"
+    elif "display" in query_lower or "screen" in query_lower:
+        focus_area = "display"
+    elif "price" in query_lower or "cost" in query_lower:
+        focus_area = "price"
+
+    # Key features for comparison - prioritize based on focus area
+    if focus_area == "camera":
+        features = [
+            ("primary_camera_mp", "Main Camera"),
+            ("selfie_camera_mp", "Front Camera"),
+            ("camera_score", "Camera Score"),
+            ("price_original", "Price"),
+            ("overall_device_score", "Overall Score")
+        ]
+    elif focus_area == "battery":
+        features = [
+            ("battery_capacity_numeric", "Battery Capacity"),
+            ("battery_score", "Battery Score"),
+            ("has_fast_charging", "Fast Charging"),
+            ("price_original", "Price"),
+            ("overall_device_score", "Overall Score")
+        ]
+    elif focus_area == "performance":
+        features = [
+            ("performance_score", "Performance Score"),
+            ("ram_gb", "RAM"),
+            ("storage_gb", "Storage"),
+            ("price_original", "Price"),
+            ("overall_device_score", "Overall Score")
+        ]
+    elif focus_area == "display":
+        features = [
+            ("display_score", "Display Score"),
+            ("screen_size_numeric", "Screen Size"),
+            ("refresh_rate_numeric", "Refresh Rate"),
+            ("price_original", "Price"),
+            ("overall_device_score", "Overall Score")
+        ]
+    else:
+        # Default comprehensive comparison
+        features = [
+            ("price_original", "Price"),
+            ("ram_gb", "RAM"),
+            ("storage_gb", "Storage"),
+            ("primary_camera_mp", "Main Camera"),
+            ("selfie_camera_mp", "Front Camera"),
+            ("display_score", "Display"),
+            ("battery_capacity_numeric", "Battery")
+        ]
+    
     # Only keep features that exist for at least one phone
     selected_features = []
     for f in features:
@@ -340,24 +495,28 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
             "color": brand_colors[idx % len(brand_colors)]
         })
     
-    # Generate comparison summary
-    summary = generate_comparison_summary(phones, chart_features)
+    # Generate contextual comparison summary
+    summary = generate_contextual_comparison_summary(phones, chart_features, focus_area)
     
     return {
         "type": "comparison",
         "phones": phone_infos,
         "features": chart_features,
-        "summary": summary
+        "summary": summary,
+        "focus_area": focus_area
     }
 
 @router.post("/query")
 async def process_natural_language_query(
-    query: str,
+    request: ContextualQueryRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Process a natural language query and return relevant phone recommendations, QA, comparison, or error as JSON.
+    Enhanced natural language query processing with contextual awareness
     """
+    query = request.query
+    session_id = request.session_id or str(uuid.uuid4())
+    context_str = request.context
     try:
         print(f"Processing query: {query}")
         print(f"Gemini service URL: {settings.GEMINI_SERVICE_URL}")
@@ -383,6 +542,26 @@ async def process_natural_language_query(
                 if result.get("type") == "recommendation":
                     filters = result.get("filters", {})
                     print(f"Processing recommendation with filters: {filters}")
+                    
+                    # Check if this is a contextual query and enhance filters
+                    contextual_intent = contextual_processor.process_contextual_query(db, query)
+                    if contextual_intent.get("is_contextual"):
+                        print(f"[CONTEXTUAL] Detected contextual query: {contextual_intent.get('type')}")
+                        contextual_filters = contextual_processor.generate_contextual_filters(contextual_intent)
+                        print(f"[CONTEXTUAL] Generated contextual filters: {contextual_filters}")
+                        
+                        # Merge contextual filters with Gemini filters
+                        filters.update(contextual_filters)
+                        
+                        # Add contextual information to response
+                        filters["_contextual_info"] = {
+                            "is_contextual": True,
+                            "intent_type": contextual_intent.get("type"),
+                            "reference_phones": [rp["reference"]["full_name"] for rp in contextual_intent.get("resolved_phones", []) if rp["found"]],
+                            "relationship": contextual_intent.get("relationship"),
+                            "focus_area": contextual_intent.get("focus_area")
+                        }
+                    
                     # --- FALLBACK: Extract price constraints from query if missing ---
                     if not filters.get("max_price"):
                         match = re.search(r"(?:under|below|less than|up to|maximum|<=|<)\s*([0-9,]+)", query, re.IGNORECASE)
@@ -555,4 +734,219 @@ async def process_natural_language_query(
     except Exception as e:
         print(f"Unexpected error: {e}")
         return JSONResponse(content={"error": "I'm experiencing some technical difficulties. Please try again in a moment."}, status_code=500)
+
+@router.post("/contextual-query")
+async def process_contextual_query(
+    request: ExplicitContextualQueryRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Process contextual natural language query with explicit phone references
+    """
+    try:
+        query = request.query
+        referenced_phones = request.referenced_phones or []
+        context_type = request.context_type
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        print(f"Processing contextual query: {query}")
+        print(f"Referenced phones: {referenced_phones}")
+        print(f"Context type: {context_type}")
+        
+        # Initialize contextual processor with session
+        processor = ContextualQueryProcessor(session_id=session_id)
+        
+        # Process the contextual query using enhanced processing
+        result = processor.process_contextual_query_enhanced(db, query, session_id)
+        
+        # Add contextual metadata
+        result["contextual_query"] = True
+        result["referenced_phones"] = referenced_phones
+        result["context_type"] = context_type
+        result["original_query"] = query
+        result["session_id"] = session_id
+        
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        print(f"Error processing contextual query: {e}")
+        return JSONResponse(
+            content={"error": "I'm having trouble processing your contextual query. Please try rephrasing."},
+            status_code=500
+        )
+
+@router.get("/parse-intent")
+async def parse_query_intent(
+    query: str = Query(..., description="Query to parse for intent"),
+    context: Optional[str] = Query(None, description="Optional context information")
+):
+    """
+    Parse query intent and extract contextual information
+    """
+    try:
+        print(f"Parsing intent for query: {query}")
+        
+        # Initialize processor
+        processor = ContextualQueryProcessor()
+        
+        # Parse context if provided
+        context_data = None
+        if context:
+            try:
+                context_data = json.loads(context)
+            except json.JSONDecodeError:
+                print(f"Invalid context JSON: {context}")
+        
+        # Extract phone references (mock db for intent parsing)
+        mock_db = None
+        resolved_phones = []
+        
+        # For intent parsing, we'll use a simplified approach
+        phone_refs = processor.extract_phone_references(query)
+        
+        # Classify intent using enhanced method
+        intent = processor.classify_query_intent_enhanced(query, resolved_phones, context_data)
+        
+        return JSONResponse(content={
+            "intent_type": intent.query_type,
+            "confidence": intent.confidence,
+            "relationship": intent.relationship,
+            "focus_area": intent.focus_area,
+            "phone_references": phone_refs,
+            "context_metadata": intent.context_metadata,
+            "original_query": intent.original_query,
+            "processed_query": intent.processed_query
+        })
+        
+    except Exception as e:
+        print(f"Error parsing query intent: {e}")
+        return JSONResponse(
+            content={"error": "I'm having trouble parsing your query intent."},
+            status_code=500
+        )
+
+@router.post("/resolve-phones")
+async def resolve_phone_names(
+    request: PhoneResolutionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Resolve phone names to database objects
+    """
+    try:
+        phone_names = request.phone_names
+        print(f"Resolving phone names: {phone_names}")
+        
+        # Use phone name resolver
+        resolved_phones = phone_name_resolver.resolve_phone_names(phone_names, db)
+        
+        # Format response
+        results = []
+        for resolved_phone in resolved_phones:
+            results.append({
+                "original_reference": resolved_phone.original_reference,
+                "matched_phone": resolved_phone.matched_phone,
+                "confidence_score": resolved_phone.confidence_score,
+                "match_type": resolved_phone.match_type,
+                "alternative_matches": resolved_phone.alternative_matches
+            })
+        
+        # Add suggestions for failed resolutions
+        failed_names = []
+        for name in phone_names:
+            if not any(r["original_reference"] == name for r in results):
+                failed_names.append(name)
+        
+        suggestions = {}
+        for failed_name in failed_names:
+            suggestions[failed_name] = phone_name_resolver.suggest_similar_phones(failed_name, db)
+        
+        return JSONResponse(content={
+            "resolved_phones": results,
+            "failed_resolutions": failed_names,
+            "suggestions": suggestions,
+            "total_requested": len(phone_names),
+            "total_resolved": len(results)
+        })
+        
+    except Exception as e:
+        print(f"Error resolving phone names: {e}")
+        return JSONResponse(
+            content={"error": "I'm having trouble resolving the phone names."},
+            status_code=500
+        )
+
+@router.get("/context/{session_id}")
+async def get_conversation_context(
+    session_id: str,
+    summary_only: bool = Query(False, description="Return only context summary")
+):
+    """
+    Retrieve conversation context for a session
+    """
+    try:
+        print(f"Retrieving context for session: {session_id}")
+        
+        if summary_only:
+            # Return context summary
+            summary = context_manager.get_context_summary(session_id)
+            return JSONResponse(content=summary)
+        else:
+            # Return full context
+            context = context_manager.get_context(session_id)
+            if context:
+                return JSONResponse(content=context.to_dict())
+            else:
+                return JSONResponse(content={"exists": False, "session_id": session_id})
+        
+    except Exception as e:
+        print(f"Error retrieving context: {e}")
+        return JSONResponse(
+            content={"error": "I'm having trouble retrieving the conversation context."},
+            status_code=500
+        )
+
+@router.delete("/context/{session_id}")
+async def delete_conversation_context(session_id: str):
+    """
+    Delete conversation context for a session
+    """
+    try:
+        print(f"Deleting context for session: {session_id}")
+        
+        context_manager.delete_context(session_id)
+        
+        return JSONResponse(content={
+            "message": f"Context deleted for session {session_id}",
+            "session_id": session_id
+        })
+        
+    except Exception as e:
+        print(f"Error deleting context: {e}")
+        return JSONResponse(
+            content={"error": "I'm having trouble deleting the conversation context."},
+            status_code=500
+        )
+
+@router.post("/context/cleanup")
+async def cleanup_expired_contexts():
+    """
+    Clean up expired conversation contexts
+    """
+    try:
+        print("Cleaning up expired contexts")
+        
+        cleaned_count = context_manager.cleanup_expired_contexts()
+        
+        return JSONResponse(content={
+            "message": f"Cleaned up {cleaned_count} expired contexts",
+            "cleaned_count": cleaned_count
+        })
+        
+    except Exception as e:
+        print(f"Error cleaning up contexts: {e}")
+        return JSONResponse(
+            content={"error": "I'm having trouble cleaning up expired contexts."},
+            status_code=500
+        )
     
