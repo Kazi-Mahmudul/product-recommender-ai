@@ -16,7 +16,7 @@ from app.models.phone import Phone
 from app.core.config import settings
 from app.services.error_handler import (
     ExternalServiceError, handle_contextual_error, 
-    create_error_context, contextual_error_handler
+    contextual_error_handler
 )
 from app.services.monitoring_analytics import monitoring_analytics, QueryStatus
 
@@ -290,12 +290,12 @@ class AIService:
                 )
             
             # Handle error
-            error_context = create_error_context(
-                query=query,
-                session_id=session_id,
-                request_id=query_id
-            )
-            error_response = contextual_error_handler.handle_error(e, error_context)
+            error_context = {
+                'query': query,
+                'session_id': session_id,
+                'request_id': query_id
+            }
+            error_response = handle_contextual_error(e, error_context)
             
             logger.error(f"Error processing contextual query: {e}")
             
