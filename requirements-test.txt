@@ -1,0 +1,50 @@
+# Testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-xdist>=3.3.0
+pytest-timeout>=2.1.0
+pytest-benchmark>=4.0.0
+
+# HTTP testing
+httpx>=0.24.0
+requests-mock>=1.11.0
+
+# FastAPI testing
+fastapi[all]>=0.100.0
+starlette>=0.27.0
+
+# Database testing
+sqlalchemy>=2.0.0
+alembic>=1.11.0
+
+# Mock and fixtures
+factory-boy>=3.3.0
+faker>=19.0.0
+responses>=0.23.0
+
+# Performance and monitoring
+psutil>=5.9.0
+memory-profiler>=0.61.0
+
+# Code quality
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+mypy>=1.5.0
+
+# Security testing
+bandit>=1.7.0
+safety>=2.3.0
+
+# Test reporting
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0
+coverage[toml]>=7.3.0
+
+# Load testing (optional)
+locust>=2.16.0
+
+# API testing
+tavern>=2.0.0

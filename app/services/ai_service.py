@@ -1,17 +1,24 @@
 """
-AI Service for generating badges and highlights for phones
+Enhanced AI Service for generating badges, highlights, and contextual query processing
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Union
 import httpx
 import asyncio
 import logging
 import hashlib
 import time
+import json
+import re
 from sqlalchemy.orm import Session
 
 from app.models.phone import Phone
 from app.core.config import settings
+from app.services.error_handler import (
+    ExternalServiceError, handle_contextual_error, 
+    create_error_context, contextual_error_handler
+)
+from app.services.monitoring_analytics import monitoring_analytics, QueryStatus
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +75,7 @@ class AICache:
         self.cache = {}
 
 class AIService:
-    """Service for AI-based analysis of phone specifications"""
+    """Enhanced service for AI-based analysis of phone specifications and contextual query processing"""
     
     # Shared cache instance for all AIService instances
     _cache = AICache(ttl=3600)  # 1 hour TTL
@@ -77,6 +84,7 @@ class AIService:
         """Initialize the AI service with optional custom API URL and timeout"""
         self.api_url = api_url or settings.GEMINI_SERVICE_URL
         self.timeout = timeout
+        self.fallback_enabled = True
     
     async def generate_badge(self, phone: Phone) -> Optional[str]:
         """
@@ -177,6 +185,191 @@ class AIService:
             logger.debug(f"Cached highlights for phones {target_phone.id} vs {candidate_phone.id}: {highlights}")
         
         return highlights
+    
+    async def process_contextual_query(
+        self, 
+        query: str, 
+        context_phones: List[Phone] = None,
+        session_id: str = None,
+        query_id: str = None
+    ) -> Dict[str, Any]:
+        """
+        Process a contextual query using AI to understand intent and extract phone references
+        
+        Args:
+            query: The user's query text
+            context_phones: List of phones from conversation context
+            session_id: Session ID for tracking
+            query_id: Query ID for monitoring
+            
+        Returns:
+            Dictionary containing extracted information and intent
+        """
+        start_time = time.time()
+        
+        try:
+            # Generate cache key for contextual query
+            cache_key = self._generate_contextual_cache_key(query, context_phones)
+            
+            # Check cache first
+            cached_result = self._cache.get(cache_key)
+            if cached_result:
+                logger.debug(f"Contextual query cache hit for: {query[:50]}...")
+                result = json.loads(cached_result)
+                
+                # Record metrics
+                processing_time = time.time() - start_time
+                if query_id:
+                    monitoring_analytics.record_query_metrics(
+                        query_id=query_id,
+                        session_id=session_id,
+                        query_text=query,
+                        query_type=result.get('intent_type', 'unknown'),
+                        processing_time=processing_time,
+                        confidence=result.get('confidence', 0.0),
+                        phone_count=len(result.get('phone_references', [])),
+                        status=QueryStatus.SUCCESS,
+                        metadata={'cached': True}
+                    )
+                
+                return result
+            
+            # Create prompt for contextual query processing
+            prompt = self._create_contextual_query_prompt(query, context_phones)
+            
+            # Call Gemini API
+            response = await self._call_gemini_api(prompt)
+            if not response:
+                # Fallback processing
+                if self.fallback_enabled:
+                    result = self._fallback_contextual_processing(query, context_phones)
+                else:
+                    raise ExternalServiceError("gemini_ai", "Service unavailable")
+            else:
+                # Process AI response
+                result = self._process_contextual_response(response, query, context_phones)
+            
+            # Cache the result
+            if result:
+                self._cache.set(cache_key, json.dumps(result))
+                logger.debug(f"Cached contextual query result for: {query[:50]}...")
+            
+            # Record metrics
+            processing_time = time.time() - start_time
+            if query_id:
+                monitoring_analytics.record_query_metrics(
+                    query_id=query_id,
+                    session_id=session_id,
+                    query_text=query,
+                    query_type=result.get('intent_type', 'unknown'),
+                    processing_time=processing_time,
+                    confidence=result.get('confidence', 0.0),
+                    phone_count=len(result.get('phone_references', [])),
+                    status=QueryStatus.SUCCESS,
+                    metadata={'cached': False, 'fallback_used': response is None}
+                )
+            
+            return result
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            
+            # Record error metrics
+            if query_id:
+                monitoring_analytics.record_query_metrics(
+                    query_id=query_id,
+                    session_id=session_id,
+                    query_text=query,
+                    query_type='unknown',
+                    processing_time=processing_time,
+                    confidence=0.0,
+                    phone_count=0,
+                    status=QueryStatus.ERROR,
+                    error_type=type(e).__name__,
+                    error_category='ai_processing_error'
+                )
+            
+            # Handle error
+            error_context = create_error_context(
+                query=query,
+                session_id=session_id,
+                request_id=query_id
+            )
+            error_response = contextual_error_handler.handle_error(e, error_context)
+            
+            logger.error(f"Error processing contextual query: {e}")
+            
+            # Return fallback result if available
+            if self.fallback_enabled:
+                return self._fallback_contextual_processing(query, context_phones)
+            else:
+                raise e
+    
+    async def extract_phone_references(
+        self, 
+        query: str, 
+        available_phones: List[Phone] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract phone references from a query using AI
+        
+        Args:
+            query: The user's query text
+            available_phones: List of available phones to match against
+            
+        Returns:
+            List of phone reference dictionaries
+        """
+        try:
+            # Create prompt for phone reference extraction
+            prompt = self._create_phone_extraction_prompt(query, available_phones)
+            
+            # Call Gemini API
+            response = await self._call_gemini_api(prompt)
+            if not response:
+                # Fallback to regex-based extraction
+                return self._fallback_phone_extraction(query, available_phones)
+            
+            # Process AI response
+            return self._process_phone_extraction_response(response, available_phones)
+            
+        except Exception as e:
+            logger.error(f"Error extracting phone references: {e}")
+            # Fallback to regex-based extraction
+            return self._fallback_phone_extraction(query, available_phones)
+    
+    async def classify_query_intent(
+        self, 
+        query: str, 
+        context_phones: List[Phone] = None
+    ) -> Dict[str, Any]:
+        """
+        Classify the intent of a query using AI
+        
+        Args:
+            query: The user's query text
+            context_phones: List of phones from conversation context
+            
+        Returns:
+            Dictionary containing intent classification and confidence
+        """
+        try:
+            # Create prompt for intent classification
+            prompt = self._create_intent_classification_prompt(query, context_phones)
+            
+            # Call Gemini API
+            response = await self._call_gemini_api(prompt)
+            if not response:
+                # Fallback to rule-based classification
+                return self._fallback_intent_classification(query)
+            
+            # Process AI response
+            return self._process_intent_classification_response(response)
+            
+        except Exception as e:
+            logger.error(f"Error classifying query intent: {e}")
+            # Fallback to rule-based classification
+            return self._fallback_intent_classification(query)
         
     def _generate_highlights_cache_key(self, target_phone: Phone, candidate_phone: Phone) -> str:
         """
@@ -603,6 +796,325 @@ Each highlight should be on a new line with no additional text or explanation.
         # If no valid badge found, return None
         logger.warning(f"No valid badge found in response: {response}")
         return None
+    
+    def _generate_contextual_cache_key(self, query: str, context_phones: List[Phone] = None) -> str:
+        """Generate cache key for contextual query processing"""
+        context_key = ""
+        if context_phones:
+            phone_ids = sorted([str(getattr(phone, 'id', 0)) for phone in context_phones])
+            context_key = f"context:{','.join(phone_ids)}"
+        
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        return f"contextual:{query_hash}:{context_key}"
+    
+    def _create_contextual_query_prompt(self, query: str, context_phones: List[Phone] = None) -> str:
+        """Create prompt for contextual query processing"""
+        context_info = ""
+        if context_phones:
+            context_info = "\n\nCONTEXT PHONES (previously discussed):\n"
+            for i, phone in enumerate(context_phones, 1):
+                context_info += f"{i}. {phone.brand} {phone.name}"
+                if hasattr(phone, 'price_original') and phone.price_original:
+                    context_info += f" - ৳{phone.price_original}"
+                context_info += "\n"
+        
+        prompt = f"""Analyze this user query and extract the following information in JSON format:
+
+USER QUERY: "{query}"
+{context_info}
+
+REQUIRED OUTPUT FORMAT (JSON):
+{{
+    "intent_type": "comparison|alternative|specification|contextual_recommendation|recommendation|qa",
+    "confidence": 0.0-1.0,
+    "phone_references": [
+        {{
+            "text": "extracted phone name/reference",
+            "type": "explicit|contextual|pronoun",
+            "context_index": null or index if referring to context phone
+        }}
+    ],
+    "comparison_criteria": ["price", "camera", "battery", "performance", "display", "storage"],
+    "contextual_terms": ["better", "cheaper", "similar", "alternative", "like this", "that one"],
+    "price_range": {{"min": null, "max": null}},
+    "specific_features": ["feature1", "feature2"],
+    "query_focus": "brief description of what user wants"
+}}
+
+INTENT TYPES:
+- comparison: Comparing specific phones or features
+- alternative: Looking for alternatives to a phone
+- specification: Asking about specific phone details
+- contextual_recommendation: Asking for recommendations based on context
+- recommendation: General phone recommendations
+- qa: Questions about phones or features
+
+ANALYSIS GUIDELINES:
+1. Identify explicit phone names mentioned in the query
+2. Detect contextual references like "it", "that phone", "the first one"
+3. Extract comparison criteria from the query
+4. Determine price range if mentioned
+5. Identify specific features of interest
+6. Classify the overall intent with confidence score
+
+Return only valid JSON with no additional text."""
+        
+        return prompt
+    
+    def _create_phone_extraction_prompt(self, query: str, available_phones: List[Phone] = None) -> str:
+        """Create prompt for phone reference extraction"""
+        phone_list = ""
+        if available_phones:
+            phone_list = "\n\nAVAILABLE PHONES:\n"
+            for phone in available_phones[:20]:  # Limit to avoid prompt size issues
+                phone_list += f"- {phone.brand} {phone.name}\n"
+        
+        prompt = f"""Extract phone references from this query and match them to available phones.
+
+USER QUERY: "{query}"
+{phone_list}
+
+Return a JSON array of phone references:
+[
+    {{
+        "extracted_text": "text found in query",
+        "matched_phone": "exact phone name if matched",
+        "confidence": 0.0-1.0,
+        "match_type": "exact|partial|fuzzy|none"
+    }}
+]
+
+MATCHING GUIDELINES:
+1. Look for brand names (iPhone, Samsung, Xiaomi, etc.)
+2. Look for model names and numbers
+3. Consider common abbreviations and nicknames
+4. Match against available phones if provided
+5. Include confidence score for each match
+
+Return only valid JSON array with no additional text."""
+        
+        return prompt
+    
+    def _create_intent_classification_prompt(self, query: str, context_phones: List[Phone] = None) -> str:
+        """Create prompt for intent classification"""
+        context_info = ""
+        if context_phones:
+            context_info = f"\n\nCONTEXT: User has been discussing {len(context_phones)} phones"
+        
+        prompt = f"""Classify the intent of this user query.
+
+USER QUERY: "{query}"
+{context_info}
+
+Return JSON with intent classification:
+{{
+    "intent_type": "comparison|alternative|specification|contextual_recommendation|recommendation|qa",
+    "confidence": 0.0-1.0,
+    "reasoning": "brief explanation",
+    "sub_intent": "specific sub-category if applicable"
+}}
+
+INTENT DEFINITIONS:
+- comparison: Comparing phones or features ("iPhone vs Samsung", "which is better")
+- alternative: Looking for alternatives ("similar to iPhone", "alternative to this")
+- specification: Asking about specs ("what's the camera", "how much RAM")
+- contextual_recommendation: Recommendations based on context ("something better", "cheaper option")
+- recommendation: General recommendations ("best phone under 30k")
+- qa: General questions ("what is 5G", "how does wireless charging work")
+
+Return only valid JSON with no additional text."""
+        
+        return prompt
+    
+    def _process_contextual_response(self, response: str, query: str, context_phones: List[Phone] = None) -> Dict[str, Any]:
+        """Process AI response for contextual query"""
+        try:
+            # Try to parse JSON response
+            result = json.loads(response.strip())
+            
+            # Validate required fields
+            if 'intent_type' not in result:
+                result['intent_type'] = 'unknown'
+            if 'confidence' not in result:
+                result['confidence'] = 0.5
+            if 'phone_references' not in result:
+                result['phone_references'] = []
+            
+            # Ensure confidence is within valid range
+            result['confidence'] = max(0.0, min(1.0, float(result.get('confidence', 0.5))))
+            
+            return result
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Failed to parse contextual response as JSON: {e}")
+            # Fallback processing
+            return self._fallback_contextual_processing(query, context_phones)
+    
+    def _process_phone_extraction_response(self, response: str, available_phones: List[Phone] = None) -> List[Dict[str, Any]]:
+        """Process AI response for phone extraction"""
+        try:
+            # Try to parse JSON response
+            result = json.loads(response.strip())
+            
+            if not isinstance(result, list):
+                return []
+            
+            # Validate each phone reference
+            validated_references = []
+            for ref in result:
+                if isinstance(ref, dict) and 'extracted_text' in ref:
+                    validated_ref = {
+                        'extracted_text': ref.get('extracted_text', ''),
+                        'matched_phone': ref.get('matched_phone', ''),
+                        'confidence': max(0.0, min(1.0, float(ref.get('confidence', 0.5)))),
+                        'match_type': ref.get('match_type', 'none')
+                    }
+                    validated_references.append(validated_ref)
+            
+            return validated_references
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Failed to parse phone extraction response as JSON: {e}")
+            # Fallback to regex-based extraction
+            return self._fallback_phone_extraction(response, available_phones)
+    
+    def _process_intent_classification_response(self, response: str) -> Dict[str, Any]:
+        """Process AI response for intent classification"""
+        try:
+            # Try to parse JSON response
+            result = json.loads(response.strip())
+            
+            # Validate required fields
+            if 'intent_type' not in result:
+                result['intent_type'] = 'unknown'
+            if 'confidence' not in result:
+                result['confidence'] = 0.5
+            
+            # Ensure confidence is within valid range
+            result['confidence'] = max(0.0, min(1.0, float(result.get('confidence', 0.5))))
+            
+            return result
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Failed to parse intent classification response as JSON: {e}")
+            # Fallback to rule-based classification
+            return self._fallback_intent_classification(response)
+    
+    def _fallback_contextual_processing(self, query: str, context_phones: List[Phone] = None) -> Dict[str, Any]:
+        """Fallback contextual processing when AI is unavailable"""
+        logger.info("Using fallback contextual processing")
+        
+        # Basic intent classification using keywords
+        intent_type = "unknown"
+        confidence = 0.3  # Lower confidence for fallback
+        
+        query_lower = query.lower()
+        
+        # Intent classification rules
+        if any(word in query_lower for word in ['vs', 'versus', 'compare', 'comparison', 'better', 'difference']):
+            intent_type = "comparison"
+        elif any(word in query_lower for word in ['alternative', 'similar', 'like', 'instead']):
+            intent_type = "alternative"
+        elif any(word in query_lower for word in ['recommend', 'suggest', 'best', 'good']):
+            intent_type = "recommendation"
+        elif any(word in query_lower for word in ['what', 'how', 'when', 'why', 'specs', 'specification']):
+            intent_type = "qa"
+        
+        # Basic phone reference extraction using regex
+        phone_references = self._fallback_phone_extraction(query, context_phones)
+        
+        # Basic comparison criteria detection
+        comparison_criteria = []
+        criteria_keywords = {
+            'price': ['price', 'cost', 'expensive', 'cheap', 'affordable'],
+            'camera': ['camera', 'photo', 'picture', 'selfie', 'video'],
+            'battery': ['battery', 'charge', 'power', 'mah'],
+            'performance': ['performance', 'speed', 'fast', 'processor', 'ram'],
+            'display': ['display', 'screen', 'size', 'resolution'],
+            'storage': ['storage', 'memory', 'gb', 'space']
+        }
+        
+        for criterion, keywords in criteria_keywords.items():
+            if any(keyword in query_lower for keyword in keywords):
+                comparison_criteria.append(criterion)
+        
+        return {
+            'intent_type': intent_type,
+            'confidence': confidence,
+            'phone_references': phone_references,
+            'comparison_criteria': comparison_criteria,
+            'contextual_terms': [],
+            'price_range': {'min': None, 'max': None},
+            'specific_features': [],
+            'query_focus': query[:100] + "..." if len(query) > 100 else query
+        }
+    
+    def _fallback_phone_extraction(self, query: str, available_phones: List[Phone] = None) -> List[Dict[str, Any]]:
+        """Fallback phone extraction using regex patterns"""
+        logger.info("Using fallback phone extraction")
+        
+        references = []
+        query_lower = query.lower()
+        
+        # Common phone brand patterns
+        brand_patterns = {
+            'iphone': r'\biphone\s*(\d+\s*(?:pro|plus|mini|max)?)',
+            'samsung': r'\bsamsung\s*(?:galaxy\s*)?([a-z]\d+)',
+            'xiaomi': r'\bxiaomi\s*(?:redmi\s*)?([a-z0-9\s]+)',
+            'oneplus': r'\boneplus\s*(\d+[a-z]*)',
+            'oppo': r'\boppo\s*([a-z0-9\s]+)',
+            'vivo': r'\bvivo\s*([a-z0-9\s]+)',
+            'realme': r'\brealme\s*([a-z0-9\s]+)',
+            'huawei': r'\bhuawei\s*([a-z0-9\s]+)'
+        }
+        
+        for brand, pattern in brand_patterns.items():
+            matches = re.finditer(pattern, query_lower)
+            for match in matches:
+                extracted_text = match.group(0)
+                references.append({
+                    'extracted_text': extracted_text,
+                    'matched_phone': '',
+                    'confidence': 0.7,
+                    'match_type': 'partial'
+                })
+        
+        # Contextual references
+        contextual_patterns = [
+            r'\bit\b', r'\bthat\s+(?:phone|one)\b', r'\bthis\s+(?:phone|one)\b',
+            r'\bthe\s+(?:first|second|third)\s+(?:phone|one)\b'
+        ]
+        
+        for pattern in contextual_patterns:
+            if re.search(pattern, query_lower):
+                references.append({
+                    'extracted_text': re.search(pattern, query_lower).group(0),
+                    'matched_phone': '',
+                    'confidence': 0.5,
+                    'match_type': 'contextual'
+                })
+        
+        return references
+    
+    def _fallback_intent_classification(self, query: str) -> Dict[str, Any]:
+        """Fallback intent classification using rule-based approach"""
+        logger.info("Using fallback intent classification")
+        
+        query_lower = query.lower()
+        
+        # Intent classification rules with confidence scores
+        if any(word in query_lower for word in ['vs', 'versus', 'compare', 'comparison', 'better than', 'difference between']):
+            return {'intent_type': 'comparison', 'confidence': 0.8, 'reasoning': 'Contains comparison keywords'}
+        elif any(word in query_lower for word in ['alternative', 'similar to', 'like', 'instead of', 'replace']):
+            return {'intent_type': 'alternative', 'confidence': 0.7, 'reasoning': 'Contains alternative keywords'}
+        elif any(word in query_lower for word in ['recommend', 'suggest', 'best phone', 'good phone', 'should i buy']):
+            return {'intent_type': 'recommendation', 'confidence': 0.7, 'reasoning': 'Contains recommendation keywords'}
+        elif any(word in query_lower for word in ['what is', 'how much', 'specs', 'specification', 'details']):
+            return {'intent_type': 'specification', 'confidence': 0.6, 'reasoning': 'Contains specification keywords'}
+        elif any(word in query_lower for word in ['what', 'how', 'when', 'why', 'explain']):
+            return {'intent_type': 'qa', 'confidence': 0.6, 'reasoning': 'Contains question keywords'}
+        else:
+            return {'intent_type': 'unknown', 'confidence': 0.3, 'reasoning': 'No clear intent pattern found'}
     
     def _process_highlight_response(self, response: str) -> List[str]:
         """

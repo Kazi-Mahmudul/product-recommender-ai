@@ -1,5 +1,6 @@
 /// <reference path="../../../types/global.d.ts" />
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import SmartRecommendations from '../SmartRecommendations';
 import { useRecommendations } from '../../../hooks/useRecommendations';
 import { usePrefetch } from '../../../hooks/usePrefetch';
@@ -116,7 +117,7 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that loading indicator is rendered
@@ -138,14 +139,14 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that error message is rendered
     expect(screen.getByText(/Failed to fetch/i)).toBeInTheDocument();
     
     // Check that retry button is rendered and works
-    const retryButton = screen.getByRole('button', { name: /try again/i });
+    const retryButton = screen.getByRole('button', { name: /Try loading recommendations again/i });
     fireEvent.click(retryButton);
     expect(mockRetry).toHaveBeenCalled();
   });
@@ -165,7 +166,7 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that network error message is rendered
@@ -194,11 +195,11 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that empty state message is rendered
-    expect(screen.getByText(/No recommendations found/i)).toBeInTheDocument();
+    expect(screen.getByText(/No recommendations available/i)).toBeInTheDocument();
   });
   
   test('renders recommendations', () => {
@@ -216,16 +217,16 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that recommendations are rendered
     expect(screen.getByText('Samsung Galaxy S21')).toBeInTheDocument();
     expect(screen.getByText('Apple iPhone 13')).toBeInTheDocument();
     
-    // Check that highlights are rendered
+    // Check that highlights are rendered (only first highlight is shown)
     expect(screen.getByText('Better camera')).toBeInTheDocument();
-    expect(screen.getByText('Premium build')).toBeInTheDocument();
+    expect(screen.getByText('Better performance')).toBeInTheDocument();
     
     // Check that badges are rendered
     expect(screen.getByText('Popular')).toBeInTheDocument();
@@ -241,7 +242,7 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that refetch was not called
@@ -255,7 +256,7 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that refetch was called
@@ -277,7 +278,7 @@ describe('SmartRecommendations Component', () => {
     });
     
     render(
-      <SmartRecommendations phoneId={123} />
+      <SmartRecommendations phoneSlug="test-phone-123" />
     );
     
     // Check that retry count is shown

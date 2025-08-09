@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, act, waitFor } from "@testing-library/react";
+import '@testing-library/jest-dom';
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import { ComparisonProvider, useComparison } from "../ComparisonContext";

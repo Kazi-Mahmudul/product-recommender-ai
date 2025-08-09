@@ -41,10 +41,14 @@ export class ErrorHandler {
       context
     );
 
+    // Fallback if enhancedResponse is undefined
+    const fallbackMessage = enhancedResponse?.message || 'An error occurred';
+    const fallbackSuggestions = enhancedResponse?.suggestions || [];
+
     return {
       showFallbackContent: true,
-      fallbackMessage: enhancedResponse.message,
-      suggestions: enhancedResponse.suggestions,
+      fallbackMessage,
+      suggestions: fallbackSuggestions,
       retryAction: this.getRetryAction(errorInfo)
     };
   }
@@ -305,13 +309,14 @@ export class ErrorHandler {
   private static getFallbackSuggestions(phones: any[], context: ChatContext): string[] {
     const fallbackSuggestions = [
       "Show me more details about these phones",
-      "Compare these phones side by side",
-      "Find similar phones in this price range"
+      "Compare these phones side by side"
     ];
 
-    // Add context-based fallbacks if available
-    if (context.userPreferences.preferredBrands?.length) {
+    // Add context-based fallbacks if available (prioritize these)
+    if (context?.userPreferences?.preferredBrands?.length) {
       fallbackSuggestions.push(`Show more ${context.userPreferences.preferredBrands[0]} phones`);
+    } else {
+      fallbackSuggestions.push("Find similar phones in this price range");
     }
 
     if (phones.length > 0) {
