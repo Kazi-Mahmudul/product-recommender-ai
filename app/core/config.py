@@ -10,6 +10,7 @@ to version control.
 from pydantic_settings import BaseSettings
 from typing import List
 import os
+import json
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -25,16 +26,27 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/pickbd")
     LOCAL_DATABASE_URL: str = os.getenv("LOCAL_DATABASE_URL", "postgresql://user:password@localhost:5432/pickbd_local")
     
-    # CORS settings - Load from environment variable for production
-    CORS_ORIGINS: List[str] = (
-        os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000,https://pickbd.vercel.app").split(",")
-        if os.getenv("CORS_ORIGINS") 
-        else [
-            "http://localhost:3000",
-            "http://localhost:8000",
-            "https://pickbd.vercel.app"
-        ]
-    )
+    # CORS settings - Load from environment variable for production  
+    _cors_origins_str: str = os.getenv("CORS_ORIGINS", "")
+    
+    @property
+    def CORS_ORIGINS(self) -> List[str]:
+        if self._cors_origins_str and self._cors_origins_str.strip():
+            try:
+                # Try to parse as JSON first
+                parsed = json.loads(self._cors_origins_str)
+                return parsed if isinstance(parsed, list) else [str(parsed)]
+            except (json.JSONDecodeError, ValueError):
+                # Fallback to comma-separated string
+                origins = [origin.strip() for origin in self._cors_origins_str.split(",")]
+                return [origin for origin in origins if origin]  # Filter out empty strings
+        else:
+            # Default values
+            return [
+                "http://localhost:3000",
+                "http://localhost:8000", 
+                "https://pickbd.vercel.app"
+            ]
     
     # Redis cache settings
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
