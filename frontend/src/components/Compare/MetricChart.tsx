@@ -178,49 +178,64 @@ const MetricChart: React.FC<MetricChartProps> = ({
       </div>
 
       <div className="p-6">
-        <div className="h-96" role="img" aria-label="Phone performance metrics comparison chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 60,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="name" 
-                stroke="#6b7280"
-                fontSize={12}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-                interval={0}
-              />
-              <YAxis 
-                stroke="#6b7280"
-                fontSize={12}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={{ paddingTop: '20px' }}
-                iconType="circle"
-              />
-              
-              {metrics.map((metric, index) => (
-                <Bar
-                  key={metric.key}
-                  dataKey={metric.key}
-                  name={metric.label}
-                  fill={metric.color}
-                  radius={[2, 2, 0, 0]}
-                  opacity={0.8}
+        {/* Mobile-friendly chart container with horizontal scroll */}
+        <div className="overflow-x-auto">
+          <div 
+            className="h-96" 
+            style={{ minWidth: `${Math.max(600, phones.length * 120)}px` }}
+            role="img" 
+            aria-label="Phone performance metrics comparison chart"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 60,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#6b7280"
+                  fontSize={12}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
                 />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+                <YAxis 
+                  stroke="#6b7280"
+                  fontSize={12}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  iconType="circle"
+                />
+                
+                {metrics.map((metric, index) => (
+                  <Bar
+                    key={metric.key}
+                    dataKey={metric.key}
+                    name={metric.label}
+                    fill={metric.color}
+                    radius={[2, 2, 0, 0]}
+                    opacity={0.8}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Mobile scroll hint */}
+        <div className="block sm:hidden mt-2 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            ← Scroll horizontally to view all data →
+          </p>
         </div>
 
         {/* Chart Legend/Notes */}

@@ -330,12 +330,15 @@ function App() {
     try {
       // Send the user's query to get AI-powered recommendations
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(input)}`,
+        `${API_BASE_URL}/api/v1/natural-language/query`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            query: input
+          })
         }
       );
 

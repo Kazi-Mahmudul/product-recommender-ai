@@ -1,4 +1,4 @@
-import { Phone } from './phones';
+import SessionManager from '../services/sessionManager';
 
 const API_BASE = process.env.REACT_APP_API_BASE || "/api";
 
@@ -17,39 +17,26 @@ export interface ComparisonSession {
   items: ComparisonItem[];
 }
 
-// Production-ready session management with fallback strategies
-const SESSION_STORAGE_KEY = 'comparison_session_id';
-const SESSION_EXPIRY_KEY = 'comparison_session_expiry';
+// Use centralized session manager
+const sessionManager = SessionManager.getInstance();
 
-function getStoredSessionId(): string | null {
-  // Check if session has expired
-  const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
-  if (expiry && new Date().getTime() > parseInt(expiry)) {
-    // Session expired, clear it
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    localStorage.removeItem(SESSION_EXPIRY_KEY);
-    return null;
-  }
-  
-  return localStorage.getItem(SESSION_STORAGE_KEY);
-}
-
-function storeSessionId(sessionId: string): void {
-  // Store session ID with 24-hour expiry (matching backend)
-  const expiryTime = new Date().getTime() + (24 * 60 * 60 * 1000); // 24 hours
-  localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
-  localStorage.setItem(SESSION_EXPIRY_KEY, expiryTime.toString());
-}
-
-function clearStoredSession(): void {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-  localStorage.removeItem(SESSION_EXPIRY_KEY);
+export function clearStoredSession(): void {
+  sessionManager.clearSession();
 }
 
 export async function getComparisonSession(): Promise<ComparisonSession> {
+  // Use existing session if valid
+  const existingSessionId = sessionManager.getSessionId();
+  
+  const headers: Record<string, string> = {};
+  if (existingSessionId) {
+    headers['X-Session-ID'] = existingSessionId;
+  }
+  
   const response = await fetch(`${API_BASE}/api/v1/comparison/session`, {
     method: 'GET',
-    credentials: 'include', // Include cookies in the request
+    credentials: 'include',
+    headers,
   });
   
   if (!response.ok) {
@@ -58,29 +45,25 @@ export async function getComparisonSession(): Promise<ComparisonSession> {
   
   const session = await response.json();
   
-  // Store session ID for cross-origin compatibility
-  storeSessionId(session.session_id);
+  // Update session manager with backend session ID
+  sessionManager.setSessionId(session.session_id);
   
   return session;
 }
 
 export async function addComparisonItem(slug: string): Promise<ComparisonItem> {
-  // Get stored session ID for cross-origin compatibility
-  const sessionId = getStoredSessionId();
+  const sessionId = sessionManager.getSessionId();
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-Session-ID': sessionId,
   };
-  
-  // Add session ID as header for cross-origin support
-  if (sessionId) {
-    headers['X-Session-ID'] = sessionId;
-  }
   
   const response = await fetch(`${API_BASE}/api/v1/comparison/items/${slug}`, {
     method: 'POST',
-    credentials: 'include', // Include cookies when possible
+    credentials: 'include',
     headers,
+    body: JSON.stringify({ slug }),
   });
   
   if (!response.ok) {
@@ -89,28 +72,24 @@ export async function addComparisonItem(slug: string): Promise<ComparisonItem> {
   
   const data = await response.json();
   
-  // Update stored session ID if provided in response
-  if (data.session_id) {
-    storeSessionId(data.session_id);
+  // Update session manager if backend provides a new session ID
+  if (data.session_id && data.session_id !== sessionId) {
+    sessionManager.setSessionId(data.session_id);
   }
   
   return data;
 }
 
 export async function removeComparisonItem(slug: string): Promise<void> {
-  // Get stored session ID for cross-origin compatibility
-  const sessionId = getStoredSessionId();
+  const sessionId = sessionManager.getSessionId();
   
-  const headers: Record<string, string> = {};
-  
-  // Add session ID as header for cross-origin support
-  if (sessionId) {
-    headers['X-Session-ID'] = sessionId;
-  }
+  const headers: Record<string, string> = {
+    'X-Session-ID': sessionId,
+  };
   
   const response = await fetch(`${API_BASE}/api/v1/comparison/items/${slug}`, {
     method: 'DELETE',
-    credentials: 'include', // Include cookies when possible
+    credentials: 'include',
     headers,
   });
   
@@ -119,23 +98,18 @@ export async function removeComparisonItem(slug: string): Promise<void> {
   }
 }
 
-// Export session management functions for advanced use cases
-export { clearStoredSession };
+// Session management functions are exported above
 
 export async function getComparisonItems(): Promise<ComparisonItem[]> {
-  // Get stored session ID for cross-origin compatibility
-  const sessionId = getStoredSessionId();
+  const sessionId = sessionManager.getSessionId();
   
-  const headers: Record<string, string> = {};
-  
-  // Add session ID as header for cross-origin support
-  if (sessionId) {
-    headers['X-Session-ID'] = sessionId;
-  }
+  const headers: Record<string, string> = {
+    'X-Session-ID': sessionId,
+  };
   
   const response = await fetch(`${API_BASE}/api/v1/comparison/items`, {
     method: 'GET',
-    credentials: 'include', // Include cookies when possible
+    credentials: 'include',
     headers,
   });
   
