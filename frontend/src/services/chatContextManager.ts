@@ -329,6 +329,17 @@ export class ChatContextManager {
         ? context.phoneRecommendations 
         : [];
 
+      // Check if we already have this exact recommendation to avoid duplicates
+      const isDuplicate = existingRecommendations.some(rec => 
+        rec.originalQuery === originalQuery.trim() &&
+        rec.phones.length === phones.length &&
+        rec.phones.every((phone, index) => phone.id === phones[index]?.id)
+      );
+
+      if (isDuplicate) {
+        return context; // Return existing context without changes
+      }
+
       const updatedContext = {
         ...context,
         phoneRecommendations: [

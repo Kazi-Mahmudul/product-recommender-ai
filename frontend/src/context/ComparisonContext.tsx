@@ -81,27 +81,19 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
       setSelectedPhones(phones);
       setError(null);
     } catch (err) {
-      setError(ERROR_MESSAGES.NETWORK_ERROR);
+      // If there's no session yet, that's okay - start with empty list
+      setSelectedPhones([]);
+      setError(null);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Load comparison data on mount and on session changes
+  // Load comparison data on mount
   useEffect(() => {
-    // Ensure a session exists and fetch items
-    const initializeSessionAndFetchItems = async () => {
-      try {
-        const session = await getComparisonSession(); // This will create a session if one doesn't exist
-        
-        await fetchComparisonItems();
-      } catch (err) {
-        setError(ERROR_MESSAGES.NETWORK_ERROR);
-        setIsLoading(false);
-      }
-    };
-    initializeSessionAndFetchItems();
-  }, [fetchComparisonItems]);
+    // Just fetch items - session will be handled by SessionManager
+    fetchComparisonItems();
+  }, []); // Remove fetchComparisonItems from dependencies to prevent re-initialization
 
   // Auto-clear error after 5 seconds
   useEffect(() => {
@@ -140,6 +132,16 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       setIsLoading(true);
+      
+      // If this is the first item and we don't have a session, initialize one
+      if (selectedPhones.length === 0) {
+        try {
+          await getComparisonSession();
+        } catch (err) {
+          // If session creation fails, continue with local session
+          console.warn('Failed to initialize comparison session:', err);
+        }
+      }
       
       await addComparisonItem(phone.slug!); // Use non-null assertion as isValidPhone checks for slug
       

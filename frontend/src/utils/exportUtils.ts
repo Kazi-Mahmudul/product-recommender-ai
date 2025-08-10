@@ -391,11 +391,82 @@ function generateCompactPrintableHTML(
           margin-bottom: 3px;
         }
         
-        /* Print Styles */
+        /* Print Styles - Force colors to be visible in PDF */
         @media print {
-          body { margin: 0; }
-          .report-container { padding: 8mm; }
-          .phone-card, .verdict-section { break-inside: avoid; }
+          body { 
+            margin: 0; 
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .report-container { 
+            padding: 8mm; 
+          }
+          
+          .phone-card, .verdict-section { 
+            break-inside: avoid; 
+          }
+          
+          /* Force background colors and gradients to print */
+          .report-header {
+            background: #377D5B !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .phone-card {
+            background: #f8f9fa !important;
+            border: 2px solid #377D5B !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .verdict-section {
+            background: #f0f8ff !important;
+            border-left: 4px solid #377D5B !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .comparison-table th {
+            background: #377D5B !important;
+            color: white !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .comparison-table tr:nth-child(even) {
+            background: #f8f9fa !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .best-value {
+            background: #e8f5e8 !important;
+            color: #377D5B !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          .feature-bar {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          /* Force all colors to print */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
         }
         
         @page {
@@ -735,7 +806,7 @@ function formatVerdictForPDF(verdict: string): string {
       }
 
       // Check for bullet points
-      if (/^[•\-\*]\s/.test(trimmed)) {
+      if (/^[•\-*]\s/.test(trimmed)) {
         const items = trimmed
           .split(/\n[•\-*]\s/)
           .map((item) => item.trim())

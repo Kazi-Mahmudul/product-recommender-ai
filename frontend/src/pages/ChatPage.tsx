@@ -7,6 +7,7 @@ import {
   ChatContextManager,
   ChatContext,
 } from "../services/chatContextManager";
+import SessionManager from "../services/sessionManager";
 import { QueryEnhancer } from "../services/queryEnhancer";
 import { ErrorHandler } from "../services/errorHandler";
 import { AIResponseEnhancer } from "../services/aiResponseEnhancer";
@@ -80,6 +81,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const {} = useMobileResponsive();
   const featureFlags = useFeatureFlags();
 
+  // Create a stable callback for context updates to prevent infinite re-renders
+  const handleContextUpdate = useCallback((newContext: ChatContext) => {
+    setChatContext(newContext);
+  }, []);
+
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop =
@@ -113,15 +119,24 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       let enhancedMessage = messageToSend;
       if (featureFlags.contextManagement && chatContext) {
         try {
-          const recentPhoneContext = ChatContextManager.getRecentPhoneContext(chatContext, 600000); // 10 minutes
-          const enhancementResult = QueryEnhancer.enhanceQuery(messageToSend, recentPhoneContext);
-          
+          const recentPhoneContext = ChatContextManager.getRecentPhoneContext(
+            chatContext,
+            600000
+          ); // 10 minutes
+          const enhancementResult = QueryEnhancer.enhanceQuery(
+            messageToSend,
+            recentPhoneContext
+          );
+
           if (enhancementResult.contextUsed) {
             enhancedMessage = enhancementResult.enhancedQuery;
-            console.log('Query enhanced:', QueryEnhancer.getEnhancementSummary(enhancementResult));
+            console.log(
+              "Query enhanced:",
+              QueryEnhancer.getEnhancementSummary(enhancementResult)
+            );
           }
         } catch (error) {
-          console.warn('Failed to enhance query with context:', error);
+          console.warn("Failed to enhance query with context:", error);
           // Continue with original message if enhancement fails
         }
       }
@@ -161,10 +176,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
         if (result.type === "recommendation") {
           const phonesRes = await fetch(
-            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(enhancedMessage)}`,
+            `${API_BASE_URL}/api/v1/natural-language/query`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: enhancedMessage }),
             }
           );
 
@@ -239,10 +255,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         } else {
           // For non-recommendation queries, call the backend directly
           const phonesRes = await fetch(
-            `${API_BASE_URL}/api/v1/natural-language/query?query=${encodeURIComponent(enhancedMessage)}`,
+            `${API_BASE_URL}/api/v1/natural-language/query`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: enhancedMessage }),
             }
           );
 
@@ -359,16 +376,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         setIsLoading(false);
       }
     },
-    [
-      message,
-      chatHistory,
-      isLoading,
-      chatContext,
-      featureFlags.aiResponseEnhancements,
-      featureFlags.contextManagement,
-      featureFlags.errorRecovery,
-      retryCount,
-    ]
+    [message, chatHistory, chatContext, featureFlags.aiResponseEnhancements, featureFlags.contextManagement, featureFlags.errorRecovery, retryCount]
   );
 
   useEffect(() => {
@@ -466,14 +474,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                             : ""
                         }
                         chatContext={chatContext}
-                        onContextUpdate={setChatContext}
+                        onContextUpdate={handleContextUpdate}
                         onSuggestionClick={
                           featureFlags.enhancedSuggestions
                             ? (suggestion) => {
                                 // Use contextual query if available, otherwise fall back to regular query
-                                const queryToSend = 'contextualQuery' in suggestion 
-                                  ? suggestion.contextualQuery 
-                                  : suggestion.query;
+                                const queryToSend =
+                                  "contextualQuery" in suggestion
+                                    ? suggestion.contextualQuery
+                                    : suggestion.query;
                                 handleSendMessage(queryToSend);
                               }
                             : undefined
