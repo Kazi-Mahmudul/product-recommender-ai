@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 // You can swap these for your own icon components or SVGs
 import { FcGoogle } from 'react-icons/fc';
+import { GoogleLogin } from '@react-oauth/google';
+import { handleOAuthSuccess, handleOAuthError } from '../utils/oauthErrorHandler';
 
 interface AuthModalProps {
   mode: 'login' | 'signup';
@@ -74,6 +76,19 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
     }, 1200);
   };
 
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    const success = await handleOAuthSuccess(
+      credentialResponse,
+      setLoading,
+      setError,
+      undefined,
+      () => {
+        setSuccessMsg('Google authentication successful!');
+        onClose();
+      }
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="bg-white dark:bg-[#232323] rounded-xl shadow-xl w-full max-w-md p-8 relative">
@@ -98,10 +113,15 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
             <button type="submit" className="rounded-lg py-2 font-semibold text-white" style={{background: brandColor}} disabled={loading}>
               {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Sign Up'}
             </button>
-            <button type="button" className="rounded-lg py-2 font-semibold flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#232323] text-gray-800 dark:text-white" disabled={loading}>
-              {/* Workaround for react-icons v5+ and TS: use as function, not JSX component */}
-              {FcGoogle({ className: "text-xl" })} Continue with Google
-            </button>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => handleOAuthError("Google authentication failed", setError)}
+              useOneTap={false}
+              theme="outline"
+              size="large"
+              text="continue_with"
+              shape="rectangular"
+            />
             <div className="text-center text-sm mt-2">
               {mode === 'login' ? (
                 <>Don't have an account? <button type="button" className="text-brand hover:underline" style={{color: brandColor}} onClick={() => onSwitch('signup')}>Sign Up</button></>

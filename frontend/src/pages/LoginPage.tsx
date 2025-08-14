@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FcGoogle } from "react-icons/fc";
+
 import { GoogleLogin } from "@react-oauth/google";
 import { ArrowLeft } from "lucide-react";
+import { handleOAuthSuccess, handleOAuthError } from "../utils/oauthErrorHandler";
 
 interface LoginPageProps {
   darkMode: boolean;
@@ -34,29 +35,13 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE}/api/v1/auth/google`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ credential: credentialResponse.credential }),
-        }
-      );
-      const data = await res.json();
-      if (res.ok && data.access_token) {
-        localStorage.setItem("auth_token", data.access_token);
-        setUser(data.user || null);
-        navigate("/");
-      } else {
-        setError(data.detail || "Google authentication failed");
-      }
-    } catch {
-      setError("Google authentication failed");
-    }
-    setLoading(false);
+    await handleOAuthSuccess(
+      credentialResponse,
+      setLoading,
+      setError,
+      setUser,
+      () => navigate("/")
+    );
   };
 
   return (
@@ -153,13 +138,15 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
             <div className="flex-grow border-t border-neutral-200 dark:border-neutral-700"></div>
           </div>
 
-          <button
-            type="button"
-            className="rounded-xl py-3 font-medium flex items-center justify-center gap-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors duration-200"
-            disabled={loading}
-          >
-            <FcGoogle className="text-xl" /> Continue with Google
-          </button>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => handleOAuthError("Google authentication failed", setError)}
+            useOneTap={false}
+            theme="outline"
+            size="large"
+            text="continue_with"
+            shape="rectangular"
+          />
 
           <div className="text-center text-sm mt-2">
             Don't have an account?{" "}
