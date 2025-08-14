@@ -3,6 +3,7 @@
 import { Phone } from '../api/phones';
 import { ChatMessage } from '../types/chat';
 import { ContextAnalytics } from './contextAnalytics';
+import SessionManager from './sessionManager';
 
 export interface UserPreferences {
   priceRange?: [number, number];
@@ -75,7 +76,10 @@ export class ChatContextManager {
    * Initialize a new chat context
    */
   static initializeContext(): ChatContext {
-    const sessionId = this.generateSessionId();
+    // Use centralized session manager for consistent session IDs across the app
+    const sessionManager = SessionManager.getInstance();
+    const sessionId = sessionManager.getSessionId();
+    
     const context: ChatContext = {
       sessionId,
       currentRecommendations: [],
@@ -117,6 +121,10 @@ export class ChatContextManager {
       
       this.performanceMetrics.cacheMisses++;
       
+      // Get the current session ID from SessionManager
+      const sessionManager = SessionManager.getInstance();
+      const currentSessionId = sessionManager.getSessionId();
+      
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) {
         const newContext = this.initializeContext();
@@ -125,6 +133,14 @@ export class ChatContextManager {
       }
 
       const context: ChatContext = JSON.parse(stored);
+      
+      // Check if the stored context matches the current session
+      if (context.sessionId !== currentSessionId) {
+        // Session has changed, create new context with current session ID
+        const newContext = this.initializeContext();
+        this.updateCache(newContext);
+        return newContext;
+      }
       
       // Check if context has expired
       const contextAge = Date.now() - new Date(context.timestamp).getTime();
@@ -656,11 +672,14 @@ export class ChatContextManager {
     };
   }
 
+  // Session ID generation is now handled by centralized SessionManager
+  
   /**
-   * Generate unique session ID
+   * Get current session ID from SessionManager
    */
-  private static generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  static getCurrentSessionId(): string {
+    const sessionManager = SessionManager.getInstance();
+    return sessionManager.getSessionId();
   }
 
   /**

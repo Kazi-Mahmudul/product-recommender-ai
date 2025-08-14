@@ -1,0 +1,321 @@
+version: '3.8'
+
+# Master Docker Compose file for the complete data pipeline
+# This file orchestrates all services including Airflow, monitoring, and pipeline services
+
+networks:
+  pipeline-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  airflow-logs:
+  pipeline-logs:
+  pipeline-data:
+
+services:
+  # Infrastructure Services
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+    restart: unless-stopped
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - pipeline-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - pipeline-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Airflow Services
+  airflow-init:
+    image: apache/airflow:2.7.0-python3.11
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - _AIRFLOW_DB_UPGRADE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=${AIRFLOW_ADMIN_USER:-admin}
+      - _AIRFLOW_WWW_USER_PASSWORD=${AIRFLOW_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow-logs:/opt/airflow/logs
+    networks:
+      - pipeline-network
+    depends_on:
+      - postgres
+      - redis
+    restart: "no"
+
+  airflow-webserver:
+    image: apache/airflow:2.7.0-python3.11
+    command: webserver
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow-logs:/opt/airflow/logs
+    networks:
+      - pipeline-network
+    depends_on:
+      - airflow-init
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.0-python3.11
+    command: scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow-logs:/opt/airflow/logs
+    networks:
+      - pipeline-network
+    depends_on:
+      - airflow-init
+    restart: unless-stopped
+
+  airflow-worker:
+    image: apache/airflow:2.7.0-python3.11
+    command: celery worker
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow-logs:/opt/airflow/logs
+    networks:
+      - pipeline-network
+    depends_on:
+      - airflow-init
+    restart: unless-stopped
+
+  # Pipeline Services (Placeholder - will be implemented)
+  scraper-service:
+    image: python:3.11-slim
+    command: >
+      sh -c "
+        echo 'Scraper service placeholder - will be implemented';
+        echo 'Service would run on port 8000';
+        python -m http.server 8000
+      "
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - pipeline-logs:/app/logs
+      - pipeline-data:/app/data
+    networks:
+      - pipeline-network
+    restart: unless-stopped
+
+  processor-service:
+    image: python:3.11-slim
+    command: >
+      sh -c "
+        echo 'Processor service placeholder - will be implemented';
+        echo 'Service would run on port 8001';
+        python -m http.server 8001
+      "
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - pipeline-logs:/app/logs
+      - pipeline-data:/app/data
+    networks:
+      - pipeline-network
+    restart: unless-stopped
+
+  sync-service:
+    image: python:3.11-slim
+    command: >
+      sh -c "
+        echo 'Sync service placeholder - will be implemented';
+        echo 'Service would run on port 8002';
+        python -m http.server 8002
+      "
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - pipeline-logs:/app/logs
+      - pipeline-data:/app/data
+    networks:
+      - pipeline-network
+    restart: unless-stopped
+
+  # Trigger API Service
+  trigger-api:
+    image: python:3.11-slim
+    command: >
+      sh -c "
+        echo 'Trigger API service placeholder - will be implemented';
+        echo 'Service would run on port 5000';
+        python -m http.server 5000
+      "
+    ports:
+      - "5000:5000"
+    environment:
+      - PIPELINE_API_TOKEN=${PIPELINE_API_TOKEN}
+      - AIRFLOW_BASE_URL=http://airflow-webserver:8080
+    volumes:
+      - pipeline-logs:/app/logs
+    networks:
+      - pipeline-network
+    depends_on:
+      - airflow-webserver
+    restart: unless-stopped
+
+  # Alerting Service
+  alerting-service:
+    image: python:3.11-slim
+    command: >
+      sh -c "
+        echo 'Alerting service placeholder - will be implemented';
+        echo 'Service would run on port 8004';
+        python -m http.server 8004
+      "
+    ports:
+      - "8004:8004"
+    environment:
+      - ALERTING_API_TOKEN=${ALERTING_API_TOKEN}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    volumes:
+      - pipeline-logs:/app/logs
+    networks:
+      - pipeline-network
+    restart: unless-stopped
+
+  # Logging Service
+  logging-service:
+    image: python:3.11-slim
+    command: >
+      sh -c "
+        echo 'Logging service placeholder - will be implemented';
+        echo 'Service would run on port 8003';
+        python -m http.server 8003
+      "
+    ports:
+      - "8003:8003"
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - pipeline-logs:/app/logs
+    networks:
+      - pipeline-network
+    restart: unless-stopped
