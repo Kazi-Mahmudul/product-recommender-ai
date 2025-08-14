@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@pickbd.com")
     EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
     
+    # Google OAuth settings
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "")
+    
     # Monitoring settings
     MONITORING_API_KEY: str = os.getenv("MONITORING_API_KEY", "")
     
@@ -84,5 +89,12 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
+    
+    def __post_init__(self):
+        """Validate critical settings after initialization"""
+        if not self.GOOGLE_CLIENT_ID:
+            print("WARNING: GOOGLE_CLIENT_ID is not set. Google OAuth will not work.")
+        if not self.SECRET_KEY or self.SECRET_KEY == "your-secret-key-change-in-production":
+            print("WARNING: SECRET_KEY is not properly configured for production.")
 
 settings = Settings()
