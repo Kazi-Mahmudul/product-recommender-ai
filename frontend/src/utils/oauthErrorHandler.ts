@@ -92,7 +92,21 @@ export const handleOAuthSuccess = async (
       
       return true;
     } else {
-      const errorMessage = getOAuthErrorMessage(data);
+      // Enhanced error handling for backend issues
+      let errorMessage = 'Authentication failed. Please try again.';
+      
+      if (response.status === 400) {
+        if (data.detail && data.detail.includes('Google authentication failed')) {
+          errorMessage = 'Google authentication failed. Please try again or contact support.';
+        } else if (data.detail && data.detail.includes('Missing Google token')) {
+          errorMessage = 'Authentication error. Please refresh the page and try again.';
+        } else {
+          errorMessage = data.detail || 'Authentication failed. Please try again.';
+        }
+      } else if (response.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
       setError(errorMessage);
       return false;
     }
