@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Numeric
 from app.core.database import Base
 
 class Phone(Base):
@@ -125,6 +125,15 @@ class Phone(Base):
     performance_score = Column(Float)
     display_score = Column(Float)
     camera_score = Column(Float)
+    
+    # Pipeline-specific columns
+    scraped_at = Column(DateTime)
+    pipeline_run_id = Column(String(255))
+    data_source = Column(String(100))
+    last_price_check = Column(DateTime)
+    price_change_detected = Column(Boolean, default=False)
+    data_quality_score = Column(Numeric(3, 2))
+    is_pipeline_managed = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"<Phone {self.brand} {self.model}>"
