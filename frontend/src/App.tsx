@@ -19,6 +19,7 @@ import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ComparisonProvider } from "./context/ComparisonContext";
 import ComparisonWidget from "./components/ComparisonWidget";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 interface Message {
   id: string;
@@ -669,10 +670,26 @@ function App() {
   );
 }
 
-const AppWithAuthProvider = () => (
-  <AuthProvider>
-    <App />
-  </AuthProvider>
-);
+const AppWithAuthProvider = () => {
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+  
+  if (!googleClientId) {
+    console.error("Google Client ID not found in environment variables");
+    // Fallback: render app without Google OAuth
+    return (
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+  }
+
+  return (
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </GoogleOAuthProvider>
+  );
+};
 
 export default AppWithAuthProvider;
