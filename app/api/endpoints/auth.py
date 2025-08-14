@@ -239,25 +239,41 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
         # Check if user exists, else create
         user = get_user_by_email(db, email)
         if not user:
-            from app.schemas.auth import UserSignup
-            user_data = UserSignup(
+            # Create user directly without schema validation for Google OAuth
+            from app.models.user import User
+            from app.utils.auth import get_password_hash
+            
+            # Use a secure random password for Google OAuth users
+            google_oauth_password = get_password_hash("GoogleOAuth2024!")
+            
+            user = User(
                 email=email,
-                password="google_oauth",  # Not used, but required by schema
-                confirm_password="google_oauth",
+                password_hash=google_oauth_password,
                 first_name=first_name,
-                last_name=last_name
+                last_name=last_name,
+                is_verified=True  # Google OAuth users are automatically verified
             )
-            user = create_user(db, user_data)
-            user.is_verified = True
+            db.add(user)
             db.commit()
             db.refresh(user)
         elif not user.is_verified:
+            # Verify existing user if they authenticate via Google
             user.is_verified = True
             db.commit()
             db.refresh(user)
 
         # Create JWT
         access_token = create_access_token(data={"sub": str(user.id)})
+        
+        # Merge anonymous comparison data if a session cookie exists (same as regular login)
+        comparison_session_id = request.cookies.get("comparison_session_id")
+        if comparison_session_id:
+            try:
+                session_uuid = uuid.UUID(comparison_session_id)
+                crud_comparison.merge_comparison_data(db, session_uuid, user.id)
+            except ValueError:
+                logger.warning(f"Invalid comparison_session_id cookie: {comparison_session_id}")
+        
         return Token(
             access_token=access_token,
             token_type="bearer",
