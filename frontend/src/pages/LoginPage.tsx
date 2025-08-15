@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
+import { useAuthAlerts } from "../hooks/useAuthAlerts";
 import { GoogleLogin } from "@react-oauth/google";
 import { ArrowLeft } from "lucide-react";
-import { handleOAuthSuccess, handleOAuthError } from "../utils/oauthErrorHandler";
+
 
 interface LoginPageProps {
   darkMode: boolean;
@@ -14,7 +14,8 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, setUser } = useAuth();
+  const { login, googleLogin } = useAuth();
+  const authAlerts = useAuthAlerts(darkMode);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -27,21 +28,28 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
     setError("");
     try {
       await login(form.email, form.password);
+      // Show success alert without user data since it will be updated after login
+      await authAlerts.showLoginSuccess();
       navigate("/");
     } catch (err: any) {
       setError(err.message || "Login failed");
+      await authAlerts.showAuthError(err.message || "Login failed");
     }
     setLoading(false);
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
-    await handleOAuthSuccess(
-      credentialResponse,
-      setLoading,
-      setError,
-      setUser,
-      () => navigate("/")
-    );
+    setLoading(true);
+    try {
+      await googleLogin(credentialResponse.credential);
+      await authAlerts.showGoogleLoginSuccess();
+      navigate("/");
+    } catch (error: any) {
+      setError(error.message || "Google authentication failed");
+      await authAlerts.showAuthError(error.message || "Google authentication failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -140,7 +148,11 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
 
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
-            onError={() => handleOAuthError("Google authentication failed", setError)}
+            onError={async () => {
+              const errorMsg = "Google authentication failed";
+              setError(errorMsg);
+              await authAlerts.showAuthError(errorMsg);
+            }}
             useOneTap={false}
             theme="outline"
             size="large"

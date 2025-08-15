@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as authApi from '../api/auth';
+import { EnhancedUser } from '../types/auth';
 
+// Keep the original User interface for backward compatibility
 export interface User {
   id: number;
   email: string;
@@ -11,14 +13,15 @@ export interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: EnhancedUser | null;
   loading: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, confirm: string, first_name: string, last_name: string) => Promise<void>;
   verify: (email: string, code: string) => Promise<void>;
   logout: () => void;
-  setUser: (user: User | null) => void;
+  setUser: (user: EnhancedUser | null) => void;
+  googleLogin: (credential: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,11 +31,23 @@ export function useAuth() {
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<EnhancedUser | null>(null);
   const [token, setToken] = useState<string | null>(
     () => localStorage.getItem('auth_token')
   );
   const [loading, setLoading] = useState(true);
+
+  // Helper function to enhance user data with additional fields
+  const enhanceUserData = (userData: any): EnhancedUser => {
+    return {
+      ...userData,
+      auth_provider: userData.auth_provider || 'email',
+      last_login: userData.last_login || new Date().toISOString(),
+      profile_picture: userData.profile_picture || userData.google_profile?.picture,
+      google_profile: userData.google_profile || undefined,
+      usage_stats: userData.usage_stats || undefined
+    };
+  };
 
   // Fetch user info if token exists
   useEffect(() => {
@@ -46,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const data = await authApi.getCurrentUser(token);
         if (data && data.email) {
-          setUser(data);
+          setUser(enhanceUserData(data));
         } else {
           setUser(null);
         }
@@ -66,12 +81,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('auth_token', data.access_token);
       // Fetch user info
       const userData = await authApi.getCurrentUser(data.access_token);
-      setUser(userData);
+      setUser(enhanceUserData(userData));
     } else {
       setUser(null);
       throw new Error(data.detail || 'Login failed');
     }
     setLoading(false);
+  };
+
+  const googleLogin = async (credential: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_BASE}/api/v1/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.access_token) {
+        setToken(data.access_token);
+        localStorage.setItem('auth_token', data.access_token);
+        
+        // Fetch complete user info
+        const userData = await authApi.getCurrentUser(data.access_token);
+        setUser(enhanceUserData(userData));
+      } else {
+        setUser(null);
+        throw new Error(data.detail || 'Google authentication failed');
+      }
+    } catch (error) {
+      setUser(null);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signup = async (email: string, password: string, confirm: string, first_name: string, last_name: string) => {
@@ -102,7 +147,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin }}>
       {children}
     </AuthContext.Provider>
   );

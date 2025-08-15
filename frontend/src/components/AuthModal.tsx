@@ -3,11 +3,14 @@ import React, { useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { GoogleLogin } from '@react-oauth/google';
 import { handleOAuthSuccess, handleOAuthError } from '../utils/oauthErrorHandler';
+import { useAuth } from '../context/AuthContext';
+import { useAuthAlerts } from '../hooks/useAuthAlerts';
 
 interface AuthModalProps {
   mode: 'login' | 'signup';
   onClose: () => void;
   onSwitch: (mode: 'login' | 'signup') => void;
+  darkMode?: boolean;
 }
 
 const brandColor = '#d4a88d';
@@ -15,7 +18,9 @@ const brandColor = '#d4a88d';
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
 
-export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
+export default function AuthModal({ mode, onClose, onSwitch, darkMode = false }: AuthModalProps) {
+  const { login, signup, verify, googleLogin } = useAuth();
+  const authAlerts = useAuthAlerts(darkMode);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -33,60 +38,90 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
     setError('');
   };
 
-  // Simulate API calls for demo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    if (mode === 'login') {
-      if (!emailRegex.test(form.email)) {
-        setError('Enter a valid email.'); setLoading(false); return;
-      }
-      if (!passwordRegex.test(form.password)) {
-        setError('Password must be 6+ chars, 1 special char.'); setLoading(false); return;
-      }
-      // TODO: Call backend login API
-      setTimeout(() => {
-        setLoading(false);
-        setSuccessMsg('Login successful!');
+    
+    try {
+      if (mode === 'login') {
+        if (!emailRegex.test(form.email)) {
+          setError('Enter a valid email.'); 
+          setLoading(false); 
+          return;
+        }
+        if (!passwordRegex.test(form.password)) {
+          setError('Password must be 6+ chars, 1 special char.'); 
+          setLoading(false); 
+          return;
+        }
+        
+        await login(form.email, form.password);
+        await authAlerts.showLoginSuccess();
         onClose();
-      }, 1200);
-    } else {
-      // Signup validation
-      if (!form.name.trim()) { setError('Name required.'); setLoading(false); return; }
-      if (!emailRegex.test(form.email)) { setError('Email invalid.'); setLoading(false); return; }
-      if (!passwordRegex.test(form.password)) { setError('Password must be 6+ chars, 1 special char.'); setLoading(false); return; }
-      if (form.password !== form.confirm) { setError('Passwords do not match.'); setLoading(false); return; }
-      // TODO: Call backend signup API and send verification code
-      setTimeout(() => {
-        setLoading(false);
+      } else {
+        // Signup validation
+        if (!form.name.trim()) { 
+          setError('Name required.'); 
+          setLoading(false); 
+          return; 
+        }
+        if (!emailRegex.test(form.email)) { 
+          setError('Email invalid.'); 
+          setLoading(false); 
+          return; 
+        }
+        if (!passwordRegex.test(form.password)) { 
+          setError('Password must be 6+ chars, 1 special char.'); 
+          setLoading(false); 
+          return; 
+        }
+        if (form.password !== form.confirm) { 
+          setError('Passwords do not match.'); 
+          setLoading(false); 
+          return; 
+        }
+        
+        const [firstName, ...lastNameParts] = form.name.trim().split(' ');
+        const lastName = lastNameParts.join(' ');
+        
+        await signup(form.email, form.password, form.confirm, firstName, lastName);
+        await authAlerts.showSignupSuccess();
         setStep('verify');
-      }, 1200);
+      }
+    } catch (error: any) {
+      await authAlerts.showAuthError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Call backend verify API
-    setTimeout(() => {
-      setLoading(false);
-      setSuccessMsg('Email verified! You can now log in.');
+    
+    try {
+      await verify(form.email, form.code);
+      await authAlerts.showVerificationSuccess();
       onClose();
-    }, 1200);
+    } catch (error: any) {
+      await authAlerts.showAuthError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
-    const success = await handleOAuthSuccess(
-      credentialResponse,
-      setLoading,
-      setError,
-      undefined,
-      () => {
-        setSuccessMsg('Google authentication successful!');
-        onClose();
-      }
-    );
+    setLoading(true);
+    try {
+      await googleLogin(credentialResponse.credential);
+      await authAlerts.showGoogleLoginSuccess();
+      onClose();
+    } catch (error: any) {
+      await authAlerts.showAuthError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -115,7 +150,9 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
             </button>
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
-              onError={() => handleOAuthError("Google authentication failed", setError)}
+              onError={async () => {
+                await authAlerts.showAuthError("Google authentication failed");
+              }}
               useOneTap={false}
               theme="outline"
               size="large"

@@ -114,4 +114,81 @@
 
 .touch-manipulation {
   touch-action: manipulation;
+}
+
+/* SweetAlert2 Custom Styles */
+.epick-alert-popup {
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.epick-alert-title {
+  font-weight: 600 !important;
+  font-size: 1.25rem !important;
+  color: #d4a88d !important;
+}
+
+.epick-alert-content {
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+}
+
+.epick-alert-confirm {
+  background-color: #d4a88d !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.epick-alert-confirm:hover {
+  background-color: #b8956f !important;
+  transform: translateY(-1px) !important;
+}
+
+.epick-alert-cancel {
+  background-color: #e5e7eb !important;
+  color: #374151 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  margin-right: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.epick-alert-cancel:hover {
+  background-color: #d1d5db !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal2-icon.swal2-success {
+  border-color: #d4a88d !important;
+}
+
+.swal2-success-ring {
+  border-color: #d4a88d !important;
+}
+
+.swal2-success-fix {
+  background-color: #d4a88d !important;
+}
+
+.swal2-success [class^='swal2-success-line'] {
+  background-color: #d4a88d !important;
+}
+
+/* Dark mode SweetAlert2 styles */
+.dark .epick-alert-popup {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+}
+
+.dark .epick-alert-title {
+  color: #d4a88d !important;
+}
+
+.dark .epick-alert-content {
+  color: #f9fafb !important;
 } 
