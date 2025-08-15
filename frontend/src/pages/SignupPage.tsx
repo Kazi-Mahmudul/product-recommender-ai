@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
+import { useAuthAlerts } from '../hooks/useAuthAlerts';
 import { GoogleLogin } from '@react-oauth/google';
 import { ArrowLeft } from 'lucide-react';
-import { handleOAuthSuccess, handleOAuthError } from '../utils/oauthErrorHandler';
+
 
 interface SignupPageProps { darkMode: boolean; }
 export default function SignupPage({ darkMode }: SignupPageProps) {
@@ -12,7 +12,8 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { signup, setUser } = useAuth();
+  const { signup, googleLogin } = useAuth();
+  const authAlerts = useAuthAlerts(darkMode);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -25,21 +26,27 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
     setError('');
     try {
       await signup(form.email, form.password, form.confirm, form.first_name, form.last_name);
+      await authAlerts.showSignupSuccess();
       navigate(`/verify?email=${encodeURIComponent(form.email)}`);
     } catch (err: any) {
       setError(err.message || 'Signup failed');
+      await authAlerts.showAuthError(err.message || 'Signup failed');
     }
     setLoading(false);
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
-    await handleOAuthSuccess(
-      credentialResponse,
-      setLoading,
-      setError,
-      setUser,
-      () => navigate("/")
-    );
+    setLoading(true);
+    try {
+      await googleLogin(credentialResponse.credential);
+      await authAlerts.showGoogleLoginSuccess();
+      navigate("/");
+    } catch (error: any) {
+      setError(error.message || "Google authentication failed");
+      await authAlerts.showAuthError(error.message || "Google authentication failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -149,7 +156,11 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
           
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
-            onError={() => handleOAuthError("Google authentication failed", setError)}
+            onError={async () => {
+              const errorMsg = "Google authentication failed";
+              setError(errorMsg);
+              await authAlerts.showAuthError(errorMsg);
+            }}
             useOneTap={false}
             theme="outline"
             size="large"

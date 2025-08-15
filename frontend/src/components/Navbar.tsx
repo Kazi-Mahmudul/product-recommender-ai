@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Moon, Sun, Menu, Search, X, Loader2, Smartphone } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import UserDropdown from "./UserDropdown";
+import UserContainer from "./auth/UserContainer";
+import AuthErrorBoundary from "./auth/AuthErrorBoundary";
 import { useAuth } from "../context/AuthContext";
+import { useAuthAlerts } from "../hooks/useAuthAlerts";
 import { fuzzySearchPhones, SearchResult } from "../api/search";
-import { generatePhoneDetailUrl } from "../utils/slugUtils";
+
 
 interface NavbarProps {
   onMenuClick?: () => void;
@@ -18,6 +20,7 @@ const Navbar: React.FC<NavbarProps> = ({
   setDarkMode,
 }) => {
   const { user, logout } = useAuth();
+  const authAlerts = useAuthAlerts(darkMode);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,6 +28,15 @@ const Navbar: React.FC<NavbarProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced logout handler with confirmation
+  const handleLogout = async () => {
+    const confirmed = await authAlerts.confirmLogout();
+    if (confirmed) {
+      logout();
+      await authAlerts.showLogoutSuccess();
+    }
+  };
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -266,21 +278,14 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* User Profile or Login */}
         {user ? (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setDropdownOpen((v) => !v)}
-              className="focus:outline-none flex items-center justify-center w-10 h-10 rounded-full bg-brand/10 hover:bg-brand/20 transition-colors duration-200"
-            >
-              <img
-                src="https://i.ibb.co/JRrdjsrv/profile-circle.png"
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            </button>
-            {dropdownOpen && (
-              <UserDropdown user={user} onLogout={logout} darkMode={darkMode} />
-            )}
-          </div>
+          <AuthErrorBoundary>
+            <UserContainer
+              user={user}
+              onLogout={handleLogout}
+              darkMode={darkMode}
+              className="hidden md:block"
+            />
+          </AuthErrorBoundary>
         ) : (
           <div className="hidden md:block relative" ref={dropdownRef}>
             <button

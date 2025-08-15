@@ -52,6 +52,49 @@ export const getOAuthErrorMessage = (error: any): string => {
 };
 
 /**
+ * Extracts user profile data from Google JWT credential
+ */
+export const extractGoogleProfileData = (credential: string) => {
+  try {
+    // Decode JWT payload (middle part of the token)
+    const payload = credential.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payload));
+    
+    return {
+      email: decodedPayload.email,
+      given_name: decodedPayload.given_name,
+      family_name: decodedPayload.family_name,
+      picture: decodedPayload.picture,
+      email_verified: decodedPayload.email_verified
+    };
+  } catch (error) {
+    console.warn('Failed to extract Google profile data:', error);
+    return null;
+  }
+};
+
+/**
+ * Validates profile picture URL
+ */
+export const validateProfilePictureUrl = (url?: string): string | undefined => {
+  if (!url) return undefined;
+  
+  try {
+    const urlObj = new URL(url);
+    // Only allow HTTPS URLs from trusted domains
+    if (urlObj.protocol === 'https:' && 
+        (urlObj.hostname.includes('googleusercontent.com') || 
+         urlObj.hostname.includes('googleapis.com'))) {
+      return url;
+    }
+  } catch (error) {
+    console.warn('Invalid profile picture URL:', url);
+  }
+  
+  return undefined;
+};
+
+/**
  * Handles OAuth success response and manages authentication state
  */
 export const handleOAuthSuccess = async (
@@ -65,6 +108,9 @@ export const handleOAuthSuccess = async (
   setError('');
 
   try {
+    // Extract Google profile data from credential
+    const googleProfile = extractGoogleProfileData(credentialResponse.credential);
+    
     const response = await fetch(
       `${process.env.REACT_APP_API_BASE}/api/v1/auth/google`,
       {
@@ -80,9 +126,21 @@ export const handleOAuthSuccess = async (
       // Store token
       localStorage.setItem('auth_token', data.access_token);
       
-      // Update user state if setter provided
-      if (setUser) {
-        setUser(data.user || null);
+      // Enhance user data with Google profile information
+      if (setUser && data.user) {
+        const enhancedUser = {
+          ...data.user,
+          auth_provider: 'google',
+          profile_picture: validateProfilePictureUrl(googleProfile?.picture) || data.user.profile_picture,
+          google_profile: googleProfile ? {
+            picture: validateProfilePictureUrl(googleProfile.picture) || '',
+            given_name: googleProfile.given_name || '',
+            family_name: googleProfile.family_name || '',
+            email_verified: googleProfile.email_verified || false
+          } : undefined,
+          last_login: new Date().toISOString()
+        };
+        setUser(enhancedUser);
       }
       
       // Call success callback if provided

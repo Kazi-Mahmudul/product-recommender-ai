@@ -6,7 +6,7 @@ import Sidebar from "./components/Sidebar";
 import TrendingPhones from "./components/TrendingPhones";
 import UpcomingPhones from "./components/UpcomingPhones";
 import WhyChooseEpick from "./components/WhyChooseEpick";
-import HeroSection from "./components/HeroSection";
+
 import Footer from "./components/Footer";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -287,23 +287,15 @@ const fullSpecFields = [
   "made_by",
   "release_date",
 ]; // Used for full specification table
-// API configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE || "http://localhost:8000";
-const GEMINI_API_URL = process.env.REACT_APP_GEMINI_API || "http://localhost:3000";
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [messages] = useState<Message[]>([]);
   // For full specification feature
-  const [lastRecommendations, setLastRecommendations] = useState<
-    Phone[] | null
-  >(null);
-  const [lastUserQuery, setLastUserQuery] = useState<string>("");
+  const [lastRecommendations] = useState<Phone[] | null>(null);
+  const [lastUserQuery] = useState<string>("");
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
@@ -314,107 +306,9 @@ function App() {
     }
   }, [darkMode]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: input,
-      role: "user",
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsTyping(true);
-
-    try {
-      // Send the user's query to get AI-powered recommendations
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/natural-language/query`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: input
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.detail || `HTTP error! status: ${response.status}`
-        );
-      }
-
-      const recommendations: Phone[] = await response.json();
-
-      if (!recommendations || recommendations.length === 0) {
-        throw new Error("No recommendations found for your query.");
-      }
-
-      setLastRecommendations(recommendations);
-      setLastUserQuery(input);
-
-      // Detect if the user asked for a full specification
-      const fullSpecRegex = /full specification of (.+)/i;
-      const match = input.match(fullSpecRegex);
-      if (match && recommendations.length === 1) {
-        // Don't add a text message, just show the table below
-        return;
-      }
-
-      // Format the recommendations into a readable message
-      const recommendationsText = recommendations
-        .slice(0, 5) // Show top 5 recommendations
-        .map(
-          (phone, index) =>
-            `📱 ${index + 1}. ${phone.brand} ${phone.name}\n` +
-            `   💰 Price: BDT ${phone.price}\n` +
-            `   💾 RAM: ${phone.ram}\n` +
-            `   💿 Storage: ${phone.internal_storage}\n` +
-            `   ⚡ Performance: ${phone.performance_score?.toFixed(1) ?? "-"}\n` +
-            `   📸 Camera: ${phone.camera_score?.toFixed(1) ?? "-"}\n` +
-            `   🖥️ Display: ${phone.display_score?.toFixed(1) ?? "-"}\n` +
-            `   🔋 Battery: ${phone.battery_score?.toFixed(1) ?? "-"}\n`
-        )
-        .join("\n");
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `Based on your query "${input}", here are some phone recommendations:\n\n${recommendationsText}\n\n💡 Tip: Click on a phone to see more details.`,
-        role: "assistant",
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error("Error:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `Sorry, there was an error: ${error instanceof Error ? error.message : "Please try again."}`,
-        role: "assistant",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const safeHandleSubmit = async (e: React.FormEvent) => {
-    try {
-      await handleSubmit(e);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   function HomePage() {
     const navigate = useNavigate();
     const [homeInput, setHomeInput] = useState("");
-    const [homeIsTyping, setHomeIsTyping] = useState(false);
     const examplePlaceholders = [
       "Best phones under 20,000 BDT",
       "Top camera phones 2025",
@@ -492,12 +386,11 @@ function App() {
                       onChange={(e) => setHomeInput(e.target.value)}
                       placeholder={examplePlaceholders[placeholderIndex]}
                       className={`flex-grow px-1 py-2 md:py-3 rounded-lg bg-transparent focus:outline-none text-sm md:text-lg ${darkMode ? "text-white placeholder-gray-400" : "text-gray-900 placeholder-gray-500"}`}
-                      disabled={homeIsTyping}
                     />
                     <button
                       type="submit"
                       className="mr-2 md:mr-0 md:ml-2 flex items-center justify-center text-brand hover:text-brand-darkGreen rounded-xl md:px-4 md:py-2 transition-all duration-200"
-                      disabled={homeIsTyping || !homeInput.trim()}
+                      disabled={!homeInput.trim()}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -630,7 +523,7 @@ function App() {
   }
 
   // Use user from AuthContext
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   return (
     <ComparisonProvider>
       <div
@@ -641,11 +534,12 @@ function App() {
           darkMode={darkMode}
           setDarkMode={setDarkMode}
         />
-        {/* User state for authentication; replace with real logic later */}
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           user={user}
+          darkMode={darkMode}
+          onLogout={logout}
         />
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -662,7 +556,7 @@ function App() {
           <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
         </Routes>
         {location.pathname !== "/chat" && <Footer />}
-        
+
         {/* Comparison Widget - shown on all pages except chat */}
         {location.pathname !== "/chat" && <ComparisonWidget />}
       </div>
@@ -672,7 +566,7 @@ function App() {
 
 const AppWithAuthProvider = () => {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-  
+
   if (!googleClientId) {
     console.error("Google Client ID not found in environment variables");
     // Fallback: render app without Google OAuth

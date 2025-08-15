@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useAuthAlerts } from '../hooks/useAuthAlerts';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 
 interface VerifyPageProps { darkMode: boolean; }
@@ -12,6 +13,7 @@ export default function VerifyPage({ darkMode }: VerifyPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { verify } = useAuth();
+  const authAlerts = useAuthAlerts(darkMode);
   const email = new URLSearchParams(location.search).get('email') || '';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,9 +23,11 @@ export default function VerifyPage({ darkMode }: VerifyPageProps) {
     try {
       await verify(email, code);
       setSuccess(true);
+      await authAlerts.showVerificationSuccess();
       setTimeout(() => navigate('/login'), 1500);
     } catch (err: any) {
       setError(err.message || 'Verification failed');
+      await authAlerts.showAuthError(err.message || 'Verification failed');
     }
     setLoading(false);
   };

@@ -1,14 +1,25 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X, Home, MessageCircle, Smartphone, LogIn, UserPlus } from 'lucide-react';
+import UserContainer from './auth/UserContainer';
+import AuthErrorBoundary from './auth/AuthErrorBoundary';
+import { EnhancedUser } from '../types/auth';
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
-  user?: any;
+  user?: EnhancedUser | null;
+  darkMode?: boolean;
+  onLogout?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ open, onClose, user }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  open, 
+  onClose, 
+  user, 
+  darkMode = false, 
+  onLogout 
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -42,9 +53,23 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose, user }) => {
               <X size={18} />
             </button>
           </div>
+
+          {/* User Container for Mobile */}
+          {user && onLogout && (
+            <div className="px-4 py-4 border-b border-neutral-200 dark:border-neutral-800">
+              <AuthErrorBoundary>
+                <UserContainer
+                  user={user}
+                  onLogout={onLogout}
+                  darkMode={darkMode}
+                  className="w-full"
+                />
+              </AuthErrorBoundary>
+            </div>
+          )}
           
           {/* Menu Items */}
-          <div className="flex-1 overflow-y-auto py-6">
+          <div className="flex-1 overflow-y-auto py-4">
             <ul className="space-y-2 px-4">
               {menuItems.map(item => (
                 <li key={item.path}>
