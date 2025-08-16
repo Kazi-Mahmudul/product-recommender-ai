@@ -74,10 +74,22 @@ class DrillDownHandler:
                 "message": f"Could not find detailed specifications for the requested phones: {', '.join(phone_names)}"
             }
         
+        # Return a concise response with navigation options instead of full specs
+        phone_info = []
+        for phone in phones:
+            phone_info.append({
+                "id": phone.get("id"),
+                "name": phone.get("name"),
+                "brand": phone.get("brand"),
+                "price": phone.get("price_original"),
+                "img_url": phone.get("img_url"),
+                "score": phone.get("overall_device_score")
+            })
+        
         return {
-            "type": "detailed_specs",
-            "phones": phones,
-            "message": f"Here are the complete specifications for {len(phones)} phone(s):",
+            "type": "concise_specs",
+            "phones": phone_info,
+            "message": f"Found {len(phones)} phone(s). Tap on any phone to view complete specifications:",
             "back_to_simple": True
         }
     
