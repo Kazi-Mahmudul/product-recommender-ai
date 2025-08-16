@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 // Recharts imports removed as they're now handled by EnhancedComparison component
 import ChatPhoneRecommendation from "../components/ChatPhoneRecommendation";
 import EnhancedComparison from "../components/EnhancedComparison";
-import DetailedSpecView from "../components/DetailedSpecView";
+import ConciseSpecView from "../components/ConciseSpecView";
 import {
   ChatContextManager,
   ChatContext,
@@ -555,19 +555,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                     </div>
                   )}
 
-                {/* Handle detailed specifications response */}
+                {/* Handle concise specifications response */}
                 {chat.bot &&
                   typeof chat.bot === "object" &&
-                  (chat.bot as any).type === "detailed_specs" &&
+                  (chat.bot as any).type === "concise_specs" &&
                   Array.isArray((chat.bot as any).phones) && (
-                    <div className="my-8">
-                      <DetailedSpecView
+                    <div className="my-4">
+                      <ConciseSpecView
                         phones={(chat.bot as any).phones}
+                        message={(chat.bot as any).message || "View phone details:"}
                         darkMode={darkMode}
-                        onBackToSimple={() => {
-                          // Could implement back functionality if needed
-                          console.log("Back to simple view requested");
-                        }}
                       />
                     </div>
                   )}

@@ -62,6 +62,34 @@ def extract_phone_names_from_query(query: str) -> List[str]:
     phone_names = []
     query_lower = query.lower()
     
+    # First, try to extract phone names from structured queries like "Show full specifications for Samsung Galaxy A55, iPhone 15, Xiaomi POCO X6"
+    # Look for patterns that indicate a list of phones
+    structured_patterns = [
+        r"for\s+((?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*)(?:\s*,\s*(?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*))*)",
+        r"compare\s+((?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*)(?:\s*,\s*(?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*))*)",
+        r"specifications\s+(?:of\s+)?((?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*)(?:\s*,\s*(?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*))*)"
+    ]
+    
+    for pattern in structured_patterns:
+        match = re.search(pattern, query_lower)
+        if match:
+            phone_list_str = match.group(1)
+            # Split by comma and clean up
+            potential_phones = [p.strip() for p in re.split(r'\s*,\s*', phone_list_str) if p.strip()]
+            # Validate that these look like phone names (contain brand names)
+            valid_phones = []
+            for phone in potential_phones:
+                if any(brand.lower() in phone for brand in brands):
+                    # Try to reconstruct full phone names
+                    for brand in brands:
+                        brand_lower = brand.lower()
+                        if brand_lower in phone:
+                            valid_phones.append(phone)
+                            break
+            if valid_phones:
+                return valid_phones
+    
+    # Fallback to original method for natural language queries
     # Look for brand + model patterns
     for brand in brands:
         brand_lower = brand.lower()

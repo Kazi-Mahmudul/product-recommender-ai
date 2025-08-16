@@ -68,7 +68,7 @@ export interface DrillDownRequest {
 }
 
 export interface DrillDownResponse {
-  type: 'detailed_specs' | 'chart_visualization' | 'feature_analysis';
+  type: 'detailed_specs' | 'chart_visualization' | 'feature_analysis' | 'concise_specs';
   data: any;
   backToSimple?: boolean;
 }
