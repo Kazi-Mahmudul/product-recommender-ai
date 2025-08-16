@@ -2,8 +2,8 @@ import Swal from 'sweetalert2';
 import { AuthAlertConfig, AlertTheme } from '../types/auth';
 
 // Brand colors matching the product theme
-const BRAND_COLOR = '#d4a88d';
-const BRAND_DARK = '#b8956f';
+const BRAND_COLOR = '#377D5B'; // EpickGreen - matches Tailwind config
+const BRAND_DARK = '#2d6249'; // Darker shade of EpickGreen
 
 // SweetAlert2 theme configuration matching product branding
 export const alertTheme: AlertTheme = {

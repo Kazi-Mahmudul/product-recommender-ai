@@ -6,12 +6,19 @@ import logging
 import pandas as pd
 import numpy as np
 import re
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 
-from .config import settings
-from .performance_scorer import PerformanceScorer
-from .feature_versioning import FeatureVersionManager
+try:
+    from .config import settings
+    from .performance_scorer import PerformanceScorer
+    from .feature_versioning import FeatureVersionManager
+    from .processor_rankings_service import ProcessorRankingsService
+except ImportError:
+    from config import settings
+    from performance_scorer import PerformanceScorer
+    from feature_versioning import FeatureVersionManager
+    from processor_rankings_service import ProcessorRankingsService
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +32,7 @@ class FeatureEngineer:
         """Initialize the feature engineer."""
         self.performance_scorer = PerformanceScorer()
         self.version_manager = FeatureVersionManager()
+        self.processor_rankings_service = ProcessorRankingsService()
         logger.info("Feature engineer initialized")
     
     def create_performance_features(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -53,53 +61,68 @@ class FeatureEngineer:
         """Create price-based features."""
         logger.info("Creating price-based features")
         
-        # Price categories
-        if 'price_original' in df.columns:
-            df['price_category'] = pd.cut(
-                df['price_original'], 
-                bins=settings.price_categories['bins'],
-                labels=settings.price_categories['labels']
-            )
-        
         # Storage and RAM conversion functions
         def convert_to_gb(value):
             if pd.isna(value):
                 return None
-            value = str(value).lower()
-            if 'gb' in value:
-                return float(re.findall(r'\\d+', value)[0]) if re.findall(r'\\d+', value) else None
-            elif 'mb' in value:
-                return float(re.findall(r'\\d+', value)[0]) / 1024 if re.findall(r'\\d+', value) else None
-            return None
+            value_str = str(value).lower()
+            
+            # Extract numeric value
+            numbers = re.findall(r'\d+', value_str)
+            if not numbers:
+                return None
+            
+            num = float(numbers[0])
+            
+            if 'gb' in value_str:
+                return num
+            elif 'mb' in value_str:
+                return num / 1024
+            elif 'tb' in value_str:
+                return num * 1024
+            else:
+                # Assume GB if no unit specified
+                return num
         
         def convert_ram_to_gb(value):
             if pd.isna(value):
                 return None
-            value = str(value).lower()
-            numbers = re.findall(r'\\d+', value)
+            value_str = str(value).lower()
+            
+            # Extract numbers from the string
+            numbers = re.findall(r'\d+', value_str)
             if numbers:
                 num = float(numbers[0])
-                if 'gb' in value:
+                if 'gb' in value_str:
                     return num
-                elif 'mb' in value:
+                elif 'mb' in value_str:
                     return num / 1024
                 else:
-                    return num  # Assume GB if no unit
+                    # If no unit specified, assume GB
+                    return num
             return None
         
-        # Convert storage and RAM to GB
-        if 'internal_storage' in df.columns:
-            df['storage_gb'] = df['internal_storage'].apply(convert_to_gb)
-        
-        if 'ram' in df.columns:
-            df['ram_gb'] = df['ram'].apply(convert_ram_to_gb)
-        
-        # Calculate price per GB
-        if 'price_original' in df.columns and 'storage_gb' in df.columns:
-            df['price_per_gb'] = (df['price_original'] / df['storage_gb']).round(2)
-        
-        if 'price_original' in df.columns and 'ram_gb' in df.columns:
-            df['price_per_gb_ram'] = (df['price_original'] / df['ram_gb']).round(2)
+        # === Storage & RAM in GB ===
+        # Prefer 'internal_storage', else 'storage'/'internal'
+        storage_source = None
+        for cand in ["internal_storage", "storage", "internal"]:
+            if cand in df.columns:
+                storage_source = cand
+                break
+        if storage_source:
+            df["storage_gb"] = df[storage_source].apply(convert_to_gb)
+        else:
+            df["storage_gb"] = np.nan
+
+        if "ram" in df.columns:
+            df["ram_gb"] = df["ram"].apply(convert_ram_to_gb)
+        else:
+            df["ram_gb"] = np.nan
+
+        # === Price per GB ===
+        if "price_original" in df.columns:
+            df["price_per_gb"] = (df["price_original"] / df["storage_gb"]).replace([np.inf, -np.inf], np.nan).round(2)
+            df["price_per_gb_ram"] = (df["price_original"] / df["ram_gb"]).replace([np.inf, -np.inf], np.nan).round(2)
         
         return df
     
@@ -107,152 +130,209 @@ class FeatureEngineer:
         """Create display-based features."""
         logger.info("Creating display-based features")
         
-        # Screen size in numeric format
-        if 'screen_size_inches' in df.columns:
-            df['screen_size_numeric'] = df['screen_size_inches'].str.extract('(\\d+\\.?\\d*)').astype(float)
-        
-        # Resolution in numeric format
-        if 'display_resolution' in df.columns:
-            df['resolution_width'] = df['display_resolution'].str.extract('(\\d+)x').astype(float)
-            df['resolution_height'] = df['display_resolution'].str.extract('x(\\d+)').astype(float)
-        
-        # PPI in numeric format
-        if 'pixel_density_ppi' in df.columns:
-            df['ppi_numeric'] = df['pixel_density_ppi'].str.extract('(\\d+)').astype(float)
-        
-        # Refresh rate in numeric format
-        if 'refresh_rate_hz' in df.columns:
-            df['refresh_rate_numeric'] = df['refresh_rate_hz'].str.extract('(\\d+)').astype(float)
+        # === Screen size numeric ===
+        if "screen_size_inches" in df.columns:
+            df['screen_size_numeric'] = df['screen_size_inches'].str.extract(r'(\d+\.?\d*)').astype(float)
+
+        # === Resolution numeric ===
+        res_src = None
+        for cand in ["display_resolution"]:
+            if cand in df.columns:
+                res_src = cand
+                break
+        if res_src:
+            df["resolution_width"]  = df[res_src].str.extract(r'(\d+)x').astype(float)
+            df["resolution_height"] = df[res_src].str.extract(r'x(\d+)').astype(float)
+
+        # === PPI numeric ===
+        if "pixel_density_ppi" in df.columns:
+            df['ppi_numeric'] = df['pixel_density_ppi'].str.extract(r'(\d+)').astype(float)
+
+        # === Refresh rate numeric ===
+        if "refresh_rate_hz" in df.columns:
+            df['refresh_rate_numeric'] = df['refresh_rate_hz'].str.extract(r'(\d+)').astype(float)
         
         # Calculate display score
-        def get_display_score(row):
-            score = 0
-            weights = {'resolution': 0.4, 'ppi': 0.3, 'refresh_rate': 0.3}
-            
-            # Resolution score
-            if not pd.isna(row.get('resolution_width')) and not pd.isna(row.get('resolution_height')):
-                total_pixels = (row['resolution_width'] * row['resolution_height']) / 1000000
-                resolution_score = min(total_pixels / 8.3 * 100, 100)
-                score += resolution_score * weights['resolution']
-            
-            # PPI score
-            if not pd.isna(row.get('ppi_numeric')):
-                ppi_score = min(row['ppi_numeric'] / 500 * 100, 100)
-                score += ppi_score * weights['ppi']
-            
-            # Refresh rate score
-            if not pd.isna(row.get('refresh_rate_numeric')):
-                refresh_score = min(row['refresh_rate_numeric'] / 120 * 100, 100)
-                score += refresh_score * weights['refresh_rate']
-            
-            return round(score, 2)
-        
-        df['display_score'] = df.apply(get_display_score, axis=1)
+        df["display_score"] = df.apply(self.get_display_score, axis=1)
         
         return df
+    
+    def get_display_score(self, phone: pd.Series) -> float:
+        """Score from resolution, PPI, refresh rate (0-100)."""
+        score = 0.0
+        weights = {"resolution":0.4,"ppi":0.3,"refresh":0.3}
+        
+        # resolution
+        wh = self._extract_resolution_wh(phone.get("display_resolution") or phone.get("resolution"))
+        if wh:
+            w,h = wh
+            pixels_m = (w*h)/1_000_000
+            res_score = min(pixels_m/8.3*100, 100)  # 4K=8.3 MP as 100
+            score += res_score*weights["resolution"]
+        
+        # ppi
+        ppi = phone.get("ppi_numeric") or self._extract_ppi(phone.get("pixel_density_ppi") or phone.get("display"))
+        if ppi:
+            score += min(ppi/500*100, 100)*weights["ppi"]
+        
+        # refresh
+        ref = phone.get("refresh_rate_numeric") or self._extract_refresh_rate(phone.get("refresh_rate_hz") or phone.get("display"))
+        if ref:
+            score += min(float(ref)/120*100, 100)*weights["refresh"]
+        
+        return round(score, 2)
+    
+    def _extract_resolution_wh(self, res: str) -> Optional[Tuple[int,int]]:
+        if pd.isna(res): return None
+        s = str(res).lower()
+        m = re.search(r'(\d{3,5})\s*[x×]\s*(\d{3,5})', s)
+        if not m: return None
+        return int(m.group(1)), int(m.group(2))
+
+    def _extract_ppi(self, value) -> Optional[float]:
+        if pd.isna(value): return None
+        m = re.search(r'(\d+(?:\.\d+)?)\s*ppi', str(value).lower())
+        if not m: return None
+        return float(m.group(1))
+
+    def _extract_refresh_rate(self, value) -> Optional[float]:
+        if pd.isna(value): return None
+        m = re.search(r'(\d+(?:\.\d+)?)\s*hz', str(value).lower())
+        if not m: return None
+        return float(m.group(1))
     
     def create_camera_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create camera-based features."""
         logger.info("Creating camera-based features")
         
         # Camera count function
-        def get_camera_count(camera_setup, main_camera):
-            if not pd.isna(camera_setup):
-                setup = str(camera_setup).lower()
-                if setup == 'single':
-                    return 1
-                elif setup == 'dual':
-                    return 2
-                elif setup == 'triple':
-                    return 3
-                elif setup == 'quad':
-                    return 4
-                elif setup == 'penta':
-                    return 5
-                elif 'cameras' in setup:
-                    match = re.search(r'(\\d+)', setup)
-                    if match:
-                        return int(match.group(1))
+        def get_camera_count(value, main_camera=None):
+            """Try several patterns: 'triple camera', '3 cameras', fallback to list-likes."""
+            if not pd.isna(value):
+                s = str(value).lower()
+                if 'single' in s: return 1
+                if 'dual' in s: return 2
+                if 'triple' in s: return 3
+                if 'quad' in s: return 4
+                if 'penta' in s: return 5
+                m = re.search(r'(\d+)\s*(cameras?|lens|lenses)', s)
+                if m: return int(m.group(1))
             
-            if not pd.isna(main_camera):
-                main_camera_str = str(main_camera)
-                if '+' in main_camera_str:
-                    return main_camera_str.count('+') + 1
-                elif 'MP' in main_camera_str or re.search(r'\\d+', main_camera_str):
-                    return 1
-            
-            return 0
-        
-        # Extract camera MP values
+            # Enhanced MP-based detection for formats like "50+12+10MP"
+            if main_camera is not None and not pd.isna(main_camera):
+                camera_str = str(main_camera).lower()
+                
+                # Count cameras by '+' separators (e.g., "50+12+10MP" = 3 cameras)
+                if '+' in camera_str and 'mp' in camera_str:
+                    # Split by '+' and count valid MP values
+                    parts = camera_str.split('+')
+                    valid_cameras = 0
+                    for part in parts:
+                        if re.search(r'\d+', part):  # Contains a number
+                            valid_cameras += 1
+                    if valid_cameras > 0:
+                        return valid_cameras
+                
+                # Fallback: count MP occurrences
+                mps = re.findall(r'(\d+(?:\.\d+)?)\s*mp', camera_str)
+                if mps: return max(1, len(mps))
+            return None
+
         def extract_camera_mp(value):
+            """
+            Extract megapixel value from camera specification string.
+            Works with both main_camera and front_camera columns.
+            """
             if pd.isna(value):
                 return None
             
             value_str = str(value).strip()
             if not value_str:
                 return None
-            
+
+            # For formats like "48+8+2MP" or "48MP"
             if '+' in value_str:
+                # Extract the first (main) camera MP value
                 first_camera = value_str.split('+')[0]
-                mp_match = re.search(r'(\\d+\\.?\\d*)', first_camera)
+                mp_match = re.search(r'(\d+\.?\d*)', first_camera)
                 if mp_match:
                     return float(mp_match.group(1))
             else:
-                mp_match = re.search(r'(\\d+\\.?\\d*)\\s*MP', value_str, re.IGNORECASE)
+                # For single camera format like "48MP"
+                mp_match = re.search(r'(\d+\.?\d*)\s*MP', value_str, re.IGNORECASE)
                 if mp_match:
                     return float(mp_match.group(1))
                 
-                mp_match = re.search(r'(\\d+\\.?\\d*)', value_str)
+                # Try without the MP suffix (some entries might just have the number)
+                mp_match = re.search(r'(\d+\.?\d*)', value_str)
                 if mp_match:
                     return float(mp_match.group(1))
-            
+
             return None
         
-        # Apply camera feature extraction
-        if 'camera_setup' in df.columns or 'main_camera' in df.columns:
-            df['camera_count'] = df.apply(
+        # === Cameras ===
+        # Primary/selfie MPs from text fields if present
+        if "primary_camera_mp" not in df.columns:
+            df['primary_camera_mp'] = df.apply(
+                lambda row: extract_camera_mp(row['main_camera']) if not pd.isna(row.get('main_camera')) 
+                else extract_camera_mp(row.get('primary_camera_resolution')), 
+                axis=1
+            )
+
+        if "selfie_camera_mp" not in df.columns:
+           df['selfie_camera_mp'] = df.apply(
+               lambda row: extract_camera_mp(row['front_camera']) if not pd.isna(row.get('front_camera')) 
+               else extract_camera_mp(row.get('selfie_camera_resolution')), 
+               axis=1
+           )
+        # camera count
+        if "camera_count" not in df.columns:
+            df["camera_count"] = df.apply(
                 lambda row: get_camera_count(
                     row.get('camera_setup'), 
                     row.get('main_camera')
                 ), axis=1
             )
-        
-        # Extract MP values
-        if 'main_camera' in df.columns:
-            df['primary_camera_mp'] = df['main_camera'].apply(extract_camera_mp)
-        elif 'primary_camera_resolution' in df.columns:
-            df['primary_camera_mp'] = df['primary_camera_resolution'].apply(extract_camera_mp)
-        
-        if 'front_camera' in df.columns:
-            df['selfie_camera_mp'] = df['front_camera'].apply(extract_camera_mp)
-        elif 'selfie_camera_resolution' in df.columns:
-            df['selfie_camera_mp'] = df['selfie_camera_resolution'].apply(extract_camera_mp)
-        
-        # Calculate camera score
-        def get_camera_score(row):
-            score = 0
-            weights = {'camera_count': 20, 'primary_camera_mp': 50, 'selfie_camera_mp': 30}
-            
-            # Camera count score
-            if not pd.isna(row.get('camera_count')) and row['camera_count'] > 0:
-                camera_count_score = min(row['camera_count'], 4) / 4 * 100
-                score += camera_count_score * weights['camera_count'] / 100
-            
-            # Primary camera score
-            if not pd.isna(row.get('primary_camera_mp')):
-                primary_camera_score = min(row['primary_camera_mp'] / 200 * 100, 100)
-                score += primary_camera_score * weights['primary_camera_mp'] / 100
-            
-            # Selfie camera score
-            if not pd.isna(row.get('selfie_camera_mp')):
-                selfie_camera_score = min(row['selfie_camera_mp'] / 64 * 100, 100)
-                score += selfie_camera_score * weights['selfie_camera_mp'] / 100
-            
-            return round(score, 2)
-        
-        df['camera_score'] = df.apply(get_camera_score, axis=1)
+
+        # Camera score
+        df["camera_score"] = df.apply(self.get_camera_score, axis=1)
         
         return df
+    
+    def get_camera_score(self, phone):
+        """
+        Calculate camera score out of 100 based on camera count, primary camera MP, and selfie camera MP.
+        Uses main_camera and front_camera columns when available.
+        """
+        score = 0
+        weights = {
+            'camera_count': 20,      # 20 points for number of cameras
+            'primary_camera_mp': 50,  # 50 points for primary camera resolution
+            'selfie_camera_mp': 30    # 30 points for selfie camera resolution
+        }
+        
+        # Camera Count Score (0-20 points)
+        if not pd.isna(phone.get('camera_count')) and phone['camera_count'] > 0:
+            # Scale camera count score to 20 points
+            # Assuming 4+ cameras is considered high-end
+            camera_count_score = min(phone['camera_count'], 4) / 4 * 100
+            score += camera_count_score * weights['camera_count'] / 100
+
+        # Primary Camera Score (0-50 points)
+        if not pd.isna(phone.get('primary_camera_mp')):
+            # Scale primary camera MP score to 50 points
+            # Assuming 200MP is the highest resolution
+            primary_camera_score = min(phone['primary_camera_mp'] / 200 * 100, 100)
+            score += primary_camera_score * weights['primary_camera_mp'] / 100
+
+        # Selfie Camera Score (0-30 points)
+        if not pd.isna(phone.get('selfie_camera_mp')):
+            # Scale selfie camera MP score to 30 points
+            # Assuming 64MP is the highest resolution
+            selfie_camera_score = min(phone['selfie_camera_mp'] / 64 * 100, 100)
+            score += selfie_camera_score * weights['selfie_camera_mp'] / 100
+
+        return round(score, 2)  # Round to 2 decimal places
     
     def create_battery_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create battery-based features."""
@@ -260,7 +340,7 @@ class FeatureEngineer:
         
         # Battery capacity in numeric format
         if 'capacity' in df.columns:
-            df['battery_capacity_numeric'] = df['capacity'].str.extract('(\\d+)').astype(float)
+            df['battery_capacity_numeric'] = df['capacity'].str.extract(r'(\d+)').astype(float)
         
         # Has fast charging
         if 'quick_charging' in df.columns:
@@ -269,6 +349,9 @@ class FeatureEngineer:
         # Has wireless charging
         if 'wireless_charging' in df.columns:
             df['has_wireless_charging'] = df['wireless_charging'].notna()
+        else:
+            # Fallback: detect wireless charging in text fields
+            df['has_wireless_charging'] = df.get('charging', pd.Series([""]*len(df))).astype(str).str.contains('wireless', case=False, regex=False)
         
         # Extract charging wattage
         def extract_wattage(value):
@@ -279,7 +362,7 @@ class FeatureEngineer:
             if not value_str:
                 return None
             
-            wattage_match = re.search(r'(\\d+\\.?\\d*)\\s*W', value_str, re.IGNORECASE)
+            wattage_match = re.search(r'(\d+\.?\d*)\s*W', value_str, re.IGNORECASE)
             if wattage_match:
                 return float(wattage_match.group(1))
             
@@ -289,41 +372,139 @@ class FeatureEngineer:
             df['charging_wattage'] = df['quick_charging'].apply(extract_wattage)
         
         # Calculate battery score
-        def get_battery_score(row):
-            score = 0
-            weights = {'capacity': 50, 'charging_wattage': 40, 'wireless_charging': 10}
-            
-            # Battery capacity score
-            if not pd.isna(row.get('battery_capacity_numeric')):
-                capacity_score = min(row['battery_capacity_numeric'] / 6000 * 100, 100)
-                score += capacity_score * weights['capacity'] / 100
-            
-            # Charging speed score
-            if not pd.isna(row.get('charging_wattage')):
-                wattage_score = min(row['charging_wattage'] / 150 * 100, 100)
-                score += wattage_score * weights['charging_wattage'] / 100
-            
-            # Wireless charging score
-            if row.get('has_wireless_charging'):
-                score += weights['wireless_charging']
-            
-            return round(score, 2)
-        
-        df['battery_score'] = df.apply(get_battery_score, axis=1)
+        df['battery_score'] = df.apply(self.get_battery_score_percentile, axis=1)
         
         return df
+    
+    def get_battery_score_percentile(self, phone: pd.Series) -> float:
+        """Battery score using capacity (mAh) + charge wattage (W)."""
+        cap = None
+        if not pd.isna(phone.get("battery_capacity_numeric")):
+            cap = phone["battery_capacity_numeric"]
+        elif not pd.isna(phone.get("battery_capacity")):
+            m = re.search(r'(\d{3,5})\s*m?ah', str(phone["battery_capacity"]).lower())
+            if m:
+                cap = int(m.group(1))
+        # wattage
+        watts = None
+        for cand in ["charging_wattage","speed","quick_charging","charging","charger"]:
+            v = phone.get(cand)
+            w = self.extract_wattage(v) if not pd.isna(v) else None
+            if w:
+                watts = w
+                break
+        score = 0.0
+        if cap:
+            score += min(cap/6000*100, 100) * 0.7
+        if watts:
+            score += min(watts/120*100, 100) * 0.3
+        return round(score, 2)
+    
+    def extract_wattage(self, value):
+        if pd.isna(value):
+            return None
+        
+        # If it's already a numeric value, return it directly
+        if isinstance(value, (int, float)):
+            return float(value)
+        
+        value_str = str(value).strip()
+        if not value_str:
+            return None
+        
+        # Try to convert to float directly (for numeric strings)
+        try:
+            return float(value_str)
+        except ValueError:
+            pass
+        
+        # Use regex to find a number (integer or float) followed by 'W'
+        wattage_match = re.search(r'(\d+\.?\d*)\s*W', value_str, re.IGNORECASE)
+        if wattage_match:
+            return float(wattage_match.group(1))
+        
+        return None
+    
+    def calculate_performance_score(self, phone: pd.Series, proc_df: pd.DataFrame) -> float:
+        """
+        Performance score (0-100) primarily from SoC rank (lower rank = better),
+        plus small boosts from RAM and storage type.
+        """
+        rank = self.processor_rankings_service.get_processor_rank(proc_df, phone.get("processor") or phone.get("chipset"))
+        ram_gb = phone.get("ram_gb")
+        score = 0.0
+        if rank is not None:
+            max_rank = max(300, int(proc_df["rank"].max() or 300))
+            score_soc = 100 * (1 - (min(rank, max_rank)-1) / (max_rank-1))
+            score += max(0.0, min(100.0, score_soc)) * 0.85
+        if ram_gb:
+            score += min(float(ram_gb)/16*100, 100) * 0.10
+        store = str(phone.get("storage") or phone.get("internal") or phone.get("internal_storage") or "")
+        s = store.lower()
+        if "ufs 4" in s:
+            score += 5
+        elif "ufs 3" in s:
+            score += 3
+        return round(min(score,100.0), 2)
+
+    def calculate_security_score(self, phone: pd.Series) -> float:
+        """Crude security score based on fingerprint type & face unlock mentions."""
+        s = str(phone.get("finger_sensor_type") or phone.get("fingerprint") or "").lower()
+        score = 30.0  # base
+        if "ultrasonic" in s: score += 40
+        elif "optical" in s: score += 25
+        elif "side" in s or "rear" in s or "front" in s: score += 15
+        if "face" in str(phone.get("biometrics") or phone.get("security") or "").lower():
+            score += 10
+        return round(min(score, 100.0), 2)
+
+    def calculate_connectivity_score(self, phone: pd.Series) -> float:
+        """Combine 5G, Wi-Fi version, NFC, Bluetooth version into 0-100."""
+        score = 0.0
+        # 5G
+        if "5g" in str(phone.get("network") or phone.get("technology") or "").lower():
+            score += 40
+        # Wi-Fi
+        wifi = str(phone.get("wlan") or phone.get("wifi") or "").lower()
+        if "wifi 7" in wifi or "wi-fi 7" in wifi or "802.11be" in wifi:
+            score += 30
+        elif "wifi 6" in wifi or "wi-fi 6" in wifi or "802.11ax" in wifi:
+            score += 24
+        elif "wifi 5" in wifi or "wi-fi 5" in wifi or "802.11ac" in wifi:
+            score += 18
+        elif "802.11n" in wifi:
+            score += 10
+        # NFC
+        nfc_value = str(phone.get("nfc") or "").lower()
+        if "nfc" in nfc_value or "yes" in nfc_value:
+            score += 15
+        # Bluetooth
+        bt = str(phone.get("bluetooth") or "").lower()
+        m = re.search(r'(\d+\.\d+|\d+)', bt)
+        if m:
+            try:
+                ver = float(m.group(1))
+                score += min(15, max(5, (ver-4.0)*5))
+            except Exception:
+                score += 8
+        return round(min(score,100.0), 2)
     
     def create_brand_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create brand-based features."""
         logger.info("Creating brand-based features")
         
-        def is_popular_brand(brand):
-            if pd.isna(brand):
-                return False
-            return str(brand).strip() in settings.popular_brands
+        def is_popular_brand(name: str) -> bool:
+            if pd.isna(name): return False
+            brands = ["samsung","apple","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia"]
+            return any(b in str(name).lower() for b in brands)
         
-        if 'brand' in df.columns:
-            df['is_popular_brand'] = df['brand'].apply(is_popular_brand)
+        # === Brand & popularity ===
+        if "brand" not in df.columns and "company" in df.columns:
+            df["brand"] = df["company"]
+        if "brand" in df.columns:
+            df["is_popular_brand"] = df["brand"].apply(is_popular_brand)
+        else:
+            df["is_popular_brand"] = False
         
         return df
     
@@ -331,62 +512,37 @@ class FeatureEngineer:
         """Create release-based features."""
         logger.info("Creating release-based features")
         
-        def clean_release_date(date_str):
-            if pd.isna(date_str):
-                return None
-            
-            date_str = str(date_str).strip()
-            
-            if date_str.lower() in ['not announced yet', 'not announced', 'tba', 'tbd']:
-                return None
-            
+        def clean_release_date(value):
             try:
-                if date_str.startswith('Exp.'):
-                    date_str = date_str.replace('Exp.', '').strip()
-                    date_formats = ['%d %B %Y', '%d %b %Y']
-                elif '-' in date_str:
-                    date_formats = ['%d-%b-%y']
-                else:
-                    date_formats = ['%d %B %Y', '%d %b %Y', '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']
-                
-                for fmt in date_formats:
-                    try:
-                        return datetime.strptime(date_str, fmt)
-                    except ValueError:
-                        continue
-                
+                return pd.to_datetime(value, errors="coerce")
+            except Exception:
                 return None
-            except:
-                return None
-        
+
         def is_new_release(release_date):
-            if pd.isna(release_date):
-                return False
-            six_months_ago = datetime.now() - timedelta(days=180)
-            return release_date >= six_months_ago
-        
-        def calculate_age_in_months(release_date):
-            if pd.isna(release_date):
-                return None
+            if pd.isna(release_date): return None
             try:
-                age_days = (datetime.now() - release_date).days
-                return round(age_days / 30.44, 2)
-            except:
+                return (pd.Timestamp("today") - pd.to_datetime(release_date)).days <= 365
+            except Exception:
                 return None
-        
+
+        def calculate_age_in_months(release_date):
+            if pd.isna(release_date): return None
+            d = pd.to_datetime(release_date, errors="coerce")
+            if pd.isna(d): return None
+            delta = pd.Timestamp("today") - d
+            return max(0, int(delta.days // 30))
+
         def is_upcoming(status):
-            if pd.isna(status):
-                return False
-            upcoming_statuses = ['upcoming', 'rumored', 'expected', 'announced', 'not announced yet', 'tba', 'tbd']
-            return str(status).lower().strip() in upcoming_statuses
+            s = str(status).lower()
+            return "upcoming" in s or "rumored" in s or "not released" in s
         
-        if 'release_date' in df.columns:
-            df['release_date_clean'] = df['release_date'].apply(clean_release_date)
-            df['is_new_release'] = df['release_date_clean'].apply(is_new_release)
-            df['age_in_months'] = df['release_date_clean'].apply(calculate_age_in_months)
-        
-        if 'status' in df.columns:
-            df['is_upcoming'] = df['status'].apply(is_upcoming)
+        # === Release & status ===
+        if "release_date" in df.columns:
+            df["release_date_clean"] = pd.to_datetime(df["release_date"], errors="coerce")
+            df["is_new_release"] = df["release_date_clean"].apply(is_new_release)
+            df["age_in_months"] = df["release_date_clean"].apply(calculate_age_in_months)
+        if "status" in df.columns:
+            df["is_upcoming"] = df["status"].apply(is_upcoming)
         
         return df
     
@@ -394,19 +550,14 @@ class FeatureEngineer:
         """Create composite features."""
         logger.info("Creating composite features")
         
-        # Overall device score (weighted average of all scores)
-        score_columns = ['performance_score', 'connectivity_score', 'camera_score', 'battery_score']
-        available_scores = [col for col in score_columns if col in df.columns]
-        
-        if available_scores:
-            # Use equal weights for available scores
-            weights = {col: 1.0 / len(available_scores) for col in available_scores}
-            
-            df['overall_device_score'] = 0
-            for col in available_scores:
-                df['overall_device_score'] += df[col] * weights[col]
-            
-            df['overall_device_score'] = df['overall_device_score'].round(2)
+        # Overall score
+        df["overall_device_score"] = (
+            df["performance_score"].fillna(0) * 0.35 +
+            df["display_score"].fillna(0)     * 0.20 +
+            df["camera_score"].fillna(0)      * 0.20 +
+            df["battery_score"].fillna(0)     * 0.15 +
+            df["connectivity_score"].fillna(0)* 0.10
+        ).round(2)
         
         return df
     
@@ -453,7 +604,15 @@ class FeatureEngineer:
             
             # Performance-based features (with processor rankings)
             if config.get('enable_performance_scores', True):
-                df = self.create_performance_features(df)
+                # Get processor rankings
+                proc_df = self.processor_rankings_service.get_or_refresh_rankings()
+                
+                # Calculate performance scores
+                df["performance_score"] = df.apply(lambda r: self.calculate_performance_score(r, proc_df), axis=1)
+                
+                # Calculate connectivity & security scores
+                df["connectivity_score"] = df.apply(self.calculate_connectivity_score, axis=1)
+                df["security_score"] = df.apply(self.calculate_security_score, axis=1)
             
             # Brand-based features
             if config.get('enable_brand_features', True):
@@ -475,6 +634,13 @@ class FeatureEngineer:
             # Calculate feature importance
             importance_scores = self.version_manager.calculate_feature_importance(df)
             logger.info(f"Calculated importance scores for {len(importance_scores)} features")
+            
+            # Final rounding
+            for col in ["performance_score","display_score","battery_score","connectivity_score","security_score","camera_score","overall_device_score",
+                        "price_per_gb","price_per_gb_ram","screen_size_numeric","resolution_width","resolution_height","ppi_numeric","refresh_rate_numeric","battery_capacity_numeric","charging_wattage",
+                        "storage_gb","ram_gb"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
             
             logger.info(f"Feature engineering completed: {len(df.columns)} total columns")
             

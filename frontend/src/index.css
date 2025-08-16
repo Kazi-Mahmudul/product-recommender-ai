@@ -125,7 +125,7 @@
 .epick-alert-title {
   font-weight: 600 !important;
   font-size: 1.25rem !important;
-  color: #d4a88d !important;
+  color: #377D5B !important;
 }
 
 .epick-alert-content {
@@ -134,7 +134,7 @@
 }
 
 .epick-alert-confirm {
-  background-color: #d4a88d !important;
+  background-color: #377D5B !important;
   border: none !important;
   border-radius: 8px !important;
   padding: 8px 16px !important;
@@ -143,7 +143,7 @@
 }
 
 .epick-alert-confirm:hover {
-  background-color: #b8956f !important;
+  background-color: #2d6249 !important;
   transform: translateY(-1px) !important;
 }
 
@@ -164,19 +164,19 @@
 }
 
 .swal2-icon.swal2-success {
-  border-color: #d4a88d !important;
+  border-color: #377D5B !important;
 }
 
 .swal2-success-ring {
-  border-color: #d4a88d !important;
+  border-color: #377D5B !important;
 }
 
 .swal2-success-fix {
-  background-color: #d4a88d !important;
+  background-color: #377D5B !important;
 }
 
 .swal2-success [class^='swal2-success-line'] {
-  background-color: #d4a88d !important;
+  background-color: #377D5B !important;
 }
 
 /* Dark mode SweetAlert2 styles */
@@ -186,7 +186,7 @@
 }
 
 .dark .epick-alert-title {
-  color: #d4a88d !important;
+  color: #377D5B !important;
 }
 
 .dark .epick-alert-content {

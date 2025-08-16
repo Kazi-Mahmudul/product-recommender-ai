@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as authApi from '../api/auth';
 import { EnhancedUser } from '../types/auth';
 
@@ -22,6 +22,7 @@ interface AuthContextType {
   logout: () => void;
   setUser: (user: EnhancedUser | null) => void;
   googleLogin: (credential: string) => Promise<void>;
+  updateProfile: (profileData: { first_name?: string; last_name?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,6 +93,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const googleLogin = async (credential: string) => {
     setLoading(true);
     try {
+      // Extract Google profile data from JWT token
+      const payload = credential.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payload));
+      
       const response = await fetch(`${process.env.REACT_APP_API_BASE}/api/v1/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,9 +109,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setToken(data.access_token);
         localStorage.setItem('auth_token', data.access_token);
         
-        // Fetch complete user info
+        // Fetch complete user info and enhance with Google profile data
         const userData = await authApi.getCurrentUser(data.access_token);
-        setUser(enhanceUserData(userData));
+        const enhancedUserData = {
+          ...userData,
+          auth_provider: 'google',
+          profile_picture: decodedPayload.picture || userData.profile_picture,
+          google_profile: {
+            picture: decodedPayload.picture || '',
+            given_name: decodedPayload.given_name || '',
+            family_name: decodedPayload.family_name || '',
+            email_verified: decodedPayload.email_verified || false
+          },
+          last_login: new Date().toISOString()
+        };
+        setUser(enhancedUserData);
       } else {
         setUser(null);
         throw new Error(data.detail || 'Google authentication failed');
@@ -139,6 +156,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
+  const updateProfile = async (profileData: { first_name?: string; last_name?: string }) => {
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+    
+    setLoading(true);
+    try {
+      const data = await authApi.updateProfile(token, profileData);
+      if (data.success !== false) {
+        // Fetch updated user info
+        const userData = await authApi.getCurrentUser(token);
+        setUser(enhanceUserData(userData));
+      } else {
+        throw new Error(data.detail || data.message || 'Profile update failed');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -147,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin }}>
+    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

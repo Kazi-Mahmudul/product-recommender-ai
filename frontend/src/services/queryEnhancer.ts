@@ -1,6 +1,4 @@
 // Query enhancement service for adding phone context to user queries
-
-import { Phone } from '../api/phones';
 import { PhoneRecommendationContext } from './chatContextManager';
 
 export interface QueryEnhancementResult {

@@ -61,13 +61,13 @@ export const Avatar: React.FC<AvatarProps> = React.memo(({
   const getProfilePictureUrl = useCallback((): string | null => {
     if (!user) return null;
     
-    // Prefer Google profile picture
-    if (user.google_profile?.picture && !imageError) {
+    // Prefer Google profile picture (highest priority)
+    if (user.google_profile?.picture && user.google_profile.picture.trim() !== '' && !imageError) {
       return user.google_profile.picture;
     }
     
     // Fall back to general profile picture
-    if (user.profile_picture && !imageError) {
+    if (user.profile_picture && user.profile_picture.trim() !== '' && !imageError) {
       return user.profile_picture;
     }
     

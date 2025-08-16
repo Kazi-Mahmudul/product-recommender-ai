@@ -318,11 +318,11 @@ function getPhotoUsageContext(phone: any, category: string): string {
   const cameraScore = phone.camera_score || 0;
   
   // Check if main_camera string indicates a multi-camera setup
-  const hasMultiCamera = mainCamera.includes('+') || mainCamera.includes('MP') && mainCamera.match(/\d+\s*MP/g)?.length > 1;
+  const hasMultiCamera = mainCamera.includes('+') || (mainCamera.includes('MP') && mainCamera.match(/\d+\s*MP/g)?.length > 1);
   
   // Check if main_camera string indicates high resolution
   const hasHighResCamera = mainCamera.includes('108MP') || mainCamera.includes('64MP') || mainCamera.includes('50MP') || 
-                          mainCamera.includes('48MP') || cameraMP >= 48;
+                          mainCamera.includes('48MP') || (cameraMP >= 48);
   
   if (category === 'flagship' || category === 'premium') {
     if (cameraScore >= 8.5 || hasOIS || hasMultiCamera) {
@@ -771,12 +771,12 @@ Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making
       // Filter and validate content quality
       const validPros = parsedResult.pros
         .filter((pro: string) => typeof pro === 'string' && pro.trim().length > 15)
-        .map((pro: string) => pro.trim().replace(/^[•\-\*]\s*/, '')) // Remove bullet points if present
+        .map((pro: string) => pro.trim().replace(/^[•\-*]\s*/, '')) // Remove bullet points if present
         .slice(0, 5);
       
       const validCons = parsedResult.cons
         .filter((con: string) => typeof con === 'string' && con.trim().length > 15)
-        .map((con: string) => con.trim().replace(/^[•\-\*]\s*/, '')) // Remove bullet points if present
+        .map((con: string) => con.trim().replace(/^[•\-*]\s*/, '')) // Remove bullet points if present
         .slice(0, 4);
       
       if (validPros.length >= 2 && validCons.length >= 1) {

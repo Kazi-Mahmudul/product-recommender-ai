@@ -1,78 +1,36 @@
 """
-Configuration settings for the processor service.
+Configuration settings for the enhanced pipeline processor.
 """
 
-from typing import List, Dict, Any
-
-
-class ProcessorSettings:
-    """Configuration settings for data processing."""
+class Settings:
+    """Configuration settings."""
     
-    # Minimum required fields for data quality validation
+    # Data quality thresholds
     min_required_fields = [
-        'name', 'brand', 'model', 'price', 'url'
+        'name', 'brand', 'price', 'main_camera', 'ram', 'internal_storage'
     ]
     
     # Price categories configuration
     price_categories = {
         'bins': [0, 20000, 40000, 60000, 100000, float('inf')],
-        'labels': ['Budget', 'Mid-range', 'Upper Mid-range', 'Premium', 'Flagship']
+        'labels': ["Budget", "Mid-range", "Upper Mid-range", "Premium", "Flagship"]
     }
     
-    # Popular brands for feature engineering
+    # Popular brands list
     popular_brands = [
-        'Samsung', 'Apple', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 
-        'OnePlus', 'Huawei', 'Honor', 'Nokia', 'Motorola', 'Sony', 'LG'
+        "Samsung", "Apple", "Xiaomi", "Redmi", "Poco", "Realme", 
+        "Oppo", "Vivo", "OnePlus", "Infinix", "Tecno", "Motorola", 
+        "Google", "Huawei", "Nokia"
     ]
     
-    # Data quality thresholds
-    quality_thresholds = {
-        'completeness': 0.8,
-        'accuracy': 0.85,
-        'consistency': 0.9
-    }
+    # Processing configuration
+    batch_size = 500
+    quality_threshold = 0.80
+    max_retries = 3
     
-    # Feature engineering configuration
-    feature_config = {
-        'enable_price_categories': True,
-        'enable_display_scores': True,
-        'enable_camera_scores': True,
-        'enable_battery_scores': True,
-        'enable_performance_scores': True,
-        'enable_brand_features': True,
-        'enable_release_features': True,
-        'enable_overall_scores': True,
-    }
-    
-    # Performance scoring weights
-    performance_weights = {
-        'cpu_score': 0.4,
-        'gpu_score': 0.3,
-        'ram_score': 0.2,
-        'storage_score': 0.1
-    }
-    
-    # Display scoring weights
-    display_weights = {
-        'resolution': 0.4,
-        'ppi': 0.3,
-        'refresh_rate': 0.3
-    }
-    
-    # Camera scoring weights
-    camera_weights = {
-        'camera_count': 20,
-        'primary_camera_mp': 50,
-        'selfie_camera_mp': 30
-    }
-    
-    # Battery scoring weights
-    battery_weights = {
-        'capacity': 50,
-        'charging_wattage': 40,
-        'wireless_charging': 10
-    }
+    # Processor rankings configuration
+    processor_cache_days = 7
+    processor_max_pages = 10
 
-
-# Global settings instance
-settings = ProcessorSettings()
+# Create global settings instance
+settings = Settings()

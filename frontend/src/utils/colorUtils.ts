@@ -6,8 +6,7 @@
 
 import { 
   getAccessibleTextColor, 
-  adjustBrightness,
-  getColorblindFriendlyPalette 
+  adjustBrightness 
 } from './accessibleColorUtils';
 
 // Brand Colors
