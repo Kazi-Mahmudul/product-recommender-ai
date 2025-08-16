@@ -235,6 +235,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                 messageForContext
               );
               setChatContext(updatedContext);
+            } else if (phoneData.type === "concise_specs") {
+              // Handle concise specifications response
+              updated[updated.length - 1].bot = phoneData;
+
+              // Update context
+              messageForContext.bot = phoneData;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
             } else {
               // Fallback for other response types
               updated[updated.length - 1].bot =
@@ -284,6 +295,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
               );
               setChatContext(updatedContext);
             } else if (responseData.type === "comparison") {
+              updated[updated.length - 1].bot = responseData;
+
+              // Update context
+              messageForContext.bot = responseData;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            } else if (responseData.type === "concise_specs") {
+              // Handle concise specifications response
               updated[updated.length - 1].bot = responseData;
 
               // Update context
