@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 // Recharts imports removed as they're now handled by EnhancedComparison component
 import ChatPhoneRecommendation from "../components/ChatPhoneRecommendation";
 import EnhancedComparison from "../components/EnhancedComparison";
+import DetailedSpecView from "../components/DetailedSpecView";
 import {
   ChatContextManager,
   ChatContext,
@@ -490,19 +491,26 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                           featureFlags.drillDownMode
                             ? (option) => {
                                 // Handle drill-down commands with context
+                                // Use the contextualQuery if available, otherwise fallback to default queries
                                 let query = "";
-                                switch (option.command) {
-                                  case "full_specs":
-                                    query =
-                                      "show full specifications for these phones";
-                                    break;
-                                  case "chart_view":
-                                    query =
-                                      "compare these phones in chart view";
-                                    break;
-                                  case "detail_focus":
-                                    query = `tell me more about the ${option.target || "features"} of these phones`;
-                                    break;
+                                if (option.contextualQuery) {
+                                  query = option.contextualQuery;
+                                } else {
+                                  switch (option.command) {
+                                    case "full_specs":
+                                      query =
+                                        "show full specifications for these phones";
+                                      break;
+                                    case "chart_view":
+                                      query =
+                                        "compare these phones in chart view";
+                                      break;
+                                    case "detail_focus":
+                                      query = `tell me more about the ${option.target || "features"} of these phones`;
+                                      break;
+                                    default:
+                                      query = option.label || "show full specifications for these phones";
+                                  }
                                 }
                                 handleSendMessage(query);
                               }
@@ -542,6 +550,23 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                         onFeatureFocus={(feature) => {
                           // Handle feature focus - could trigger detailed analysis
                           console.log("Feature focused:", feature);
+                        }}
+                      />
+                    </div>
+                  )}
+
+                {/* Handle detailed specifications response */}
+                {chat.bot &&
+                  typeof chat.bot === "object" &&
+                  (chat.bot as any).type === "detailed_specs" &&
+                  Array.isArray((chat.bot as any).phones) && (
+                    <div className="my-8">
+                      <DetailedSpecView
+                        phones={(chat.bot as any).phones}
+                        darkMode={darkMode}
+                        onBackToSimple={() => {
+                          // Could implement back functionality if needed
+                          console.log("Back to simple view requested");
                         }}
                       />
                     </div>

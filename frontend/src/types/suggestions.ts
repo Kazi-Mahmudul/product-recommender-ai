@@ -50,6 +50,14 @@ export interface DrillDownOption {
   label: string;
   icon: string;
   target?: string; // specific feature like 'display', 'camera'
+  contextualQuery?: string; // Enhanced query with phone context
+  referencedPhones?: string[]; // Phone names referenced in option
+  contextType?: 'comparison' | 'alternative' | 'specification' | 'filter' | 'general';
+  contextIndicator?: {
+    icon: string;
+    tooltip: string;
+    description: string;
+  };
 }
 
 export interface DrillDownRequest {

@@ -138,26 +138,54 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
     }
   }, [displayPhones, originalQuery, recentPhoneContext, chatContext]);
 
-  // Generate drill-down options for power users
+  // Generate contextual drill-down options for power users
   const drillDownOptions = useMemo((): DrillDownOption[] => {
     if (!displayPhones || displayPhones.length === 0) return [];
+
+    // Get phone names for context
+    const phoneNames = displayPhones.map(p => p.name).slice(0, 3);
+    const brands = Array.from(new Set(displayPhones.map(p => p.brand)));
 
     return [
       {
         command: "full_specs",
         label: "Show full specs",
         icon: "📋",
+        contextualQuery: `Show full specifications for ${phoneNames.join(', ')}`,
+        referencedPhones: phoneNames,
+        contextType: "specification",
+        contextIndicator: {
+          icon: "🔗",
+          tooltip: `Specifications for ${phoneNames.slice(0, 2).join(', ')}`,
+          description: "Full technical specifications"
+        }
       },
       {
         command: "chart_view",
         label: "Open chart view",
         icon: "📊",
+        contextualQuery: `Show performance charts comparing ${phoneNames.join(', ')}`,
+        referencedPhones: phoneNames,
+        contextType: "comparison",
+        contextIndicator: {
+          icon: "🔗",
+          tooltip: `Performance comparison of ${phoneNames.slice(0, 2).join(', ')}`,
+          description: "Visual performance metrics"
+        }
       },
       {
         command: "detail_focus",
         label: "Tell me more about display",
         icon: "📱",
         target: "display",
+        contextualQuery: `Compare display specifications of ${phoneNames.join(', ')}`,
+        referencedPhones: phoneNames,
+        contextType: "specification",
+        contextIndicator: {
+          icon: "🔗",
+          tooltip: `Display specs for ${phoneNames.slice(0, 2).join(', ')}`,
+          description: "Screen technology and quality"
+        }
       },
     ];
   }, [displayPhones]);
@@ -236,6 +264,8 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
         onOptionClick={onDrillDownClick || (() => {})}
         darkMode={darkMode}
         isLoading={isLoading}
+        phones={displayPhones}
+        chatContext={chatContext}
       />
 
       {/* Comparison Selection UI */}

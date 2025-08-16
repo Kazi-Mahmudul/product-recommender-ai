@@ -109,9 +109,9 @@ const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const handleResultClick = (phoneId: string) => {
-    // For search results, we use the ID and let the backend handle the redirect to slug-based URL
-    navigate(`/phones/${phoneId}`);
+  const handleResultClick = (phoneSlug: string) => {
+    // For search results, we use the slug for direct navigation to the phone details page
+    navigate(`/phones/${phoneSlug}`);
     setSearchOpen(false);
     setSearchQuery("");
   };
@@ -215,7 +215,7 @@ const Navbar: React.FC<NavbarProps> = ({
                         <div
                           key={result.id}
                           className="flex items-center gap-3 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg cursor-pointer transition-colors duration-150"
-                          onClick={() => handleResultClick(result.id)}
+                          onClick={() => handleResultClick(result.slug || `phone-${result.id}`)}
                         >
                           <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-md flex-shrink-0 flex items-center justify-center overflow-hidden">
                             {result.img_url ? (

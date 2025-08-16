@@ -1,18 +1,23 @@
 import React from 'react';
 import { DrillDownOption } from '../types/suggestions';
+import { Phone } from '../api/phones';
 
 interface DrillDownOptionsProps {
   options: DrillDownOption[];
   onOptionClick: (option: DrillDownOption) => void;
   darkMode: boolean;
   isLoading?: boolean;
+  phones?: Phone[]; // Add phones context
+  chatContext?: any; // Add chat context
 }
 
 const DrillDownOptions: React.FC<DrillDownOptionsProps> = ({
   options,
   onOptionClick,
   darkMode,
-  isLoading = false
+  isLoading = false,
+  phones = [],
+  chatContext
 }) => {
   if (!options || options.length === 0) {
     return null;
@@ -40,13 +45,23 @@ const DrillDownOptions: React.FC<DrillDownOptionsProps> = ({
               ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg cursor-pointer'}
               focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2
               ${darkMode ? 'focus:ring-offset-gray-800' : 'focus:ring-offset-white'}
+              relative group
             `}
             aria-label={`Execute: ${option.label}`}
+            title={option.contextualQuery || option.label}
           >
             <span className="text-base" role="img" aria-hidden="true">
               {option.icon}
             </span>
             <span className="whitespace-nowrap">{option.label}</span>
+            
+            {/* Context indicator */}
+            {option.referencedPhones && option.referencedPhones.length > 0 && (
+              <span 
+                className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-white dark:border-gray-900"
+                title={`Context: ${option.referencedPhones.slice(0, 2).join(', ')}${option.referencedPhones.length > 2 ? ', ...' : ''}`}
+              />
+            )}
           </button>
         ))}
       </div>
