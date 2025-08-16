@@ -54,58 +54,51 @@ async def test_endpoint():
     """Test endpoint to check basic functionality"""
     return {"message": "Natural language endpoint is working"}
 
+import re
+from typing import List
+
 def extract_phone_names_from_query(query: str) -> List[str]:
-    """Extract phone names from a query using common patterns"""
-    # Common phone brand patterns
-    brands = ["Samsung", "Apple", "iPhone", "Xiaomi", "POCO", "Redmi", "OnePlus", "OPPO", "Vivo", "Realme", "Nothing", "Google", "Pixel"]
-    
-    phone_names = []
-    query_lower = query.lower()
-    
-    # First, try to extract phone names from structured queries like "Show full specifications for Samsung Galaxy A55, iPhone 15, Xiaomi POCO X6"
-    # Look for patterns that indicate a list of phones
-    structured_patterns = [
-        r"for\s+((?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*)(?:\s*,\s*(?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*))*)",
-        r"compare\s+((?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*)(?:\s*,\s*(?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*))*)",
-        r"specifications\s+(?:of\s+)?((?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*)(?:\s*,\s*(?:[A-Za-z]+(?:\s+[A-Za-z0-9]+)*))*)"
+    """Extract phone names from a query using regex patterns and a large brand dictionary"""
+
+    # Full expanded brand list
+    brands = [
+        "5star","Acer","Alcatel","Allview","Apple","Asus","Benco","Bengal","BlackBerry",
+        "Blackview","Cat","Celkon","Coolpad","Cubot","Doogee","DOOGEE","Energizer","FreeYond",
+        "Geo","Gionee","Google","Hallo","Helio","HMD","Honor","HTC","Huawei","Infinix",
+        "iPhone","iQOO","Itel","Kingstar","Lava","LAVA","Leica","Leitz","Lenovo","LG",
+        "maximus","Maximus","Maxis","Meizu","Micromax","Microsoft","Motorola","Mycell","Nio",
+        "Nokia","Nothing","Okapia","Oneplus","OnePlus","OnePlus 2","Oppo","Oscal","Oukitel",
+        "Panasonic","Philips","Proton","PROTON","Realme","Samsung","Sharp","Sonim","Sony",
+        "Symphony","TCL","Tecno","TECNO","Thuraya","Ulefone","Umidigi","UMIDIGI","vivo","Vivo",
+        "Walton","We","WE","WE X2","Wiko","Xiaomi","ZTE"
     ]
-    
-    for pattern in structured_patterns:
-        match = re.search(pattern, query_lower)
-        if match:
-            phone_list_str = match.group(1)
-            # Split by comma and clean up
-            potential_phones = [p.strip() for p in re.split(r'\s*,\s*', phone_list_str) if p.strip()]
-            # Validate that these look like phone names (contain brand names)
-            valid_phones = []
-            for phone in potential_phones:
-                if any(brand.lower() in phone for brand in brands):
-                    # Try to reconstruct full phone names
-                    for brand in brands:
-                        brand_lower = brand.lower()
-                        if brand_lower in phone:
-                            valid_phones.append(phone)
-                            break
-            if valid_phones:
-                return valid_phones
-    
-    # Fallback to original method for natural language queries
-    # Look for brand + model patterns
-    for brand in brands:
-        brand_lower = brand.lower()
-        if brand_lower in query_lower:
-            # Find the model number after the brand
-            brand_index = query_lower.find(brand_lower)
-            remaining_text = query[brand_index + len(brand):].strip()
-            
-            # Extract model number (usually starts with a letter or number)
-            model_match = re.search(r'([A-Za-z0-9]+(?:\s*[A-Za-z0-9]+)*)', remaining_text)
-            if model_match:
-                model = model_match.group(1).strip()
-                phone_names.append(f"{brand} {model}")
-            else:
-                phone_names.append(brand)
-    
+
+    query_clean = query.strip()
+    phone_names = []
+
+    # Build regex for all brands
+    brand_pattern = "|".join([re.escape(b) for b in brands])
+
+    # Regex to capture "Brand + Model" (multi-word, allows +, -, numbers, Pro, Max, Ultra, 5G etc.)
+    phone_pattern = re.compile(
+        rf"\b({brand_pattern})\s+([A-Za-z0-9]+(?:[\s\-+]*[A-Za-z0-9]+)*)",
+        re.IGNORECASE
+    )
+
+    # Find brand + model matches
+    for match in phone_pattern.finditer(query_clean):
+        brand, model = match.group(1).strip(), match.group(2).strip()
+        phone_names.append(f"{brand} {model}")
+
+    # Fallback: specific "Pixel" or "iPhone" style names without explicit brand
+    fallback_pattern = re.compile(r"\b(Pixel\s+\d+(?:\s+\w+)*|iPhone\s+\d+(?:\s+\w+)*)\b", re.IGNORECASE)
+    for match in fallback_pattern.finditer(query_clean):
+        phone_names.append(match.group(1).strip())
+
+    # Deduplicate while preserving order
+    seen = set()
+    phone_names = [x for x in phone_names if not (x.lower() in seen or seen.add(x.lower()))]
+
     return phone_names
 
 def extract_feature_from_query(query: str) -> str:
