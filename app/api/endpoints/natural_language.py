@@ -600,14 +600,24 @@ async def process_natural_language_query(
                     command = result.get("command")
                     target = result.get("target")
                     
-                    # Try to get phone names from recent context (this would need to be implemented)
-                    # For now, we'll return a message asking for context
+                    # Extract phone names from the query itself for drill-down commands
+                    phone_names = extract_phone_names_from_query(query)
+                    
+                    # If no phone names found in query, try to get from context if provided
+                    if not phone_names and context_str:
+                        try:
+                            context_data = json.loads(context_str) if context_str else {}
+                            if context_data.get("current_phones"):
+                                phone_names = [phone.get("name") for phone in context_data["current_phones"]]
+                        except json.JSONDecodeError:
+                            print("Invalid context JSON for drill-down")
+                    
                     drill_down_response = DrillDownHandler.process_drill_down_command(
                         db=db,
                         command=command,
                         target=target,
-                        phone_names=None,  # Would need context management
-                        context=None
+                        phone_names=phone_names,
+                        context={"current_phones": [{"name": name} for name in phone_names]} if phone_names else None
                     )
                     
                     return JSONResponse(content=drill_down_response)
