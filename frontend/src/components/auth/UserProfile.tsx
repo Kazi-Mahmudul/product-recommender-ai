@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Mail, Shield, Clock, Globe, Edit2, Save, X } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { EnhancedUser } from '../../types/auth';
+import { authAlerts } from '../../utils/authAlerts';
 
 interface UserProfileProps {
   user: EnhancedUser;
@@ -27,6 +28,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     last_name: user.last_name || ''
   });
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Update edit data when user prop changes (after successful update)
+  React.useEffect(() => {
+    setEditData({
+      first_name: user.first_name || '',
+      last_name: user.last_name || ''
+    });
+  }, [user.first_name, user.last_name]);
   // Format date for display
   const formatDate = (dateString: string): string => {
     try {
@@ -60,7 +69,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     }
   };
 
-  // Get full name
+  // Get full name - use current user data, not edit data
   const getFullName = (): string => {
     if (user.google_profile?.given_name && user.google_profile?.family_name) {
       return `${user.google_profile.given_name} ${user.google_profile.family_name}`;
@@ -107,9 +116,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     try {
       await onProfileUpdate(editData);
       setIsEditing(false);
+      // Show success alert
+      await authAlerts.showProfileUpdateSuccess(darkMode);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      // Handle error (could show an alert here)
+      // Show error alert
+      await authAlerts.showAuthError(
+        error instanceof Error ? error.message : 'Failed to update profile. Please try again.',
+        darkMode
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -128,15 +143,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   return (
     <div className={`bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden ${className}`}>
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-brand/10 to-brand/5 dark:from-brand/20 dark:to-brand/10 px-6 py-8">
+      <div className="bg-gradient-to-r from-brand/10 to-brand/5 dark:from-brand/20 dark:to-brand/10 px-4 md:px-6 py-6 md:py-8">
         <div className="flex flex-col items-center text-center relative">
-          {/* Edit button */}
+          {/* Edit button - positioned away from close button */}
           {canEditName && onProfileUpdate && (
-            <div className="absolute top-0 right-0">
+            <div className="absolute top-0 left-0">
               {!isEditing ? (
                 <button
                   onClick={handleEditToggle}
-                  className="p-2 rounded-lg bg-white/50 dark:bg-neutral-800/50 hover:bg-white/70 dark:hover:bg-neutral-800/70 transition-colors duration-200"
+                  className="p-2 rounded-lg bg-white/50 dark:bg-neutral-800/50 hover:bg-white/70 dark:hover:bg-neutral-800/70 transition-colors duration-200 shadow-sm"
                   aria-label="Edit profile"
                 >
                   <Edit2 size={16} className="text-neutral-600 dark:text-neutral-400" />
@@ -146,7 +161,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                   <button
                     onClick={handleSave}
                     disabled={isUpdating}
-                    className="p-2 rounded-lg bg-brand/20 hover:bg-brand/30 transition-colors duration-200 disabled:opacity-50"
+                    className="p-2 rounded-lg bg-brand/20 hover:bg-brand/30 transition-colors duration-200 disabled:opacity-50 shadow-sm"
                     aria-label="Save changes"
                   >
                     <Save size={16} className="text-brand" />
@@ -154,7 +169,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                   <button
                     onClick={handleEditToggle}
                     disabled={isUpdating}
-                    className="p-2 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors duration-200 disabled:opacity-50"
+                    className="p-2 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors duration-200 disabled:opacity-50 shadow-sm"
                     aria-label="Cancel editing"
                   >
                     <X size={16} className="text-red-600 dark:text-red-400" />
@@ -172,31 +187,31 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           
           {/* Editable name section */}
           {isEditing && canEditName ? (
-            <div className="space-y-3 mb-3">
-              <div className="flex gap-2">
+            <div className="space-y-3 mb-3 w-full max-w-sm">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={editData.first_name}
                   onChange={(e) => handleInputChange('first_name', e.target.value)}
                   placeholder="First name"
-                  className="px-3 py-2 text-center bg-white/70 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-600 rounded-lg text-sm font-semibold text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  className="flex-1 px-3 py-2 text-center bg-white/70 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-600 rounded-lg text-sm font-semibold text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-brand/30"
                 />
                 <input
                   type="text"
                   value={editData.last_name}
                   onChange={(e) => handleInputChange('last_name', e.target.value)}
                   placeholder="Last name"
-                  className="px-3 py-2 text-center bg-white/70 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-600 rounded-lg text-sm font-semibold text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  className="flex-1 px-3 py-2 text-center bg-white/70 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-600 rounded-lg text-sm font-semibold text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-brand/30"
                 />
               </div>
             </div>
           ) : (
-            <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
+            <h2 className="text-lg md:text-xl font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
               {fullName}
             </h2>
           )}
           
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 break-all max-w-xs">
             {user.email}
           </p>
           <div className="flex items-center gap-2 px-3 py-1 bg-white/50 dark:bg-neutral-800/50 rounded-full">
@@ -209,7 +224,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       </div>
 
       {/* Profile Information */}
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Account Information */}
         <div>
           <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-4 flex items-center gap-2">
@@ -217,17 +232,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             Account Information
           </h3>
           <div className="space-y-3">
-            <div className="flex items-center justify-between py-2">
+            <div className="flex flex-col justify-between sm:flex-row sm:items-center sm:justify-between py-2 gap-2">
               <div className="flex items-center gap-3">
                 <Mail size={16} className="text-neutral-500 dark:text-neutral-400" />
                 <span className="text-sm text-neutral-700 dark:text-neutral-300">Email</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200 break-all">
                   {user.email}
                 </span>
                 {user.is_verified && (
-                  <div className="w-2 h-2 bg-green-500 rounded-full" title="Verified" />
+                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" title="Verified" />
                 )}
               </div>
             </div>

@@ -1,7 +1,6 @@
 // Analytics service for tracking contextual suggestion effectiveness
 
 import { ContextualSuggestion, FollowUpSuggestion } from '../types/suggestions';
-import { PhoneRecommendationContext } from './chatContextManager';
 
 export interface ContextAnalyticsEvent {
   eventType: 'context_created' | 'context_retrieved' | 'context_expired' | 

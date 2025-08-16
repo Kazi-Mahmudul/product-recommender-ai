@@ -7,7 +7,6 @@ import {
   ChatContextManager,
   ChatContext,
 } from "../services/chatContextManager";
-import SessionManager from "../services/sessionManager";
 import { QueryEnhancer } from "../services/queryEnhancer";
 import { ErrorHandler } from "../services/errorHandler";
 import { AIResponseEnhancer } from "../services/aiResponseEnhancer";

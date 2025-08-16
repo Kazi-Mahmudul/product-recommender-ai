@@ -9,7 +9,10 @@ from typing import Dict, List, Optional, Tuple, Any
 import re
 from datetime import datetime
 
-from .config import settings
+try:
+    from .config import settings
+except ImportError:
+    from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -94,19 +97,319 @@ class DataCleaner:
         cleaned = str(value).strip()
         return cleaned if cleaned else None
     
-    def clean_price_column(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean and process price column."""
-        logger.info("Cleaning price column")
+    def convert_to_gb(self, value: Any) -> Optional[float]:
+        """Convert storage values to GB."""
+        if pd.isna(value):
+            return None
+        value_str = str(value).lower()
         
-        # Clean price column by removing "?." prefix
+        # Extract numeric value
+        numbers = re.findall(r'\d+', value_str)
+        if not numbers:
+            return None
+        
+        num = float(numbers[0])
+        
+        if 'gb' in value_str:
+            return num
+        elif 'mb' in value_str:
+            return num / 1024
+        elif 'tb' in value_str:
+            return num * 1024
+        else:
+            # Assume GB if no unit specified
+            return num
+    
+    def convert_ram_to_gb(self, value: Any) -> Optional[float]:
+        """Convert RAM values to GB."""
+        if pd.isna(value):
+            return None
+        value_str = str(value).lower()
+        
+        # Extract numbers from the string
+        numbers = re.findall(r'\d+', value_str)
+        if numbers:
+            num = float(numbers[0])
+            if 'gb' in value_str:
+                return num
+            elif 'mb' in value_str:
+                return num / 1024
+            else:
+                # If no unit specified, assume GB
+                return num
+        return None
+    
+    def extract_display_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Extract numeric display metrics from text fields."""
+        logger.info("Extracting display metrics")
+        
+        # Screen size numeric
+        if "screen_size_inches" in df.columns:
+            df['screen_size_numeric'] = df['screen_size_inches'].str.extract(r'(\d+\.?\d*)').astype(float)
+        
+        # Resolution numeric (width x height)
+        if "display_resolution" in df.columns:
+            df["resolution_width"] = df["display_resolution"].str.extract(r'(\d+)x').astype(float)
+            df["resolution_height"] = df["display_resolution"].str.extract(r'x(\d+)').astype(float)
+        
+        # PPI numeric
+        if "pixel_density_ppi" in df.columns:
+            df['ppi_numeric'] = df['pixel_density_ppi'].str.extract(r'(\d+)').astype(float)
+        
+        # Refresh rate numeric
+        if "refresh_rate_hz" in df.columns:
+            df['refresh_rate_numeric'] = df['refresh_rate_hz'].str.extract(r'(\d+)').astype(float)
+        
+        return df
+    
+    def _extract_resolution_wh(self, res: str) -> Optional[Tuple[int, int]]:
+        """Extract resolution width and height from resolution string."""
+        if pd.isna(res):
+            return None
+        s = str(res).lower()
+        m = re.search(r'(\d{3,5})\s*[x×]\s*(\d{3,5})', s)
+        if not m:
+            return None
+        return int(m.group(1)), int(m.group(2))
+    
+    def _extract_ppi(self, value) -> Optional[float]:
+        """Extract PPI value from text."""
+        if pd.isna(value):
+            return None
+        m = re.search(r'(\d+(?:\.\d+)?)\s*ppi', str(value).lower())
+        if not m:
+            return None
+        return float(m.group(1))
+    
+    def _extract_refresh_rate(self, value) -> Optional[float]:
+        """Extract refresh rate from text."""
+        if pd.isna(value):
+            return None
+        m = re.search(r'(\d+(?:\.\d+)?)\s*hz', str(value).lower())
+        if not m:
+            return None
+        return float(m.group(1))
+    
+    def normalize_camera_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Extract camera MP values and camera counts."""
+        logger.info("Normalizing camera data")
+        
+        # Extract primary camera MP
+        if "main_camera" in df.columns:
+            df['primary_camera_mp'] = df['main_camera'].apply(self.extract_camera_mp)
+        elif "primary_camera_resolution" in df.columns:
+            df['primary_camera_mp'] = df['primary_camera_resolution'].apply(self.extract_camera_mp)
+        
+        # Extract selfie camera MP
+        if "front_camera" in df.columns:
+            df['selfie_camera_mp'] = df['front_camera'].apply(self.extract_camera_mp)
+        elif "selfie_camera_resolution" in df.columns:
+            df['selfie_camera_mp'] = df['selfie_camera_resolution'].apply(self.extract_camera_mp)
+        
+        # Extract camera count
+        if "camera_setup" in df.columns or "main_camera" in df.columns:
+            df['camera_count'] = df.apply(
+                lambda row: self.get_camera_count(
+                    row.get('camera_setup'), 
+                    row.get('main_camera')
+                ), axis=1
+            )
+        
+        return df
+    
+    def extract_camera_mp(self, value: Any) -> Optional[float]:
+        """Extract megapixel value from camera specification string."""
+        if pd.isna(value):
+            return None
+        
+        value_str = str(value).strip()
+        if not value_str:
+            return None
+
+        # For formats like "48+8+2MP" or "48MP"
+        if '+' in value_str:
+            # Extract the first (main) camera MP value
+            first_camera = value_str.split('+')[0]
+            mp_match = re.search(r'(\d+\.?\d*)', first_camera)
+            if mp_match:
+                return float(mp_match.group(1))
+        else:
+            # For single camera format like "48MP"
+            mp_match = re.search(r'(\d+\.?\d*)\s*MP', value_str, re.IGNORECASE)
+            if mp_match:
+                return float(mp_match.group(1))
+            
+            # Try without the MP suffix (some entries might just have the number)
+            mp_match = re.search(r'(\d+\.?\d*)', value_str)
+            if mp_match:
+                return float(mp_match.group(1))
+
+        return None
+    
+    def get_camera_count(self, camera_setup: Any, main_camera: Any = None) -> Optional[int]:
+        """Try several patterns: 'triple camera', '3 cameras', fallback to list-likes."""
+        if not pd.isna(camera_setup):
+            s = str(camera_setup).lower()
+            if 'single' in s: 
+                return 1
+            if 'dual' in s: 
+                return 2
+            if 'triple' in s: 
+                return 3
+            if 'quad' in s: 
+                return 4
+            if 'penta' in s: 
+                return 5
+            m = re.search(r'(\d+)\s*(cameras?|lens|lenses)', s)
+            if m: 
+                return int(m.group(1))
+        
+        # Enhanced MP-based detection for formats like "50+12+10MP"
+        if main_camera is not None and not pd.isna(main_camera):
+            camera_str = str(main_camera).lower()
+            
+            # Count cameras by '+' separators (e.g., "50+12+10MP" = 3 cameras)
+            if '+' in camera_str and 'mp' in camera_str:
+                # Split by '+' and count valid MP values
+                parts = camera_str.split('+')
+                valid_cameras = 0
+                for part in parts:
+                    if re.search(r'\d+', part):  # Contains a number
+                        valid_cameras += 1
+                if valid_cameras > 0:
+                    return valid_cameras
+            
+            # Fallback: count MP occurrences
+            mps = re.findall(r'(\d+(?:\.\d+)?)\s*mp', camera_str)
+            if mps: 
+                return max(1, len(mps))
+        
+        return None
+    
+    def clean_battery_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean and extract battery-related data."""
+        logger.info("Cleaning battery data")
+        
+        # Battery capacity numeric
+        if "capacity" in df.columns:
+            df['battery_capacity_numeric'] = df['capacity'].str.extract(r'(\d+)').astype(float)
+        
+        # Has fast charging
+        if "quick_charging" in df.columns:
+            df["has_fast_charging"] = df["quick_charging"].notna()
+        else:
+            # fallback: detect in text fields
+            df["has_fast_charging"] = df.get("charging", pd.Series([""]*len(df))).astype(str).str.contains(r'(fast|quick|turbo|dart|super)', case=False, regex=True)
+
+        # Has wireless charging
+        if "wireless_charging" in df.columns:
+            df["has_wireless_charging"] = df["wireless_charging"].notna()
+        else:
+            df["has_wireless_charging"] = df.get("charging", pd.Series([""]*len(df))).astype(str).str.contains("wireless", case=False, regex=False)
+
+        # Extract charging wattage
+        if "quick_charging" in df.columns:
+            df["charging_wattage"] = df["quick_charging"].apply(self.extract_wattage)
+        
+        return df
+    
+    def extract_wattage(self, value: Any) -> Optional[float]:
+        """Extract wattage from charging specification string."""
+        if pd.isna(value):
+            return None
+        
+        value_str = str(value).strip()
+        if not value_str:
+            return None
+        
+        # Use regex to find a number (integer or float) followed by 'W'
+        wattage_match = re.search(r'(\d+\.?\d*)\s*W', value_str, re.IGNORECASE)
+        if wattage_match:
+            return float(wattage_match.group(1))
+        
+        return None
+    
+    def generate_slugs(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Generate SEO-friendly slugs from phone names."""
+        logger.info("Generating slugs from phone names")
+        
+        try:
+            from slugify import slugify
+            if 'name' in df.columns:
+                df['slug'] = df['name'].apply(lambda x: slugify(str(x)) if pd.notna(x) else None)
+        except ImportError:
+            logger.warning("slugify library not available, skipping slug generation")
+            if 'name' in df.columns:
+                # Fallback slug generation
+                df['slug'] = df['name'].apply(self._create_simple_slug)
+        
+        return df
+    
+    def _create_simple_slug(self, name: str) -> Optional[str]:
+        """Create a simple slug without external dependencies."""
+        if pd.isna(name):
+            return None
+        
+        # Convert to lowercase and replace spaces/special chars with hyphens
+        slug = str(name).lower()
+        slug = re.sub(r'[^a-z0-9]+', '-', slug)
+        slug = slug.strip('-')
+        return slug if slug else None
+    
+    def clean_price_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean and process price column with comprehensive currency handling."""
+        logger.info("Cleaning price data with comprehensive currency handling")
+        
         if 'price' in df.columns:
-            df['price'] = df['price'].str.replace('?.', '', regex=False)
+            # Remove various currency prefixes like '৳', '?.', 'à§³.', 'à§³', etc.
+            df["price"] = (
+                df["price"]
+                .astype(str)
+                .str.replace('?.', '', regex=False)
+                .str.replace('৳.', '', regex=False)
+                .str.replace('৳', '', regex=False)
+                .str.replace('à§³.', '', regex=False)
+                .str.replace('à§³', '', regex=False)
+                .str.strip()
+            )
             
             # Create price_original column with numeric values
-            df['price_original'] = (df['price']
-                                   .str.replace(',', '')
-                                   .str.extract('(\\d+)')
-                                   .astype(float))
+            df["price_original"] = (
+                df["price"]
+                .astype(str)
+                .str.replace(",", "", regex=False)
+                .str.extract(r'(\d+(?:\.\d+)?)')[0]
+                .astype(float)
+            )
+        
+        return df
+    
+    def create_price_categories(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Create price categories for Budget/Mid-range/Premium/Flagship."""
+        logger.info("Creating price categories")
+        
+        if 'price_original' in df.columns:
+            # Price categories (BDT)
+            df["price_category"] = pd.cut(
+                df["price_original"],
+                bins=[0, 20000, 40000, 60000, 100000, float('inf')],
+                labels=["Budget", "Mid-range", "Upper Mid-range", "Premium", "Flagship"]
+            )
+        
+        return df
+    
+    def calculate_price_per_gb(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate price per GB ratios for storage and RAM."""
+        logger.info("Calculating price per GB ratios")
+        
+        if "price_original" in df.columns:
+            # Price per GB of storage
+            if "storage_gb" in df.columns:
+                df["price_per_gb"] = (df["price_original"] / df["storage_gb"]).replace([np.inf, -np.inf], np.nan).round(2)
+            
+            # Price per GB of RAM
+            if "ram_gb" in df.columns:
+                df["price_per_gb_ram"] = (df["price_original"] / df["ram_gb"]).replace([np.inf, -np.inf], np.nan).round(2)
         
         return df
     
@@ -231,8 +534,22 @@ class DataCleaner:
             # Standardize column names
             df = self.standardize_column_names(df)
             
-            # Clean price column
-            df = self.clean_price_column(df)
+            # Clean price data with comprehensive currency handling
+            df = self.clean_price_data(df)
+            df = self.create_price_categories(df)
+            df = self.calculate_price_per_gb(df)
+            
+            # Extract display metrics
+            df = self.extract_display_metrics(df)
+            
+            # Normalize camera data
+            df = self.normalize_camera_data(df)
+            
+            # Clean battery data
+            df = self.clean_battery_data(df)
+            
+            # Generate slugs
+            df = self.generate_slugs(df)
             
             # Filter valid columns
             df = self.filter_valid_columns(df)

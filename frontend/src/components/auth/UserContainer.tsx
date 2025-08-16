@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, Settings, LogOut, User as UserIcon } from 'lucide-react';
+import { ChevronDown, LogOut, User as UserIcon } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import UserProfileModal from './UserProfileModal';
 import { UserContainerProps } from '../../types/auth';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
+import { useAuth } from '../../context/AuthContext';
 
 interface UserContainerState {
   dropdownOpen: boolean;
@@ -22,6 +23,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
   });
   
   const { isMobile } = useResponsiveLayout();
+  const { updateProfile } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const prevIsMobile = useRef(isMobile);
 
@@ -84,68 +86,71 @@ export const UserContainer: React.FC<UserContainerProps> = ({
     setState(prev => ({ ...prev, profileModalOpen: false }));
   }, []);
 
-  const handleProfileUpdate = useCallback(async (updatedData: Partial<any>) => {
-    // This would typically call an API to update the user profile
-    // For now, we'll just show a success alert
-    console.log('Profile update:', updatedData);
-    // await authAlerts.showProfileUpdateSuccess();
-  }, []);
+  const handleProfileUpdate = useCallback(async (updatedData: { first_name?: string; last_name?: string }) => {
+    try {
+      await updateProfile(updatedData);
+      // Success - the user state will be updated automatically by the AuthContext
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      throw error; // Re-throw so the UserProfile component can handle the error
+    }
+  }, [updateProfile]);
 
 
 
   // Mobile layout (compact for sidebar)
   if (isMobile) {
     return (
-      <div className={`relative flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 transition-all duration-300 ${className}`}>
-        <Avatar 
-          user={user}
-          size="sm"
-          onClick={handleProfileClick}
-          ariaLabel={`${displayName}'s profile`}
-        />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
-            {displayName}
-          </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-            {user.email}
-          </p>
-        </div>
-        <button
-          onClick={handleDropdownToggle}
-          className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors duration-200"
-          aria-label="User menu"
-        >
-          <ChevronDown 
-            size={16} 
-            className={`text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
-              state.dropdownOpen ? 'rotate-180' : ''
-            }`} 
+      <div className={`relative w-full ${className}`}>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 transition-all duration-300 min-w-0">
+          <Avatar 
+            user={user}
+            size="md"
+            onClick={handleProfileClick}
+            ariaLabel={`${displayName}'s profile`}
           />
-        </button>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
+              {displayName}
+            </p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 break-all">
+              {user.email}
+            </p>
+            {user.auth_provider === 'google' && (
+              <div className="flex items-center gap-1 mt-1">
+                <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-red-500"></div>
+                <span className="text-xs text-neutral-400">Google</span>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleDropdownToggle}
+            className="p-2 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors duration-200 flex-shrink-0"
+            aria-label="User menu"
+          >
+            <ChevronDown 
+              size={16} 
+              className={`text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
+                state.dropdownOpen ? 'rotate-180' : ''
+              }`} 
+            />
+          </button>
+        </div>
         
         {/* Mobile dropdown menu with animation */}
         {state.dropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 mx-3 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 z-50 animate-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 z-50 animate-in slide-in-from-top-2 duration-200">
             <div className="py-2">
               <button
                 onClick={handleProfileClick}
-                className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors duration-200"
+                className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors duration-200"
               >
                 <UserIcon size={16} />
                 View Profile
               </button>
               <button
-                onClick={() => alert('Settings coming soon!')}
-                className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors duration-200"
-              >
-                <Settings size={16} />
-                Settings
-              </button>
-              <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
-              <button
                 onClick={handleLogoutClick}
-                className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
+                className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
               >
                 <LogOut size={16} />
                 Sign Out
@@ -209,7 +214,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
                 <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
                   {displayName}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 break-all">
                   {user.email}
                 </p>
                 {user.auth_provider === 'google' && (
@@ -230,13 +235,6 @@ export const UserContainer: React.FC<UserContainerProps> = ({
             >
               <UserIcon size={16} />
               View Profile
-            </button>
-            <button
-              onClick={() => alert('Settings coming soon!')}
-              className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors duration-200"
-            >
-              <Settings size={16} />
-              Settings
             </button>
             <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
             <button

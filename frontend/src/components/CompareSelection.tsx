@@ -19,8 +19,6 @@ const CompareSelection: React.FC<CompareSelectionProps> = ({
   onCompareSelected,
   maxPhones = 4,
 }) => {
-  const themeClasses = getThemeClasses(darkMode);
-  
   if (selectedPhones.length === 0) {
     return null;
   }

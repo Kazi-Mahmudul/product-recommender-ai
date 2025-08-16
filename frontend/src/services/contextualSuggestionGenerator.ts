@@ -383,11 +383,6 @@ export class ContextualSuggestionGenerator {
   ): ContextualSuggestion[] {
     const suggestions: ContextualSuggestion[] = [];
     const phoneNames = context.phones.map(p => p.name);
-    
-    // Get phone names from context for reference
-    const contextPhoneNames = phoneContext.length > 0 
-      ? phoneContext.flatMap(ctx => ctx.phones.map(p => p.name))
-      : phoneNames;
 
     // Camera-focused suggestions
     if (context.missingFeatures.includes('camera') || context.userIntent === 'camera') {

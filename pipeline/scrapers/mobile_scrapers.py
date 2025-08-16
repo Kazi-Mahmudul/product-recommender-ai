@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-MobileDokan Web Scraper for Pipeline Integration
+Enhanced MobileDokan Web Scraper with Integrated Pipeline
 
-This script is based on the existing manual scraper (data/mobiledokan_scraper.py)
-but adapted for pipeline integration with database operations.
-It maintains full compatibility with the existing phone table structure.
+This script scrapes mobile phone data from MobileDokan and automatically applies
+the enhanced pipeline transformation (cleaning, feature engineering, quality validation)
+before storing in the database.
 """
 
 import requests
@@ -20,6 +20,25 @@ import re
 import psycopg2
 from typing import Dict, Any, List, Optional, Set
 import logging
+import sys
+
+# Add services to path for pipeline integration
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services', 'processor'))
+
+# Import enhanced pipeline services
+try:
+    from data_cleaner import DataCleaner
+    from feature_engineer import FeatureEngineer
+    from data_quality_validator import DataQualityValidator
+    from database_updater import DatabaseUpdater
+    PIPELINE_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("✅ Enhanced pipeline services loaded successfully")
+except ImportError as e:
+    PIPELINE_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"⚠️ Enhanced pipeline services not available: {e}")
+    logger.warning("   Falling back to basic database operations")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -580,13 +599,22 @@ def get_product_specs(url, rate_limiter=None):
 
 class MobileDokanScraper:
     """
-    MobileDokan scraper class for pipeline integration
+    Enhanced MobileDokan scraper class with integrated pipeline processing
     """
     
     def __init__(self, database_url: str = None):
         self.database_url = database_url
         self.rate_limiter = RateLimiter(requests_per_minute=30)
-        logger.info("MobileDokan scraper initialized")
+        
+        # Initialize enhanced pipeline services if available
+        if PIPELINE_AVAILABLE:
+            self.data_cleaner = DataCleaner()
+            self.feature_engineer = FeatureEngineer()
+            self.quality_validator = DataQualityValidator()
+            self.database_updater = DatabaseUpdater()
+            logger.info("✅ MobileDokan scraper initialized with ENHANCED PIPELINE")
+        else:
+            logger.info("⚠️ MobileDokan scraper initialized with BASIC PIPELINE (fallback mode)")
     
     def get_database_connection(self):
         """Get database connection"""
@@ -602,32 +630,41 @@ class MobileDokanScraper:
         
         return psycopg2.connect(self.database_url)
     
-    def scrape_and_store(self, max_pages: int = None, pipeline_run_id: str = None, check_updates: bool = True) -> Dict[str, Any]:
+    def scrape_and_store(self, max_pages: int = None, pipeline_run_id: str = None, check_updates: bool = True, batch_size: int = 50) -> Dict[str, Any]:
         """
-        Scrape mobile phones and store directly in database
+        Scrape mobile phones and store with enhanced pipeline processing
         
         Args:
             max_pages: Maximum number of pages to scrape (None = scrape ALL pages)
             pipeline_run_id: Pipeline run ID for tracking
             check_updates: Whether to check existing products for updates
+            batch_size: Number of products to process in each batch
             
         Returns:
             Dictionary with scraping results
         """
+        if pipeline_run_id is None:
+            from datetime import datetime
+            pipeline_run_id = f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
         if max_pages is None:
-            logger.info(f"Starting COMPLETE MobileDokan scraping (ALL PAGES, check_updates: {check_updates})")
+            logger.info(f"🚀 Starting COMPLETE MobileDokan scraping with ENHANCED PIPELINE")
         else:
-            logger.info(f"Starting MobileDokan scraping (max_pages: {max_pages}, check_updates: {check_updates})")
+            logger.info(f"🚀 Starting MobileDokan scraping (max_pages: {max_pages}) with ENHANCED PIPELINE")
+        
+        logger.info(f"   Pipeline Run ID: {pipeline_run_id}")
+        logger.info(f"   Enhanced Pipeline: {'✅ ENABLED' if PIPELINE_AVAILABLE else '❌ DISABLED (fallback mode)'}")
+        logger.info(f"   Batch Size: {batch_size}")
+        logger.info(f"   Check Updates: {check_updates}")
         
         # Collect all product links from ALL pages
         all_product_links = []
         page = 1
         consecutive_empty_pages = 0
-        max_consecutive_empty = 5  # Stop after 5 consecutive empty pages (more robust detection)
+        max_consecutive_empty = 5
         total_pages_scraped = 0
         
         while True:
-            # Check if we've hit the max_pages limit (if specified)
             if max_pages is not None and page > max_pages:
                 logger.info(f"Reached maximum page limit of {max_pages}")
                 break
@@ -645,44 +682,31 @@ class MobileDokanScraper:
                     logger.info(f"   Last page with products: {page - consecutive_empty_pages}")
                     break
                     
-                # Continue to next page even if this one is empty
                 logger.info(f"   Continuing to check page {page + 1}...")
                 page += 1
-                time.sleep(2)  # Longer delay for empty pages
+                time.sleep(2)
                 continue
             
-            # Found products on this page
-            consecutive_empty_pages = 0  # Reset counter
+            consecutive_empty_pages = 0
             all_product_links.extend(links)
             total_pages_scraped += 1
             logger.info(f"  ✅ Found {len(links)} product links on page {page} (Total pages with products: {total_pages_scraped})")
             
-            # Log progress every 25 pages
             if total_pages_scraped % 25 == 0:
                 logger.info(f"📊 PROGRESS UPDATE: Scraped {total_pages_scraped} pages, found {len(all_product_links)} total products")
             
             page += 1
-            time.sleep(1)  # Be respectful to the server
+            time.sleep(1)
         
         # Remove duplicates
         unique_links = list(dict.fromkeys(all_product_links))
         
-        # Log comprehensive discovery results
         logger.info(f"🎯 DISCOVERY COMPLETE!")
-        logger.info(f"   📄 Total pages checked: {page - 1}")
+        logger.info(f"   � Total p ages checked: {page - 1}")
         logger.info(f"   ✅ Pages with products: {total_pages_scraped}")
         logger.info(f"   📱 Total product links found: {len(all_product_links)}")
         logger.info(f"   🔗 Unique product links: {len(unique_links)}")
         logger.info(f"   📊 Average products per page: {len(unique_links) / total_pages_scraped if total_pages_scraped > 0 else 0:.1f}")
-        
-        if total_pages_scraped >= 200:
-            logger.info(f"   🌟 MASSIVE CATALOG: Found 200+ pages! This is a comprehensive scraping.")
-        elif total_pages_scraped >= 100:
-            logger.info(f"   🚀 LARGE CATALOG: Found 100+ pages with products.")
-        elif total_pages_scraped >= 50:
-            logger.info(f"   📈 MEDIUM CATALOG: Found 50+ pages with products.")
-        else:
-            logger.info(f"   📋 SMALL CATALOG: Found {total_pages_scraped} pages with products.")
         
         # Get existing URLs and their last update times
         existing_data = self.get_existing_urls_with_dates()
@@ -694,7 +718,6 @@ class MobileDokanScraper:
         existing_urls_to_check = []
         
         if check_updates:
-            # Check existing URLs that haven't been updated in the last 24 hours
             from datetime import datetime, timedelta
             cutoff_time = datetime.now() - timedelta(hours=24)
             
@@ -708,51 +731,237 @@ class MobileDokanScraper:
         
         logger.info(f"Will process {len(new_urls)} new URLs and {len(existing_urls_to_check)} existing URLs")
         
-        # Process new products
-        processed_count = 0
-        inserted_count = 0
-        updated_count = 0
-        errors = []
-        
-        # Process new URLs
+        # Process products in batches with enhanced pipeline
         all_urls_to_process = new_urls + existing_urls_to_check
+        total_processed = 0
+        total_inserted = 0
+        total_updated = 0
+        total_errors = []
         
-        for i, url in enumerate(tqdm(all_urls_to_process, desc="Scraping products")):
-            try:
-                product_data = get_product_specs(url, self.rate_limiter)
-                if product_data:
-                    # Store in database
-                    result = self.store_product_in_database(product_data, pipeline_run_id)
-                    if result == 'inserted':
-                        inserted_count += 1
-                    elif result == 'updated':
-                        updated_count += 1
-                    
-                    processed_count += 1
-                    
-                    # Log progress every 10 products
-                    if (i + 1) % 10 == 0:
-                        logger.info(f"Processed {i + 1}/{len(all_urls_to_process)} products")
+        # Process in batches
+        for batch_start in range(0, len(all_urls_to_process), batch_size):
+            batch_end = min(batch_start + batch_size, len(all_urls_to_process))
+            batch_urls = all_urls_to_process[batch_start:batch_end]
+            
+            logger.info(f"🔄 Processing batch {batch_start//batch_size + 1}/{(len(all_urls_to_process) + batch_size - 1)//batch_size} ({len(batch_urls)} products)")
+            
+            # Scrape batch data
+            batch_data = []
+            for i, url in enumerate(batch_urls):
+                try:
+                    product_data = get_product_specs(url, self.rate_limiter)
+                    if product_data:
+                        batch_data.append(product_data)
                         
-            except Exception as e:
-                error_msg = f"Error processing {url}: {str(e)}"
-                errors.append(error_msg)
-                logger.error(error_msg)
+                    if (i + 1) % 10 == 0:
+                        logger.info(f"  Scraped {i + 1}/{len(batch_urls)} products in current batch")
+                        
+                except Exception as e:
+                    error_msg = f"Error scraping {url}: {str(e)}"
+                    total_errors.append(error_msg)
+                    logger.error(error_msg)
+            
+            if not batch_data:
+                logger.warning(f"No valid data in batch {batch_start//batch_size + 1}")
+                continue
+            
+            # Convert to DataFrame for pipeline processing
+            batch_df = self.convert_scraped_data_to_dataframe(batch_data, pipeline_run_id)
+            
+            if PIPELINE_AVAILABLE:
+                # Apply enhanced pipeline
+                result = self.process_with_enhanced_pipeline(batch_df, pipeline_run_id)
+                total_processed += result['processed']
+                total_inserted += result['inserted']
+                total_updated += result['updated']
+                total_errors.extend(result['errors'])
+            else:
+                # Fallback to basic processing
+                result = self.process_with_basic_pipeline(batch_df, pipeline_run_id)
+                total_processed += result['processed']
+                total_inserted += result['inserted']
+                total_updated += result['updated']
+                total_errors.extend(result['errors'])
+            
+            logger.info(f"  ✅ Batch {batch_start//batch_size + 1} completed: {result['processed']} processed, {result['inserted']} inserted, {result['updated']} updated")
         
-        result = {
+        final_result = {
             'status': 'success',
+            'pipeline_run_id': pipeline_run_id,
+            'enhanced_pipeline_used': PIPELINE_AVAILABLE,
             'total_links_found': len(unique_links),
             'new_links_processed': len(new_urls),
             'existing_links_checked': len(existing_urls_to_check),
-            'products_processed': processed_count,
-            'products_inserted': inserted_count,
-            'products_updated': updated_count,
-            'errors': errors,
-            'error_count': len(errors)
+            'products_processed': total_processed,
+            'products_inserted': total_inserted,
+            'products_updated': total_updated,
+            'errors': total_errors,
+            'error_count': len(total_errors),
+            'batch_size': batch_size,
+            'total_batches': (len(all_urls_to_process) + batch_size - 1) // batch_size
         }
         
-        logger.info(f"Scraping completed: {processed_count} products processed, {inserted_count} inserted, {updated_count} updated")
-        return result
+        logger.info(f"🎉 SCRAPING COMPLETED!")
+        logger.info(f"   Pipeline Run ID: {pipeline_run_id}")
+        logger.info(f"   Enhanced Pipeline: {'✅ USED' if PIPELINE_AVAILABLE else '❌ FALLBACK USED'}")
+        logger.info(f"   Products processed: {total_processed}")
+        logger.info(f"   Products inserted: {total_inserted}")
+        logger.info(f"   Products updated: {total_updated}")
+        logger.info(f"   Errors: {len(total_errors)}")
+        
+        return final_result
+    
+    def convert_scraped_data_to_dataframe(self, scraped_data: List[Dict[str, Any]], pipeline_run_id: str) -> pd.DataFrame:
+        """Convert scraped product data to DataFrame format for pipeline processing"""
+        rows = []
+        
+        for product in scraped_data:
+            # Create a row with all the scraped data
+            row = {
+                'name': product.get('name'),
+                'brand': product.get('brand'),
+                'model': product.get('model'),
+                'price': product.get('price'),
+                'url': product.get('url'),
+                'img_url': product.get('image_url'),
+                'scraped_at': datetime.now(),
+                'pipeline_run_id': pipeline_run_id,
+                'data_source': 'MobileDokan',
+                'is_pipeline_managed': True
+            }
+            
+            # Add all specs data
+            if 'specs' in product and product['specs']:
+                for key, value in product['specs'].items():
+                    if value is not None:
+                        row[key] = value
+            
+            rows.append(row)
+        
+        return pd.DataFrame(rows)
+    
+    def process_with_enhanced_pipeline(self, df: pd.DataFrame, pipeline_run_id: str) -> Dict[str, Any]:
+        """Process DataFrame through the enhanced pipeline"""
+        try:
+            logger.info(f"🔄 Applying enhanced pipeline to {len(df)} products...")
+            
+            # Step 1: Data Cleaning
+            logger.info("  🧹 Step 1: Data cleaning...")
+            cleaned_df, cleaning_issues = self.data_cleaner.clean_dataframe(df)
+            logger.info(f"     Cleaning completed: {len(cleaning_issues)} issues found")
+            
+            # Step 2: Feature Engineering
+            logger.info("  ⚙️ Step 2: Feature engineering...")
+            enhanced_df = self.feature_engineer.engineer_features(cleaned_df)
+            logger.info(f"     Feature engineering completed: {len(enhanced_df.columns)} total columns")
+            
+            # Step 3: Quality Validation
+            logger.info("  ✅ Step 3: Quality validation...")
+            passed, quality_report = self.quality_validator.validate_pipeline_data(enhanced_df)
+            quality_score = quality_report['overall_quality_score']
+            logger.info(f"     Quality validation: {'PASSED' if passed else 'WARNING'} (Score: {quality_score:.2f})")
+            
+            # Step 4: Database Update
+            logger.info("  💾 Step 4: Database update...")
+            success, db_results = self.database_updater.update_with_transaction(enhanced_df, pipeline_run_id)
+            
+            if success:
+                inserted = db_results['results']['inserted']
+                updated = db_results['results']['updated']
+                errors = db_results['results']['errors']
+                
+                logger.info(f"     Database update completed: {inserted} inserted, {updated} updated, {errors} errors")
+                
+                return {
+                    'processed': len(df),
+                    'inserted': inserted,
+                    'updated': updated,
+                    'errors': [],
+                    'quality_score': quality_score,
+                    'cleaning_issues': len(cleaning_issues)
+                }
+            else:
+                error_msg = f"Database update failed: {db_results.get('error', 'Unknown error')}"
+                logger.error(f"     {error_msg}")
+                return {
+                    'processed': 0,
+                    'inserted': 0,
+                    'updated': 0,
+                    'errors': [error_msg],
+                    'quality_score': quality_score,
+                    'cleaning_issues': len(cleaning_issues)
+                }
+                
+        except Exception as e:
+            error_msg = f"Enhanced pipeline processing failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'processed': 0,
+                'inserted': 0,
+                'updated': 0,
+                'errors': [error_msg],
+                'quality_score': 0.0,
+                'cleaning_issues': 0
+            }
+    
+    def process_with_basic_pipeline(self, df: pd.DataFrame, pipeline_run_id: str) -> Dict[str, Any]:
+        """Fallback processing without enhanced pipeline"""
+        try:
+            logger.info(f"🔄 Applying basic pipeline to {len(df)} products...")
+            
+            processed = 0
+            inserted = 0
+            updated = 0
+            errors = []
+            
+            # Process each row individually with basic database operations
+            for _, row in df.iterrows():
+                try:
+                    product_data = {
+                        'name': row.get('name'),
+                        'brand': row.get('brand'),
+                        'model': row.get('model'),
+                        'price': row.get('price'),
+                        'url': row.get('url'),
+                        'image_url': row.get('img_url'),
+                        'specs': {k: v for k, v in row.items() if k not in ['name', 'brand', 'model', 'price', 'url', 'img_url', 'scraped_at', 'pipeline_run_id', 'data_source', 'is_pipeline_managed']}
+                    }
+                    
+                    result = self.store_product_in_database(product_data, pipeline_run_id)
+                    if result == 'inserted':
+                        inserted += 1
+                    elif result == 'updated':
+                        updated += 1
+                    
+                    processed += 1
+                    
+                except Exception as e:
+                    error_msg = f"Error processing product {row.get('name', 'Unknown')}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+            
+            logger.info(f"  Basic pipeline completed: {processed} processed, {inserted} inserted, {updated} updated")
+            
+            return {
+                'processed': processed,
+                'inserted': inserted,
+                'updated': updated,
+                'errors': errors,
+                'quality_score': 0.8,  # Assume basic quality
+                'cleaning_issues': 0
+            }
+            
+        except Exception as e:
+            error_msg = f"Basic pipeline processing failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'processed': 0,
+                'inserted': 0,
+                'updated': 0,
+                'errors': [error_msg],
+                'quality_score': 0.0,
+                'cleaning_issues': 0
+            }
     
     def get_existing_urls(self) -> Set[str]:
         """Get existing URLs from database"""

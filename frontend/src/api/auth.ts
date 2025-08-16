@@ -42,6 +42,18 @@ export async function resendVerification(email: string) {
   return res.json();
 }
 
+export async function updateProfile(token: string, profileData: { first_name?: string; last_name?: string }) {
+  const res = await fetch(`${API_BASE}/profile`, {
+    method: "PUT",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}` 
+    },
+    body: JSON.stringify(profileData)
+  });
+  return res.json();
+}
+
 export async function logout() {
   // For JWT, just remove token on client
   return { success: true };

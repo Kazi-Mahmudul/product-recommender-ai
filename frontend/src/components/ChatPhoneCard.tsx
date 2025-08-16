@@ -16,9 +16,7 @@ interface ChatPhoneCardProps {
   const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode, 
     isTopResult = false }) => {
     const [showTooltip, setShowTooltip] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
     const navigate = useNavigate();
-    const themeClasses = getThemeClasses(darkMode);
 
   // Use comparison context
   const { addPhone, removePhone, isPhoneSelected } = useComparison();

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 import { Phone } from "../api/phones";
 import {
   parseComparisonUrl,
@@ -24,7 +24,6 @@ import "react-toastify/dist/ReactToastify.css";
 const ComparePage: React.FC = () => {
   const { phoneIdentifiers } = useParams<{ phoneIdentifiers?: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   // Initialize comparison state
   const [comparisonState, comparisonActions] = useComparisonState();

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   getComparisonHistory,
   clearComparisonHistory,
-  ComparisonHistoryItem as ExportComparisonHistoryItem,
 } from "../../utils/exportUtils";
 
 interface ComparisonHistoryItem {
