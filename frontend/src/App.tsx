@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import TrendingPhones from "./components/TrendingPhones";
+import TopSearchedPhones from "./components/TopSearchedPhones";
 import UpcomingPhones from "./components/UpcomingPhones";
 import WhyChooseEpick from "./components/WhyChooseEpick";
 
@@ -449,6 +450,8 @@ function App() {
               </div>
             </div>
           </section>
+          <TopSearchedPhones darkMode={darkMode} />
+          <div className="my-8" />
           <TrendingPhones darkMode={darkMode} />
           <div className="my-8" />
           <UpcomingPhones darkMode={darkMode} />

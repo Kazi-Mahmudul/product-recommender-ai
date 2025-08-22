@@ -13,3 +13,4 @@ psycopg2-binary==2.9.9
 alembic==1.12.0
 tenacity==8.2.3
 python-dateutil==2.8.2
+pytrends==2.4.1

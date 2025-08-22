@@ -613,6 +613,64 @@ validate_sync = BashOperator(
     doc_md="Validate sync results and database consistency (placeholder)"
 )
 
+# Top searched phones update task
+def run_top_searched_pipeline(**context) -> Dict[str, Any]:
+    """
+    Run the top searched phones pipeline as an Airflow task.
+    """
+    try:
+        print("Starting top searched phones pipeline...")
+        
+        # Add the project root to the Python path
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        sys.path.insert(0, os.path.join(project_root, '..'))
+        
+        from pipeline.top_searched import TopSearchedPipeline
+        
+        # Create and run the pipeline
+        pipeline = TopSearchedPipeline()
+        pipeline.run(limit=10)
+        
+        result = {
+            'status': 'success',
+            'message': 'Top searched phones pipeline completed successfully',
+            'timestamp': context['execution_date'].isoformat(),
+            'records_updated': 10  # We're updating 10 records
+        }
+        
+        # Store result in XCom for downstream tasks
+        context['task_instance'].xcom_push(key='top_searched_result', value=result)
+        
+        print("Top searched phones pipeline completed successfully")
+        return result
+        
+    except Exception as e:
+        error_msg = f"Top searched phones pipeline failed: {str(e)}"
+        print(error_msg)
+        
+        result = {
+            'status': 'failed',
+            'error': str(e),
+            'message': error_msg,
+            'timestamp': context['execution_date'].isoformat()
+        }
+        
+        # Store error result in XCom
+        context['task_instance'].xcom_push(key='top_searched_result', value=result)
+        
+        # Re-raise the exception so Airflow can handle the failure
+        raise Exception(error_msg)
+
+# Top searched phones update task
+update_top_searched = PythonOperator(
+    task_id='update_top_searched_phones',
+    python_callable=run_top_searched_pipeline,
+    dag=dag,
+    doc_md="Update top searched phones based on Google Trends data"
+)
+
 # Pipeline reporting and cleanup
 generate_report = PythonOperator(
     task_id='generate_pipeline_report',
@@ -640,8 +698,8 @@ validate_scraping >> processor_health_check >> trigger_processing_task >> valida
 # Sync flow
 validate_processing >> sync_health_check >> trigger_sync_task >> validate_sync
 
-# Final reporting
-validate_sync >> generate_report >> end_pipeline
+# Top searched phones update (after sync, before reporting)
+validate_sync >> update_top_searched >> generate_report >> end_pipeline
 
 # Add failure handling
 def handle_failure(context):
