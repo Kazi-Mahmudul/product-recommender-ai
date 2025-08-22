@@ -495,7 +495,7 @@ class FeatureEngineer:
         
         def is_popular_brand(name: str) -> bool:
             if pd.isna(name): return False
-            brands = ["samsung","apple","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia"]
+            brands = ["samsung","apple","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia","symphony","honor","nothing","iqoo"]
             return any(b in str(name).lower() for b in brands)
         
         # === Brand & popularity ===
