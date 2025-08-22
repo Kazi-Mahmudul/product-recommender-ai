@@ -44,10 +44,11 @@ class ExplicitContextualQueryRequest(BaseModel):
 class PhoneResolutionRequest(BaseModel):
     phone_names: List[str]
 
-@router.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "message": "Natural language processing is available"}
+# This endpoint was moved to the main health check endpoint
+# @router.get("/health")
+# async def health_check():
+#     """Health check endpoint"""
+#     return {"status": "healthy", "message": "Natural language processing is available"}
 
 @router.get("/test")
 async def test_endpoint():
