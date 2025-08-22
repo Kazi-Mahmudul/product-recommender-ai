@@ -25,6 +25,14 @@ logger.info("Starting application...")
 logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'Not set')}")
 logger.info(f"Port: {os.getenv('PORT', 'Not set')}")
 
+# Try to import and initialize database
+try:
+    from app.core.database import engine
+    logger.info("Database engine initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize database engine: {e}")
+    # We'll continue anyway as the app might still be able to start
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
@@ -40,8 +48,16 @@ scheduler = BackgroundScheduler()
 async def startup_event():
     logger.info("Starting up application...")
     logger.info(f"PORT environment variable: {os.getenv('PORT')}")
-    scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
-    scheduler.start()
+    logger.info(f"ENVIRONMENT: {os.getenv('ENVIRONMENT')}")
+    
+    try:
+        # Try to start the scheduler
+        scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
+        scheduler.start()
+        logger.info("Scheduler started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
+    
     logger.info("Application startup complete")
 
 @app.on_event("shutdown")
@@ -65,12 +81,28 @@ app.include_router(api_router, prefix=settings.API_PREFIX)
 
 # Health check endpoint for GCP Cloud Run
 @app.get("/health")
+@app.get("/api/v1/health")
 async def health_check():
     """
     Health check endpoint for GCP Cloud Run.
     Returns 200 OK if the service is running properly.
     """
-    return {"status": "healthy", "timestamp": time.time()}
+    # Try to check database connection
+    db_status = "unknown"
+    try:
+        from app.core.database import engine
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            db_status = "healthy"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy", 
+        "timestamp": time.time(),
+        "database": db_status,
+        "port": os.getenv("PORT", "Not set")
+    }
 
 @app.get("/")
 def root():
@@ -81,8 +113,16 @@ def root():
         "status": "ok",
         "message": f"Welcome to {settings.PROJECT_NAME}",
         "version": settings.PROJECT_VERSION,
-        "docs": f"{settings.API_PREFIX}/docs"
+        "docs": f"{settings.API_PREFIX}/docs",
+        "port": os.getenv("PORT", "Not set")
     }
+
+@app.get("/startup-test")
+def startup_test():
+    """
+    Simple test endpoint to verify the application is running
+    """
+    return {"status": "ok", "message": "Application is running correctly", "port": os.getenv("PORT", "Not set")}
 
 @app.get(f"{settings.API_PREFIX}/test-db")
 async def test_db_connection(db: Session = Depends(get_db)):
@@ -128,22 +168,27 @@ async def test_db_connection(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    
+    # Get port from environment variable or default to 8080
+    port = int(os.getenv("PORT", 8080))
+    
     # Check if running in production environment
     if os.getenv("ENVIRONMENT") == "production":
         # Use a simpler configuration for production
         uvicorn.run(
             "app.main:app",
             host="0.0.0.0",
-            port=int(os.getenv("PORT", 8000)),
+            port=port,
             workers=4,  # Use multiple workers in production
-            log_level=settings.LOG_LEVEL.lower(),
+            log_level="info",
         )
     else:
         # Development configuration with reload
         uvicorn.run(
             "app.main:app",
             host=os.getenv("HOST", "0.0.0.0"),
-            port=int(os.getenv("PORT", 8000)),
+            port=port,
             workers=int(os.getenv("WORKERS", 1)),
             reload=settings.DEBUG,
             log_level=settings.LOG_LEVEL.lower(),
