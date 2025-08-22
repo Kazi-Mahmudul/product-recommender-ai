@@ -20,6 +20,11 @@ load_dotenv(dotenv_path=".env")
 setup_logging()
 logger = get_logger(__name__)
 
+# Log startup information
+logger.info("Starting application...")
+logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'Not set')}")
+logger.info(f"Port: {os.getenv('PORT', 'Not set')}")
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
@@ -34,6 +39,7 @@ scheduler = BackgroundScheduler()
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting up application...")
+    logger.info(f"PORT environment variable: {os.getenv('PORT')}")
     scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
     scheduler.start()
     logger.info("Application startup complete")
@@ -122,12 +128,24 @@ async def test_db_connection(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", 8000)),
-        workers=int(os.getenv("WORKERS", 1)),
-        reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower(),
-        access_log=settings.DEBUG
-    )
+    # Check if running in production environment
+    if os.getenv("ENVIRONMENT") == "production":
+        # Use a simpler configuration for production
+        uvicorn.run(
+            "app.main:app",
+            host="0.0.0.0",
+            port=int(os.getenv("PORT", 8000)),
+            workers=4,  # Use multiple workers in production
+            log_level=settings.LOG_LEVEL.lower(),
+        )
+    else:
+        # Development configuration with reload
+        uvicorn.run(
+            "app.main:app",
+            host=os.getenv("HOST", "0.0.0.0"),
+            port=int(os.getenv("PORT", 8000)),
+            workers=int(os.getenv("WORKERS", 1)),
+            reload=settings.DEBUG,
+            log_level=settings.LOG_LEVEL.lower(),
+            access_log=settings.DEBUG
+        )
