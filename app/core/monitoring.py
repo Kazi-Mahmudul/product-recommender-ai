@@ -161,6 +161,10 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 
 @event.listens_for(Engine, "after_cursor_execute")
 def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    # Check if query_start_time exists
+    if 'query_start_time' not in conn.info or not conn.info['query_start_time']:
+        return
+        
     total_time = (time.time() - conn.info['query_start_time'].pop()) * 1000  # Convert to ms
     
     # Log and store slow queries
