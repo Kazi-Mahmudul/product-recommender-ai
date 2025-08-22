@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import time
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -55,6 +56,15 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_PREFIX)
+
+# Health check endpoint for GCP Cloud Run
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for GCP Cloud Run.
+    Returns 200 OK if the service is running properly.
+    """
+    return {"status": "healthy", "timestamp": time.time()}
 
 @app.get("/")
 def root():
