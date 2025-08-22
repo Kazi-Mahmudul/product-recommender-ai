@@ -8,8 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 def cleanup_expired_sessions():
-    db: Session = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         now = datetime.utcnow()
         expired_sessions = db.query(ComparisonSession).filter(ComparisonSession.expires_at < now).all()
         for session in expired_sessions:
@@ -18,5 +19,8 @@ def cleanup_expired_sessions():
         logger.info(f"Cleaned up {len(expired_sessions)} expired comparison sessions.")
     except Exception as e:
         logger.error(f"Error cleaning up expired sessions: {e}")
+        if db:
+            db.rollback()
     finally:
-        db.close()
+        if db:
+            db.close()

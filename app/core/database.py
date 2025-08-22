@@ -33,6 +33,11 @@ def create_database_engine(database_url: str, is_fallback: bool = False):
     engine_name = "fallback" if is_fallback else "primary"
     logger.info(f"Creating {engine_name} database engine for: {sqlalchemy_url.split('@')[0]}@***")
     
+    # Add additional connection arguments for better reliability
+    connect_args.update({
+        "connect_timeout": 10,  # 10 second connection timeout
+    })
+    
     return create_engine(
         sqlalchemy_url,
         echo=settings.DEBUG,  # Only enable SQL logging in debug mode
@@ -143,3 +148,6 @@ try:
 except Exception as e:
     logger.error(f"❌ Database verification failed: {str(e)}")
     # Don't raise here, let the app start and handle errors gracefully
+    # But log the full traceback for debugging
+    import traceback
+    logger.error(f"Full traceback: {traceback.format_exc()}")
