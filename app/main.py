@@ -90,18 +90,26 @@ async def health_check():
     # Try to check database connection
     db_status = "unknown"
     try:
-        from app.core.database import engine
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-            db_status = "healthy"
+        from app.core.database import engine, current_db_type
+        if current_db_type != "dummy":
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                db_status = "healthy"
+        else:
+            db_status = "dummy (no connection)"
     except Exception as e:
-        db_status = f"error: {str(e)}"
+        # In production, we might still want to report as healthy even without database
+        if os.getenv("ENVIRONMENT") == "production":
+            db_status = f"error (but continuing in production): {str(e)}"
+        else:
+            db_status = f"error: {str(e)}"
     
     return {
         "status": "healthy", 
         "timestamp": time.time(),
         "database": db_status,
-        "port": os.getenv("PORT", "Not set")
+        "port": os.getenv("PORT", "Not set"),
+        "environment": os.getenv("ENVIRONMENT", "Not set")
     }
 
 @app.get("/")

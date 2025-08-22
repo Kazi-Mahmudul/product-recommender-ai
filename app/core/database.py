@@ -34,6 +34,7 @@ def create_database_engine(database_url: str, is_fallback: bool = False):
     logger.info(f"Creating {engine_name} database engine for: {sqlalchemy_url.split('@')[0]}@***")
     
     # Add additional connection arguments for better reliability
+    # Note: command_timeout is not supported by psycopg2, so we only use connect_timeout
     connect_args.update({
         "connect_timeout": 10,  # 10 second connection timeout
     })
@@ -88,7 +89,15 @@ if engine is None and hasattr(settings, 'LOCAL_DATABASE_URL') and settings.LOCAL
 
 # Final check
 if engine is None:
-    raise RuntimeError("❌ Could not establish connection to any database. Please check your database configuration.")
+    # In production environments, we might want to continue even without database
+    if os.getenv("ENVIRONMENT") == "production":
+        logger.warning("⚠️  No database connection established, but continuing in production mode")
+        # Create a dummy engine for now
+        from sqlalchemy import create_engine
+        engine = create_engine("sqlite:///:memory:")  # In-memory SQLite as fallback
+        current_db_type = "dummy"
+    else:
+        raise RuntimeError("❌ Could not establish connection to any database. Please check your database configuration.")
 
 # Create SessionLocal class
 SessionLocal = sessionmaker(
@@ -119,35 +128,49 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 # Final connection test and table verification
-try:
-    with engine.connect() as conn:
-        logger.info(f"📊 Database connection established ({current_db_type})")
+def verify_database_connection():
+    """Verify database connection in a separate thread to avoid blocking startup"""
+    # Skip verification in production if we're using a dummy database
+    if current_db_type == "dummy":
+        logger.info("Skipping database verification for dummy database in production")
+        return
         
-        # Check if phones table exists
-        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'phones')"))
-        if result.scalar():
-            result = conn.execute(text("SELECT COUNT(*) FROM phones"))
-            count = result.scalar()
-            logger.info(f"📱 Found {count} phones in database")
-        else:
-            logger.warning("⚠️  phones table does not exist yet")
-        
-        # Check if comparison tables exist
-        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'comparison_sessions')"))
-        if result.scalar():
-            logger.info("✅ comparison_sessions table exists")
-        else:
-            logger.warning("⚠️  comparison_sessions table does not exist")
+    try:
+        # Add a timeout to the connection
+        with engine.connect() as conn:
+            conn = conn.execution_options(timeout=10)  # 10 second timeout
+            logger.info(f"📊 Database connection established ({current_db_type})")
             
-        result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'comparison_items')"))
-        if result.scalar():
-            logger.info("✅ comparison_items table exists")
-        else:
-            logger.warning("⚠️  comparison_items table does not exist")
+            # Check if phones table exists
+            result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'phones')"))
+            if result.scalar():
+                result = conn.execute(text("SELECT COUNT(*) FROM phones"))
+                count = result.scalar()
+                logger.info(f"📱 Found {count} phones in database")
+            else:
+                logger.warning("⚠️  phones table does not exist yet")
             
-except Exception as e:
-    logger.error(f"❌ Database verification failed: {str(e)}")
-    # Don't raise here, let the app start and handle errors gracefully
-    # But log the full traceback for debugging
-    import traceback
-    logger.error(f"Full traceback: {traceback.format_exc()}")
+            # Check if comparison tables exist
+            result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'comparison_sessions')"))
+            if result.scalar():
+                logger.info("✅ comparison_sessions table exists")
+            else:
+                logger.warning("⚠️  comparison_sessions table does not exist")
+                
+            result = conn.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'comparison_items')"))
+            if result.scalar():
+                logger.info("✅ comparison_items table exists")
+            else:
+                logger.warning("⚠️  comparison_items table does not exist")
+                
+    except Exception as e:
+        logger.error(f"❌ Database verification failed: {str(e)}")
+        # Don't raise here, let the app start and handle errors gracefully
+        # But log the full traceback for debugging
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+
+# Start database verification in a separate thread to avoid blocking startup
+import threading
+verification_thread = threading.Thread(target=verify_database_connection, daemon=True)
+verification_thread.start()
