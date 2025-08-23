@@ -18,7 +18,6 @@ import PhoneDetailsPage from "./pages/PhoneDetailsPage";
 import ComparePage from "./pages/ComparePage";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import DebugEnvVars from "./components/DebugEnvVars";
 import { ComparisonProvider } from "./context/ComparisonContext";
 import ComparisonWidget from "./components/ComparisonWidget";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -533,7 +532,6 @@ function App() {
       <div
         className={`min-h-screen w-full ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"}`}
       >
-        <DebugEnvVars />
         <Navbar
           onMenuClick={() => setSidebarOpen(true)}
           darkMode={darkMode}

@@ -41,16 +41,29 @@ class Settings(BaseSettings):
                 origins = [origin.strip() for origin in self._cors_origins_str.split(",")]
                 origins = [origin for origin in origins if origin]  # Filter out empty strings
             
-            # Ensure all origins use HTTPS in production (except localhost for development)
+            # Always ensure localhost origins are included for development
+            localhost_origins = [
+                "http://localhost:3000",
+                "http://localhost:8000",
+                "http://localhost:8080"
+            ]
+            
+            # Add localhost origins if not already present
+            for localhost_origin in localhost_origins:
+                if localhost_origin not in origins:
+                    origins.append(localhost_origin)
+            
+            # Ensure all non-localhost origins use HTTPS in production
             if os.getenv("ENVIRONMENT") == "production":
                 origins = [self._ensure_https_origin(origin) for origin in origins]
             
             return origins
         else:
-            # Default values
+            # Default values - always include localhost for development
             origins = [
                 "http://localhost:3000",
                 "http://localhost:8000", 
+                "http://localhost:8080",
                 "https://pickbd.vercel.app"
             ]
             
@@ -63,9 +76,16 @@ class Settings(BaseSettings):
     def _ensure_https_origin(self, origin: str) -> str:
         """
         Ensure origin uses HTTPS in production, except for localhost.
+        Always preserve localhost origins for development.
         """
-        if origin.startswith("http://") and not origin.startswith("http://localhost"):
+        # Always preserve localhost origins regardless of environment
+        if "localhost" in origin or "127.0.0.1" in origin:
+            return origin
+        
+        # Convert HTTP to HTTPS for non-localhost origins in production
+        if origin.startswith("http://"):
             return origin.replace("http://", "https://")
+        
         return origin
     
     # Redis cache settings

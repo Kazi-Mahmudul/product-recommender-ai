@@ -6,15 +6,10 @@ import {
 } from "../types/filters";
 
 // API_BASE is loaded from .env (REACT_APP_API_BASE) via process.env in Create React App
-// Ensure we always use HTTPS in production
-let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+// Force HTTPS in production with cache busting
+import { getSecureApiBase } from '../cache-buster';
 
-// Force HTTPS in production - generic safety check
-if (process.env.NODE_ENV === 'production' || window.location.protocol === 'https:') {
-  if (API_BASE.startsWith('http://')) {
-    API_BASE = API_BASE.replace('http://', 'https://');
-  }
-}
+const API_BASE = getSecureApiBase();
 
 // Debug logging in development
 if (process.env.NODE_ENV === 'development') {
