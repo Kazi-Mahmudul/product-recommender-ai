@@ -121,7 +121,7 @@ class ContextualAPIService {
   private retryDelay = 1000;
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    this.baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
     this.initializeSession();
   }
 
