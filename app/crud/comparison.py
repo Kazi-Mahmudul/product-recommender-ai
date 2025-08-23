@@ -2,6 +2,7 @@
 from sqlalchemy.orm import Session
 from app.models.comparison import ComparisonSession, ComparisonItem
 from app.schemas.comparison import ComparisonSessionCreate, ComparisonItemCreate
+from typing import Union, List
 import uuid
 
 def create_comparison_session(db: Session, session_id: uuid.UUID) -> ComparisonSession:
@@ -14,7 +15,7 @@ def create_comparison_session(db: Session, session_id: uuid.UUID) -> ComparisonS
 def get_comparison_session(db: Session, session_id: uuid.UUID) -> ComparisonSession:
     return db.query(ComparisonSession).filter(ComparisonSession.session_id == session_id).first()
 
-def add_comparison_item(db: Session, slug: str, session_id: uuid.UUID = None, user_id: int = None) -> ComparisonItem:
+def add_comparison_item(db: Session, slug: str, session_id: Union[uuid.UUID, None] = None, user_id: int = None) -> ComparisonItem:
     if session_id and user_id:
         raise ValueError("Cannot provide both session_id and user_id")
     if not session_id and not user_id:
@@ -26,14 +27,14 @@ def add_comparison_item(db: Session, slug: str, session_id: uuid.UUID = None, us
     db.refresh(db_item)
     return db_item
 
-def get_comparison_items(db: Session, session_id: uuid.UUID = None, user_id: int = None) -> list[ComparisonItem]:
+def get_comparison_items(db: Session, session_id: Union[uuid.UUID, None] = None, user_id: int = None) -> List[ComparisonItem]:
     if session_id:
         return db.query(ComparisonItem).filter(ComparisonItem.session_id == session_id).all()
     elif user_id:
         return db.query(ComparisonItem).filter(ComparisonItem.user_id == user_id).all()
     return []
 
-def remove_comparison_item(db: Session, slug: str, session_id: uuid.UUID = None, user_id: int = None):
+def remove_comparison_item(db: Session, slug: str, session_id: Union[uuid.UUID, None] = None, user_id: int = None):
     if session_id and user_id:
         raise ValueError("Cannot provide both session_id and user_id")
     if not session_id and not user_id:

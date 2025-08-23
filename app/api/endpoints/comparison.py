@@ -7,7 +7,7 @@ from app.schemas.comparison import ComparisonSession, ComparisonItem
 from app.utils.session_manager import SessionManager
 import uuid
 import logging
-from typing import List, Optional
+from typing import List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def create_session(response: Response, db: Session = Depends(deps.get_db)):
 @router.get("/session", response_model=ComparisonSession)
 def get_session(
     response: Response,
-    comparison_session_id: uuid.UUID | None = Cookie(None),
+    comparison_session_id: Union[uuid.UUID, None] = Cookie(None),
     db: Session = Depends(deps.get_db)
 ):
     try:
@@ -88,7 +88,7 @@ def get_session(
 def add_item(
     slug: str,
     response: Response,
-    comparison_session_id: uuid.UUID | None = Cookie(None),
+    comparison_session_id: Union[uuid.UUID, None] = Cookie(None),
     x_session_id: Optional[str] = Header(None),
     db: Session = Depends(deps.get_db)
 ):
@@ -119,7 +119,7 @@ def add_item(
 @router.delete("/items/{slug}")
 def remove_item(
     slug: str,
-    comparison_session_id: uuid.UUID | None = Cookie(None),
+    comparison_session_id: Union[uuid.UUID, None] = Cookie(None),
     x_session_id: Optional[str] = Header(None),
     db: Session = Depends(deps.get_db)
 ):
@@ -145,7 +145,7 @@ def remove_item(
 
 @router.get("/items", response_model=List[ComparisonItem])
 def get_items(
-    comparison_session_id: uuid.UUID | None = Cookie(None),
+    comparison_session_id: Union[uuid.UUID, None] = Cookie(None),
     x_session_id: Optional[str] = Header(None),
     db: Session = Depends(deps.get_db)
 ):
