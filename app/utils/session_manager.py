@@ -6,7 +6,7 @@ Handles both cookie-based and header-based session tracking
 import uuid
 import os
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 from fastapi import Response, Cookie, Header
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ class SessionManager:
         logger.info(f"Set session cookie: {session_id} (production: {is_production})")
     
     @staticmethod
-    def create_session_response(session_id: uuid.UUID) -> dict:
+    def create_session_response(session_id: uuid.UUID) -> Dict[str, Any]:
         """
         Create standardized session response
         

@@ -400,7 +400,7 @@ def generate_contextual_comparison_summary(phones: List[Dict], features: List[Di
     else:
         return generate_comparison_summary(phones, features)
 
-def generate_comparison_response(db: Session, query: str, phone_names: list = None) -> dict:
+def generate_comparison_response(db: Session, query: str, phone_names: list = None) -> Dict[str, Any]:
     """Generate a structured response for comparison queries (2-5 phones, normalized features for charting)"""
     # Use provided phone_names or extract from query
     if phone_names is None:
