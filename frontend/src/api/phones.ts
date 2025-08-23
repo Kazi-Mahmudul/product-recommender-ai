@@ -8,8 +8,17 @@ import {
 // API_BASE is loaded from .env (REACT_APP_API_BASE) via process.env in Create React App
 // Ensure we always use HTTPS in production
 let API_BASE = process.env.REACT_APP_API_BASE || "/api";
-if (API_BASE.startsWith('http://')) {
-  API_BASE = API_BASE.replace('http://', 'https://');
+
+// Force HTTPS in production - generic safety check
+if (process.env.NODE_ENV === 'production' || window.location.protocol === 'https:') {
+  if (API_BASE.startsWith('http://')) {
+    API_BASE = API_BASE.replace('http://', 'https://');
+  }
+}
+
+// Debug logging in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('API_BASE configured as:', API_BASE);
 }
 
 export interface Phone {

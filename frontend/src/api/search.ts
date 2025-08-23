@@ -14,9 +14,15 @@ export interface SearchResult {
 export const searchPhones = async (query: string): Promise<SearchResult[]> => {
   if (!query || query.trim().length < 2) return [];
 
+  // Ensure we always use HTTPS in production
+  let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+  if (API_BASE.startsWith('http://')) {
+    API_BASE = API_BASE.replace('http://', 'https://');
+  }
+
   try {
     const res = await axios.get(
-      `${process.env.REACT_APP_API_BASE}/api/v1/phones?search=${encodeURIComponent(query)}&limit=10`
+      `${API_BASE}/api/v1/phones?search=${encodeURIComponent(query)}&limit=10`
     );
     return res.data.items || [];
   } catch (error) {

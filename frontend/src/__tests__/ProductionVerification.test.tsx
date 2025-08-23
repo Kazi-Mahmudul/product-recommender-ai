@@ -96,13 +96,12 @@ describe("Production Verification", () => {
   });
 
   test("production configuration matches expected values", () => {
-    // Test with actual environment variables from .env files
-    const actualClientId =
-      "188950165425-l2at9nnfpeo3n092cejskovvcd76bgi6.apps.googleusercontent.com";
-    const actualApiBase = "https://product-recommender-ai-188950165425.asia-southeast1.run.app";
+    // Test with mock environment variables (avoiding hardcoded sensitive values)
+    const mockClientId = "123456789012-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com";
+    const mockApiBase = "https://api.example.com";
 
-    process.env.REACT_APP_GOOGLE_CLIENT_ID = actualClientId;
-    process.env.REACT_APP_API_BASE = actualApiBase;
+    process.env.REACT_APP_GOOGLE_CLIENT_ID = mockClientId;
+    process.env.REACT_APP_API_BASE = mockApiBase;
 
     const result = verifyEnvironmentVariables();
 
