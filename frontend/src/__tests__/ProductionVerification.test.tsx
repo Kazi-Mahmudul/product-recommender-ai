@@ -99,7 +99,7 @@ describe("Production Verification", () => {
     // Test with actual environment variables from .env files
     const actualClientId =
       "188950165425-l2at9nnfpeo3n092cejskovvcd76bgi6.apps.googleusercontent.com";
-    const actualApiBase = "https://pickbd-ai.onrender.com";
+    const actualApiBase = "https://product-recommender-ai-188950165425.asia-southeast1.run.app";
 
     process.env.REACT_APP_GOOGLE_CLIENT_ID = actualClientId;
     process.env.REACT_APP_API_BASE = actualApiBase;
