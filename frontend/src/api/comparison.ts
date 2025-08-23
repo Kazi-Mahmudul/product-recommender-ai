@@ -1,6 +1,10 @@
 import SessionManager from '../services/sessionManager';
 
-const API_BASE = process.env.REACT_APP_API_BASE || "/api";
+// Ensure we always use HTTPS in production
+let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+if (API_BASE.startsWith('http://')) {
+  API_BASE = API_BASE.replace('http://', 'https://');
+}
 
 export interface ComparisonItem {
   id: number;
