@@ -32,6 +32,12 @@ COPY . .
 RUN mkdir -p /app/logs && \
     chown -R appuser:appuser /app
 
+# Copy the startup script
+COPY start_server.sh .
+
+# Make the startup script executable
+RUN chmod +x start_server.sh
+
 # Switch to non-root user
 USER appuser
 
@@ -41,12 +47,6 @@ EXPOSE 8080
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
-
-# Copy the startup script
-COPY start_server.sh .
-
-# Make the startup script executable
-RUN chmod +x start_server.sh
 
 # Default command
 CMD ["./start_server.sh"]
