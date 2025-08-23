@@ -56,7 +56,8 @@ class SessionManager:
             session_id: Session UUID to store
         """
         is_production = os.getenv("ENVIRONMENT", "development") == "production"
-        is_https = os.getenv("HTTPS_ENABLED", "false").lower() == "true"
+        # Always use HTTPS in production or when explicitly enabled
+        is_https = os.getenv("ENVIRONMENT", "development") == "production" or os.getenv("HTTPS_ENABLED", "false").lower() == "true"
         
         # Production settings
         if is_production:
@@ -81,7 +82,7 @@ class SessionManager:
                 path="/",
             )
         
-        logger.info(f"Set session cookie: {session_id} (production: {is_production})")
+        logger.info(f"Set session cookie: {session_id} (production: {is_production}, https: {is_https})")
     
     @staticmethod
     def create_session_response(session_id: uuid.UUID) -> Dict[str, Any]:

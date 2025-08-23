@@ -121,7 +121,12 @@ class ContextualAPIService {
   private retryDelay = 1000;
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+    // Ensure we always use HTTPS in production
+    let baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+    if (baseURL.startsWith('http://')) {
+      baseURL = baseURL.replace('http://', 'https://');
+    }
+    this.baseURL = baseURL;
     this.initializeSession();
   }
 
