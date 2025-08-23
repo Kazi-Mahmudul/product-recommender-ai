@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import time
@@ -10,6 +10,7 @@ from app.api.api import api_router
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging_config import setup_logging, get_logger
+from app.middleware.security import HTTPSRedirectMiddleware, SecurityHeadersMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.core.tasks import cleanup_expired_sessions
 
@@ -66,13 +67,30 @@ async def shutdown_event():
     scheduler.shutdown()
     logger.info("Application shutdown complete")
 
+# Add security middleware for HTTPS
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(HTTPSRedirectMiddleware)
+
 # Set up CORS middleware with production settings
+cors_origins = settings.CORS_ORIGINS if settings.CORS_ORIGINS and "*" not in settings.CORS_ORIGINS else ["*"]
+logger.info(f"CORS origins configured: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS if settings.CORS_ORIGINS and "*" not in settings.CORS_ORIGINS else ["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
     expose_headers=["Content-Range", "X-Total-Count"],
 )
 
@@ -82,7 +100,7 @@ app.include_router(api_router, prefix=settings.API_PREFIX)
 # Health check endpoint for GCP Cloud Run
 @app.get("/health")
 @app.get("/api/v1/health")
-async def health_check():
+async def health_check(request: Request):
     """
     Health check endpoint for GCP Cloud Run.
     Returns 200 OK if the service is running properly.
@@ -104,12 +122,28 @@ async def health_check():
         else:
             db_status = f"error: {str(e)}"
     
+    # Check HTTPS configuration
+    https_status = {
+        "scheme": str(request.url.scheme),
+        "is_https": request.url.scheme == "https",
+        "forwarded_proto": request.headers.get("x-forwarded-proto"),
+        "host": str(request.url.hostname),
+        "port": request.url.port
+    }
+    
+    # Check if running behind a proxy (like Google Cloud Run)
+    is_behind_proxy = bool(request.headers.get("x-forwarded-for") or 
+                          request.headers.get("x-forwarded-proto"))
+    
     return {
         "status": "healthy", 
         "timestamp": time.time(),
         "database": db_status,
+        "https": https_status,
+        "behind_proxy": is_behind_proxy,
         "port": os.getenv("PORT", "Not set"),
-        "environment": os.getenv("ENVIRONMENT", "Not set")
+        "environment": os.getenv("ENVIRONMENT", "Not set"),
+        "cors_origins": settings.CORS_ORIGINS
     }
 
 @app.get("/")

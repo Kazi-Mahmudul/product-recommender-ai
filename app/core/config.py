@@ -43,7 +43,7 @@ class Settings(BaseSettings):
             
             # Ensure all origins use HTTPS in production (except localhost for development)
             if os.getenv("ENVIRONMENT") == "production":
-                origins = [origin.replace("http://", "https://") if origin.startswith("http://") and not origin.startswith("http://localhost") else origin for origin in origins]
+                origins = [self._ensure_https_origin(origin) for origin in origins]
             
             return origins
         else:
@@ -56,9 +56,17 @@ class Settings(BaseSettings):
             
             # Ensure HTTPS for production (except localhost for development)
             if os.getenv("ENVIRONMENT") == "production":
-                origins = [origin.replace("http://", "https://") if origin.startswith("http://") and not origin.startswith("http://localhost") else origin for origin in origins]
+                origins = [self._ensure_https_origin(origin) for origin in origins]
             
             return origins
+    
+    def _ensure_https_origin(self, origin: str) -> str:
+        """
+        Ensure origin uses HTTPS in production, except for localhost.
+        """
+        if origin.startswith("http://") and not origin.startswith("http://localhost"):
+            return origin.replace("http://", "https://")
+        return origin
     
     # Redis cache settings
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
@@ -72,6 +80,16 @@ class Settings(BaseSettings):
         "GEMINI_SERVICE_URL",
         "http://localhost:3001"  # Default to localhost for development
     )
+    
+    @property
+    def GEMINI_SERVICE_URL_SECURE(self) -> str:
+        """
+        Ensure Gemini service URL uses HTTPS in production.
+        """
+        url = self.GEMINI_SERVICE_URL
+        if os.getenv("ENVIRONMENT") == "production" and url.startswith("http://") and not url.startswith("http://localhost"):
+            return url.replace("http://", "https://")
+        return url
 
     # Authentication settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
@@ -98,6 +116,11 @@ class Settings(BaseSettings):
     # Logging settings
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO" if not DEBUG else "DEBUG")
     LOG_FORMAT: str = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    
+    # HTTPS settings
+    HTTPS_ENABLED: bool = os.getenv("HTTPS_ENABLED", "True").lower() == "true"
+    FORCE_HTTPS: bool = os.getenv("FORCE_HTTPS", "False").lower() == "true"
+    SECURE_COOKIES: bool = os.getenv("SECURE_COOKIES", "False").lower() == "true"
 
     class Config:
         case_sensitive = True

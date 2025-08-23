@@ -140,8 +140,14 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
             try:
                 session_uuid = uuid.UUID(comparison_session_id)
                 crud_comparison.merge_comparison_data(db, session_uuid, user.id)
-                # Clear the session cookie after merging
-                response.delete_cookie("comparison_session_id")
+                # Clear the session cookie after merging with secure settings
+                is_production = settings.ENVIRONMENT == "production"
+                response.delete_cookie(
+                    "comparison_session_id",
+                    secure=is_production,
+                    httponly=True,
+                    samesite="lax" if is_production else "none"
+                )
             except ValueError:
                 logger.warning(f"Invalid comparison_session_id cookie: {comparison_session_id}")
 
@@ -224,7 +230,7 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
         )
 
 @router.post("/google", response_model=Token)
-async def google_auth(request: Request, db: Session = Depends(get_db)):
+async def google_auth(request: Request, response: Response, db: Session = Depends(get_db)):
     data = await request.json()
     token = data.get("credential") or data.get("token")
     if not token:
@@ -232,6 +238,9 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
 
     try:
         CLIENT_ID = settings.GOOGLE_CLIENT_ID
+        if not CLIENT_ID:
+            raise HTTPException(status_code=500, detail="Google OAuth not configured")
+            
         idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
         email = idinfo["email"]
         first_name = idinfo.get("given_name", "")
@@ -266,12 +275,20 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
         # Create JWT
         access_token = create_access_token(data={"sub": str(user.id)})
         
-        # Merge anonymous comparison data if a session cookie exists (same as regular login)
+        # Merge anonymous comparison data if a session cookie exists
         comparison_session_id = request.cookies.get("comparison_session_id")
         if comparison_session_id:
             try:
                 session_uuid = uuid.UUID(comparison_session_id)
                 crud_comparison.merge_comparison_data(db, session_uuid, user.id)
+                # Clear the session cookie after merging with secure settings
+                is_production = settings.ENVIRONMENT == "production"
+                response.delete_cookie(
+                    "comparison_session_id",
+                    secure=is_production,
+                    httponly=True,
+                    samesite="lax" if is_production else "none"
+                )
             except ValueError:
                 logger.warning(f"Invalid comparison_session_id cookie: {comparison_session_id}")
         
@@ -281,4 +298,5 @@ async def google_auth(request: Request, db: Session = Depends(get_db)):
             expires_in=60
         )
     except Exception as e:
+        logger.error(f"Google authentication error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}") 
