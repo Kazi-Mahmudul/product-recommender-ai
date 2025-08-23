@@ -2,7 +2,11 @@ import { Phone } from './phones';
 import { getCacheItem, setCacheItem, getPhoneDetailsCacheKey, CACHE_TTL } from '../utils/cacheManager';
 
 // API base URL from environment variables
-const API_BASE = process.env.REACT_APP_API_BASE || "/api";
+// Ensure we always use HTTPS in production
+let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+if (API_BASE.startsWith('http://')) {
+  API_BASE = API_BASE.replace('http://', 'https://');
+}
 
 // Define the interface for the recommendation data
 export interface SmartRecommendation {

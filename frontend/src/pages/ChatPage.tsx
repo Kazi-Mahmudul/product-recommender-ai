@@ -57,8 +57,16 @@ const SUGGESTED_QUERIES = [
   "Which phones support 5G in Bangladesh?",
 ];
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE;
-const GEMINI_API_URL = process.env.REACT_APP_GEMINI_API;
+// Ensure we always use HTTPS in production
+let API_BASE_URL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+if (API_BASE_URL.startsWith('http://')) {
+  API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
+}
+
+let GEMINI_API_URL = process.env.REACT_APP_GEMINI_API || 'http://localhost:3000';
+if (GEMINI_API_URL.startsWith('http://')) {
+  GEMINI_API_URL = GEMINI_API_URL.replace('http://', 'https://');
+}
 
 // Comparison-related functions moved to EnhancedComparison component
 

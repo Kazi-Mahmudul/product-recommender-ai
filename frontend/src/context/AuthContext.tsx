@@ -97,7 +97,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const payload = credential.split('.')[1];
       const decodedPayload = JSON.parse(atob(payload));
       
-      const response = await fetch(`${process.env.REACT_APP_API_BASE}/api/v1/auth/google`, {
+      // Ensure we always use HTTPS in production
+      let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+      if (API_BASE.startsWith('http://')) {
+        API_BASE = API_BASE.replace('http://', 'https://');
+      }
+      
+      const response = await fetch(`${API_BASE}/api/v1/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential }),

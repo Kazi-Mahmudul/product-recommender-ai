@@ -38,9 +38,15 @@ const UpcomingPhones: React.FC<UpcomingPhonesProps> = ({ darkMode }) => {
 
   useEffect(() => {
     const fetchPhones = async () => {
+      // Ensure we always use HTTPS in production
+      let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+      if (API_BASE.startsWith('http://')) {
+        API_BASE = API_BASE.replace('http://', 'https://');
+      }
+      
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_BASE}/api/v1/phones/`
+          `${API_BASE}/api/v1/phones/`
         );
         const items = res.data.items || [];
         const filtered = items.filter(
