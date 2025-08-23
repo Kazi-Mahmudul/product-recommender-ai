@@ -100,7 +100,7 @@ def verify_email(verification_data: EmailVerificationRequest, db: Session = Depe
         )
 
 @router.post("/login", response_model=Token)
-def login(user_data: UserLogin, db: Session = Depends(get_db)):
+def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request = None, response: Response = None):
     """
     Authenticate user and return access token.
     
@@ -134,15 +134,16 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(user.id)})
     
     # Merge anonymous comparison data if a session cookie exists
-    comparison_session_id = request.cookies.get("comparison_session_id")
-    if comparison_session_id:
-        try:
-            session_uuid = uuid.UUID(comparison_session_id)
-            crud_comparison.merge_comparison_data(db, session_uuid, user.id)
-            # Clear the session cookie after merging
-            response.delete_cookie("comparison_session_id")
-        except ValueError:
-            logger.warning(f"Invalid comparison_session_id cookie: {comparison_session_id}")
+    if request and response:
+        comparison_session_id = request.cookies.get("comparison_session_id")
+        if comparison_session_id:
+            try:
+                session_uuid = uuid.UUID(comparison_session_id)
+                crud_comparison.merge_comparison_data(db, session_uuid, user.id)
+                # Clear the session cookie after merging
+                response.delete_cookie("comparison_session_id")
+            except ValueError:
+                logger.warning(f"Invalid comparison_session_id cookie: {comparison_session_id}")
 
     return Token(
         access_token=access_token,

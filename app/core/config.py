@@ -35,18 +35,30 @@ class Settings(BaseSettings):
             try:
                 # Try to parse as JSON first
                 parsed = json.loads(self._cors_origins_str)
-                return parsed if isinstance(parsed, list) else [str(parsed)]
+                origins = parsed if isinstance(parsed, list) else [str(parsed)]
             except (json.JSONDecodeError, ValueError):
                 # Fallback to comma-separated string
                 origins = [origin.strip() for origin in self._cors_origins_str.split(",")]
-                return [origin for origin in origins if origin]  # Filter out empty strings
+                origins = [origin for origin in origins if origin]  # Filter out empty strings
+            
+            # Ensure all origins use HTTPS in production (except localhost for development)
+            if os.getenv("ENVIRONMENT") == "production":
+                origins = [origin.replace("http://", "https://") if origin.startswith("http://") and not origin.startswith("http://localhost") else origin for origin in origins]
+            
+            return origins
         else:
             # Default values
-            return [
+            origins = [
                 "http://localhost:3000",
                 "http://localhost:8000", 
                 "https://pickbd.vercel.app"
             ]
+            
+            # Ensure HTTPS for production (except localhost for development)
+            if os.getenv("ENVIRONMENT") == "production":
+                origins = [origin.replace("http://", "https://") if origin.startswith("http://") and not origin.startswith("http://localhost") else origin for origin in origins]
+            
+            return origins
     
     # Redis cache settings
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
