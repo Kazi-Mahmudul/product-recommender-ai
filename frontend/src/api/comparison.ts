@@ -1,10 +1,9 @@
 import SessionManager from '../services/sessionManager';
 
-// Ensure we always use HTTPS in production
-let API_BASE = process.env.REACT_APP_API_BASE || "/api";
-if (API_BASE.startsWith('http://')) {
-  API_BASE = API_BASE.replace('http://', 'https://');
-}
+// Force HTTPS in production with cache busting
+import { getSecureApiBase } from '../cache-buster';
+
+const API_BASE = getSecureApiBase();
 
 export interface ComparisonItem {
   id: number;

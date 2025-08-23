@@ -1,7 +1,6 @@
-let API_BASE = `${process.env.REACT_APP_API_BASE}/api/v1/auth`;
-if (API_BASE.startsWith('http://')) {
-  API_BASE = API_BASE.replace('http://', 'https://');
-}
+import { getSecureApiBase } from '../cache-buster';
+
+const API_BASE = `${getSecureApiBase()}/api/v1/auth`;
 
 export async function signup(email: string, password: string, confirmPassword: string, first_name: string, last_name: string) {
   const res = await fetch(`${API_BASE}/signup`, {
