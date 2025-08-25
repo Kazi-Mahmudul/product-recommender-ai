@@ -33,21 +33,41 @@ app.use(express.json());
 
 // Check if GOOGLE_API_KEY is available
 if (!process.env.GOOGLE_API_KEY) {
-  console.error("❌ GOOGLE_API_KEY is missing. Please set it in your deployment environment variables.");
-  console.error("This can be done in Render dashboard under Environment Variables section.");
-  console.error("Or copy the .env file to the gemini_service directory.");
+  console.error("❌ GOOGLE_API_KEY is missing. Please set it in your Cloud Run environment variables.");
+  console.error("This can be done in Google Cloud Console under Cloud Run service configuration.");
+  console.error("Environment Variables section: GOOGLE_API_KEY=your_api_key");
   process.exit(1);
 }
 
 // Initialize Google Generative AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.0-flash`);
+console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.5-flash-lite`);
 
-// Health check endpoints
+// Enhanced health check endpoints for Cloud Run
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "Phone query parser service is running" });
+  res.json({ 
+    status: "ok", 
+    message: "Phone query parser service is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: "1.0.0"
+  });
+});
+
+app.get("/health", (req, res) => {
+  const healthCheck = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    services: {
+      gemini_api: process.env.GOOGLE_API_KEY ? 'configured' : 'missing'
+    }
+  };
+  
+  res.status(200).json(healthCheck);
 });
 
 app.get("/parse-query", (req, res) => {
@@ -437,8 +457,21 @@ app.post("/parse-query", async (req, res) => {
   }
 });
 
-// Start the server
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`🚀 ePick Gemini AI API running on http://localhost:${PORT}`);
+// Graceful shutdown handling for Cloud Run
+process.on('SIGTERM', () => {
+  console.log(`[${new Date().toISOString()}] 🔄 Received SIGTERM, shutting down gracefully`);
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log(`[${new Date().toISOString()}] 🔄 Received SIGINT, shutting down gracefully`);
+  process.exit(0);
+});
+
+// Start the server - Cloud Run sets PORT environment variable
+const PORT = process.env.PORT || 8080;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 ePick Gemini AI API running on http://0.0.0.0:${PORT}`);
+  console.log(`[${new Date().toISOString()}] 🔹 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[${new Date().toISOString()}] 🔹 Google API Key: ${process.env.GOOGLE_API_KEY ? 'Configured' : 'Missing'}`);
 });
