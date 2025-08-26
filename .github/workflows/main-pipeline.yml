@@ -47,6 +47,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install numpy==1.24.3
           pip install -r requirements.txt
 
       - name: Setup pipeline
@@ -102,6 +103,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install numpy==1.24.3
           pip install -r requirements.txt
 
       - name: Install Chrome for Selenium
@@ -144,6 +146,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install numpy==1.24.3
           pip install -r requirements.txt
 
       - name: Process data
@@ -179,6 +182,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install numpy==1.24.3
           pip install -r requirements.txt
 
       - name: Load data
@@ -213,6 +217,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install numpy==1.24.3
           pip install -r requirements.txt
 
       - name: Update top searched phones

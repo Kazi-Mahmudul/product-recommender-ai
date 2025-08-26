@@ -1,0 +1,6 @@
+# Constraints file to ensure compatible versions
+numpy==1.24.3
+pandas==2.0.3
+scipy>=1.10.0,<1.12.0
+pytz>=2023.3
+python-dateutil>=2.8.2
