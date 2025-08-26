@@ -10,7 +10,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: GEMINI_SERVICE_URL
-        value: https://gemini-api-wm3b.onrender.com
+        value: 
     healthCheckPath: /api/v1/health
     autoDeploy: true
 

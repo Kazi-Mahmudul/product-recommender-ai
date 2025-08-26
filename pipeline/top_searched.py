@@ -2,22 +2,28 @@
 Top Searched Phones Pipeline Component
 This module collects search interest data for phones in Bangladesh using Google Trends API (pytrends)
 and updates the top_searched table in the database.
+
+Fixed version for GitHub Actions compatibility - uses direct database connections
+instead of SQLAlchemy models.
 """
 
 import pandas as pd
-from pytrends.request import TrendReq
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List, Dict
+from typing import List, Dict, Optional
 import logging
 from datetime import datetime
 import time
 import random
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-from app.core.database import SessionLocal
-from app.models.phone import Phone
-from app.models.top_searched import TopSearchedPhone
-from app.crud import top_searched as top_searched_crud
+# Try to import pytrends, but make it optional
+try:
+    from pytrends.request import TrendReq
+    PYTRENDS_AVAILABLE = True
+except ImportError:
+    PYTRENDS_AVAILABLE = False
+    TrendReq = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,10 +33,22 @@ logger = logging.getLogger(__name__)
 POPULAR_BRANDS = ["samsung","apple","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia","symphony","honor","nothing","iqoo"]
 
 class TopSearchedPipeline:
-    def __init__(self):
-        # Initialize with more conservative settings to avoid rate limiting
-        self.pytrends = TrendReq(hl='en-US', tz=360, timeout=(10, 25))
-        self.db: Session = SessionLocal()
+    def __init__(self, database_url: Optional[str] = None):
+        # Initialize pytrends if available
+        if PYTRENDS_AVAILABLE:
+            self.pytrends = TrendReq(hl='en-US', tz=360, timeout=(10, 25))
+        else:
+            self.pytrends = None
+            logger.warning("⚠️ pytrends not available, will use sample data")
+        
+        # Get database URL
+        self.database_url = database_url or os.getenv('DATABASE_URL')
+        if not self.database_url:
+            raise ValueError("DATABASE_URL is required")
+        
+        # Convert postgres:// to postgresql:// if needed
+        if self.database_url.startswith("postgres://"):
+            self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
         
     def get_popular_phone_keywords(self) -> List[Dict]:
         """
@@ -38,28 +56,44 @@ class TopSearchedPipeline:
         Returns a list of dictionaries with phone info
         """
         try:
-            # Get phones from popular brands (case-insensitive matching)
-            phones = self.db.query(Phone).filter(
-                func.lower(Phone.brand).in_([brand.lower() for brand in POPULAR_BRANDS])
-            ).all()
+            conn = psycopg2.connect(self.database_url)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             
+            # Get phones from popular brands (case-insensitive matching)
+            brand_placeholders = ','.join(['%s'] * len(POPULAR_BRANDS))
+            cursor.execute(f"""
+                SELECT id, name, brand, model 
+                FROM phones 
+                WHERE LOWER(brand) = ANY(ARRAY[{','.join(['LOWER(%s)'] * len(POPULAR_BRANDS))}])
+                AND name IS NOT NULL 
+                AND brand IS NOT NULL 
+                AND model IS NOT NULL
+                ORDER BY updated_at DESC, created_at DESC
+                LIMIT 100
+            """, POPULAR_BRANDS)
+            
+            phones = cursor.fetchall()
             phone_keywords = []
             
             for phone in phones:
                 # Create a clean keyword for searching
                 # Combine brand and model for better search results
-                keyword = f"{phone.brand} {phone.model}".strip()
+                keyword = f"{phone['brand']} {phone['model']}".strip()
                 if keyword:
                     phone_keywords.append({
-                        'id': phone.id,
-                        'name': phone.name,
-                        'brand': phone.brand,
-                        'model': phone.model,
+                        'id': phone['id'],
+                        'name': phone['name'],
+                        'brand': phone['brand'],
+                        'model': phone['model'],
                         'keyword': keyword
                     })
             
+            cursor.close()
+            conn.close()
+            
             logger.info(f"Found {len(phone_keywords)} popular phones for trend analysis")
             return phone_keywords
+            
         except Exception as e:
             logger.error(f"Error fetching phone keywords: {str(e)}")
             return []
@@ -68,9 +102,13 @@ class TopSearchedPipeline:
         """
         Get search interest data for a chunk of keywords in Bangladesh
         """
+        if not self.pytrends:
+            logger.warning("pytrends not available, returning empty DataFrame")
+            return pd.DataFrame(columns=['keyword', 'search_index'])
+        
         try:
             # Add a small delay to avoid rate limiting
-            time.sleep(random.uniform(1, 3))
+            time.sleep(random.uniform(2, 5))
             
             # Build payload for Google Trends
             self.pytrends.build_payload(
@@ -172,27 +210,42 @@ class TopSearchedPipeline:
         Update the top_searched table with new rankings
         """
         try:
+            conn = psycopg2.connect(self.database_url)
+            cursor = conn.cursor()
+            
             # Clear existing data
-            top_searched_crud.delete_all_top_searched_phones(self.db)
+            cursor.execute("DELETE FROM top_searched")
             
             # Insert new data
             for phone_data in ranked_phones:
-                top_searched_crud.create_top_searched_phone(
-                    db=self.db,
-                    phone_id=phone_data['phone_id'],
-                    phone_name=phone_data['phone_name'],
-                    brand=phone_data['brand'],
-                    model=phone_data['model'],
-                    search_index=phone_data['search_index'],
-                    rank=phone_data['rank']
-                )
+                cursor.execute("""
+                    INSERT INTO top_searched (
+                        phone_id, phone_name, brand, model, search_index, rank, created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                """, (
+                    phone_data['phone_id'],
+                    phone_data['phone_name'],
+                    phone_data['brand'],
+                    phone_data['model'],
+                    phone_data['search_index'],
+                    phone_data['rank']
+                ))
             
-            self.db.commit()
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
             logger.info(f"Updated database with {len(ranked_phones)} top searched phones")
             
         except Exception as e:
             logger.error(f"Error updating database: {str(e)}")
-            self.db.rollback()
+            # Try to rollback if connection is still available
+            try:
+                if 'conn' in locals():
+                    conn.rollback()
+                    conn.close()
+            except:
+                pass
     
     def run(self, limit: int = 10):
         """
@@ -247,9 +300,15 @@ class TopSearchedPipeline:
         except Exception as e:
             logger.error(f"Error in top searched pipeline: {str(e)}")
         finally:
-            self.db.close()
+            # No need to close database connection as we use individual connections
+            pass
 
 if __name__ == "__main__":
     # Run the pipeline
-    pipeline = TopSearchedPipeline()
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        print("❌ DATABASE_URL environment variable is required")
+        exit(1)
+    
+    pipeline = TopSearchedPipeline(database_url=database_url)
     pipeline.run(limit=10)

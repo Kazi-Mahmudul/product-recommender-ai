@@ -1,0 +1,266 @@
+name: Main Data Pipeline
+
+on:
+  schedule:
+    # Daily at 2 AM Bangladesh time (UTC+6, so 8 PM UTC previous day)
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: 'Maximum pages to scrape (leave empty for all pages)'
+        required: false
+        type: string
+      skip_processor_rankings:
+        description: 'Skip processor rankings update'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  PIPELINE_ENV: production
+  LOG_LEVEL: INFO
+  BATCH_SIZE: 50
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      pipeline_run_id: ${{ steps.setup.outputs.pipeline_run_id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Setup pipeline
+        id: setup
+        run: |
+          PIPELINE_RUN_ID="github_$(date +%Y%m%d_%H%M%S)"
+          echo "pipeline_run_id=$PIPELINE_RUN_ID" >> $GITHUB_OUTPUT
+          echo "🚀 Starting pipeline run: $PIPELINE_RUN_ID"
+          echo "📅 Scheduled time: $(date)"
+
+      - name: Validate environment
+        run: |
+          python -c "
+          import os
+          import psycopg2
+          
+          # Test database connection
+          try:
+              conn = psycopg2.connect(os.environ['DATABASE_URL'], connect_timeout=10)
+              cursor = conn.cursor()
+              cursor.execute('SELECT 1')
+              result = cursor.fetchone()
+              conn.close()
+              print('✅ Database connection: SUCCESS')
+          except Exception as e:
+              print(f'❌ Database connection: FAILED - {e}')
+              exit(1)
+          "
+
+  extract_data:
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      scraping_result: ${{ steps.extract.outputs.scraping_result }}
+      processor_result: ${{ steps.extract.outputs.processor_result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chrome for Selenium
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Extract data
+        id: extract
+        run: |
+          python pipeline/github_actions/extract_data.py \
+            --pipeline-run-id "${{ needs.setup.outputs.pipeline_run_id }}" \
+            --max-pages "${{ github.event.inputs.max_pages || '' }}" \
+            --skip-processor-rankings "${{ github.event.inputs.skip_processor_rankings || 'false' }}"
+
+  process_data:
+    runs-on: ubuntu-latest
+    needs: [setup, extract_data]
+    outputs:
+      processing_result: ${{ steps.process.outputs.processing_result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Process data
+        id: process
+        run: |
+          python pipeline/github_actions/process_data.py \
+            --pipeline-run-id "${{ needs.setup.outputs.pipeline_run_id }}" \
+            --scraping-result '${{ needs.extract_data.outputs.scraping_result }}' \
+            --processor-result '${{ needs.extract_data.outputs.processor_result }}'
+
+  load_data:
+    runs-on: ubuntu-latest
+    needs: [setup, extract_data, process_data]
+    outputs:
+      loading_result: ${{ steps.load.outputs.loading_result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Load data
+        id: load
+        run: |
+          python pipeline/github_actions/load_data.py \
+            --pipeline-run-id "${{ needs.setup.outputs.pipeline_run_id }}" \
+            --processing-result '${{ needs.process_data.outputs.processing_result }}'
+
+  update_top_searched:
+    runs-on: ubuntu-latest
+    needs: [setup, load_data]
+    outputs:
+      top_searched_result: ${{ steps.update.outputs.top_searched_result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Update top searched phones
+        id: update
+        run: |
+          python pipeline/github_actions/update_top_searched.py \
+            --pipeline-run-id "${{ needs.setup.outputs.pipeline_run_id }}"
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [setup, extract_data, process_data, load_data, update_top_searched]
+    if: always()
+    steps:
+      - name: Pipeline Summary
+        run: |
+          echo "## 📊 Pipeline Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Pipeline Run ID:** ${{ needs.setup.outputs.pipeline_run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Execution Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Extract data results
+          if [ "${{ needs.extract_data.result }}" == "success" ]; then
+            echo "✅ **Data Extraction:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Data Extraction:** FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Process data results
+          if [ "${{ needs.process_data.result }}" == "success" ]; then
+            echo "✅ **Data Processing:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Data Processing:** FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Load data results
+          if [ "${{ needs.load_data.result }}" == "success" ]; then
+            echo "✅ **Data Loading:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Data Loading:** FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Top searched results
+          if [ "${{ needs.update_top_searched.result }}" == "success" ]; then
+            echo "✅ **Top Searched Update:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Top Searched Update:** FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Overall Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

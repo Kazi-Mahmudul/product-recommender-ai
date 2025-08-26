@@ -1,0 +1,95 @@
+name: Update Processor Rankings
+
+on:
+  schedule:
+    # Weekly on Sundays at 1 AM Bangladesh time (7 PM UTC Saturday)
+    - cron: '0 19 * * 6'
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: 'Maximum pages to scrape (default: all pages)'
+        required: false
+        type: string
+      force_update:
+        description: 'Force update even if cache is fresh'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  PIPELINE_ENV: production
+  LOG_LEVEL: INFO
+
+jobs:
+  update_processor_rankings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chrome for Selenium
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Update processor rankings
+        run: |
+          PIPELINE_RUN_ID="processor_$(date +%Y%m%d_%H%M%S)"
+          echo "🔧 Starting processor rankings update: $PIPELINE_RUN_ID"
+          
+          python pipeline/scrapers/processor_scraper.py \
+            --max-pages "${{ github.event.inputs.max_pages || '' }}" \
+            --force-update "${{ github.event.inputs.force_update || 'false' }}" \
+            --output-file "data_cleaning/processor_rankings.csv"
+
+      - name: Commit updated rankings
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -n "$(git status --porcelain data_cleaning/processor_rankings.csv)" ]; then
+            git add data_cleaning/processor_rankings.csv
+            git commit -m "Update processor rankings - $(date +%Y-%m-%d)"
+            git push
+            echo "✅ Processor rankings updated and committed"
+          else
+            echo "ℹ️ No changes to processor rankings"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## 🔧 Processor Rankings Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Execution Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Force Update:** ${{ github.event.inputs.force_update || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Max Pages:** ${{ github.event.inputs.max_pages || 'all' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "data_cleaning/processor_rankings.csv" ]; then
+            LINES=$(wc -l < data_cleaning/processor_rankings.csv)
+            echo "**Processors Found:** $((LINES - 1))" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Status:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status:** FAILED - No output file generated" >> $GITHUB_STEP_SUMMARY
+          fi
