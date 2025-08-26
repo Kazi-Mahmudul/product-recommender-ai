@@ -11,10 +11,12 @@ import os
 import sys
 import time
 import random
+import re
 import pandas as pd
 from typing import List, Dict, Optional
 import logging
 from datetime import datetime
+import psycopg2
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -156,9 +158,41 @@ class ProcessorRankingScraper:
             
             self.driver.get(url)
             
-            # Wait for the table to load
+            # Wait for the page to load and check if it's valid
             wait = WebDriverWait(self.driver, 20)
-            table = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "table-list")))
+            
+            # Check if we're redirected or if page doesn't exist
+            current_url = self.driver.current_url
+            if f"page={page_number}" not in current_url and page_number > 1:
+                self.logger.info(f"   Page {page_number} redirected to {current_url} - likely doesn't exist")
+                return []
+            
+            # Check for specific "no results" or error messages
+            try:
+                # More specific selectors for actual error messages
+                error_selectors = [
+                    "//div[contains(@class, 'no-results')]",
+                    "//div[contains(@class, 'error')]",
+                    "//p[contains(text(), 'No results found')]",
+                    "//div[contains(text(), 'Page not found')]"
+                ]
+                
+                for selector in error_selectors:
+                    error_elements = self.driver.find_elements(By.XPATH, selector)
+                    if error_elements:
+                        element_text = error_elements[0].text.strip()
+                        if element_text and len(element_text) > 10:  # Only meaningful error messages
+                            self.logger.info(f"   Page {page_number} shows error: {element_text}")
+                            return []
+            except:
+                pass
+            
+            # Wait for the table to load
+            try:
+                table = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "table-list")))
+            except:
+                self.logger.info(f"   No table found on page {page_number} - page likely doesn't exist")
+                return []
             
             # Small delay to ensure content is fully loaded
             time.sleep(1)
@@ -242,7 +276,7 @@ class ProcessorRankingScraper:
         all_processors = []
         page = 1
         consecutive_empty_pages = 0
-        max_consecutive_empty = 3
+        max_consecutive_empty = 2  # Reduced from 3 to 2 for faster detection
         
         try:
             while True:
@@ -258,8 +292,13 @@ class ProcessorRankingScraper:
                     consecutive_empty_pages += 1
                     self.logger.info(f"   Empty page {page}. Consecutive empty: {consecutive_empty_pages}/{max_consecutive_empty}")
                     
+                    # If this is page 1 and it's empty, something is wrong
+                    if page == 1:
+                        self.logger.error("❌ First page is empty - website might be down or structure changed")
+                        break
+                    
                     if consecutive_empty_pages >= max_consecutive_empty:
-                        self.logger.info(f"🏁 Reached end of data: {consecutive_empty_pages} consecutive empty pages")
+                        self.logger.info(f"🏁 Reached end of available pages: {consecutive_empty_pages} consecutive empty pages")
                         break
                 else:
                     consecutive_empty_pages = 0
@@ -273,7 +312,7 @@ class ProcessorRankingScraper:
                 df = pd.DataFrame(all_processors)
                 
                 # Sort by rank
-                df = df.sort_values('rank', na_last=True).reset_index(drop=True)
+                df = df.sort_values('rank', na_position='last').reset_index(drop=True)
                 
                 self.logger.info(f"✅ Scraping completed successfully!")
                 self.logger.info(f"   Total processors: {len(df)}")
@@ -300,12 +339,87 @@ class ProcessorRankingScraper:
             except Exception as e:
                 self.logger.warning(f"Warning during cleanup: {str(e)}")
 
+def save_to_database(df: pd.DataFrame, logger: logging.Logger) -> bool:
+    """Save processor data to database"""
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        logger.info("ℹ️ DATABASE_URL not set, skipping database save")
+        return False
+    
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    try:
+        conn = psycopg2.connect(database_url)
+        cursor = conn.cursor()
+        
+        # Clear existing data
+        cursor.execute("DELETE FROM processor_rankings")
+        logger.info("🗑️ Cleared existing processor rankings from database")
+        
+        # Prepare data for insertion
+        processors = []
+        for _, row in df.iterrows():
+            # Clean processor name (remove newlines)
+            processor_name = str(row['processor']).replace('\n', ' ').strip()
+            
+            # Extract numeric rating from strings like "98 A+"
+            rating = None
+            if pd.notna(row['rating']):
+                rating_str = str(row['rating'])
+                # Extract first number from rating string
+                rating_match = re.search(r'(\d+(?:\.\d+)?)', rating_str)
+                if rating_match:
+                    rating = float(rating_match.group(1))
+            
+            # Extract first number from geekbench6 strings like "2927 / 9000"
+            geekbench6 = None
+            if pd.notna(row['geekbench6']):
+                geekbench6_str = str(row['geekbench6'])
+                geekbench6_match = re.search(r'(\d+)', geekbench6_str)
+                if geekbench6_match:
+                    geekbench6 = int(geekbench6_match.group(1))
+            
+            processors.append((
+                processor_name,
+                str(row['processor_key']),
+                int(row['rank']) if pd.notna(row['rank']) else None,
+                rating,
+                int(row['antutu10']) if pd.notna(row['antutu10']) else None,
+                geekbench6,
+                str(row['cores']) if pd.notna(row['cores']) else None,
+                str(row['clock']) if pd.notna(row['clock']) else None,
+                str(row['gpu']) if pd.notna(row['gpu']) else None,
+                str(row['company']) if pd.notna(row['company']) else None
+            ))
+        
+        # Insert new data
+        insert_query = """
+            INSERT INTO processor_rankings 
+            (processor_name, processor_key, rank, rating, antutu10, geekbench6, cores, clock, gpu, company)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.executemany(insert_query, processors)
+        conn.commit()
+        
+        logger.info(f"💾 Saved {len(processors)} processors to database")
+        
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to save to database: {str(e)}")
+        return False
+
 def main():
     """Main function for standalone execution"""
     parser = argparse.ArgumentParser(description='Processor Rankings Scraper')
     parser.add_argument('--max-pages', type=int, help='Maximum pages to scrape')
     parser.add_argument('--output-file', default='data_cleaning/processor_rankings.csv', help='Output CSV file')
     parser.add_argument('--force-update', type=str, default='false', help='Force update even if cache is fresh')
+    parser.add_argument('--save-to-db', type=str, default='true', help='Save to database (requires DATABASE_URL)')
     parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARN', 'ERROR'], help='Logging level')
     
     args = parser.parse_args()
@@ -313,13 +427,15 @@ def main():
     # Setup logging
     logger = setup_logging(args.log_level)
     
-    # Parse force update
+    # Parse arguments
     force_update = args.force_update.lower() == 'true'
+    save_to_db = args.save_to_db.lower() == 'true'
     
     logger.info(f"🔧 Processor Rankings Scraper")
     logger.info(f"   Max pages: {args.max_pages or 'ALL'}")
     logger.info(f"   Output file: {args.output_file}")
     logger.info(f"   Force update: {force_update}")
+    logger.info(f"   Save to database: {save_to_db}")
     
     try:
         # Check if we should use cached data
@@ -344,6 +460,16 @@ def main():
             # Save to CSV
             df.to_csv(args.output_file, index=False)
             logger.info(f"💾 Saved {len(df)} processors to {args.output_file}")
+            
+            # Save to database if requested
+            if save_to_db:
+                db_success = save_to_database(df, logger)
+                if db_success:
+                    logger.info("✅ Successfully saved to database")
+                else:
+                    logger.warning("⚠️ Failed to save to database (CSV file still available)")
+            else:
+                logger.info("ℹ️ Database save disabled")
             
             # Show sample data
             logger.info("📊 Sample data:")

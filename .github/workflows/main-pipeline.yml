@@ -79,7 +79,7 @@ jobs:
 
       - name: Run database migrations
         run: |
-          alembic upgrade head
+          python pipeline/database/add_timestamp_columns.py
 
   extract_data:
     runs-on: ubuntu-latest
