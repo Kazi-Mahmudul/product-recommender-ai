@@ -661,8 +661,11 @@ class MobileDokanScraper:
         all_product_links = []
         page = 1
         consecutive_empty_pages = 0
+        consecutive_low_pages = 0
         max_consecutive_empty = 5
+        max_consecutive_low = 10  # Stop if we get 10 consecutive pages with ≤2 products
         total_pages_scraped = 0
+        expected_products_per_page = 20  # MobileDokan typically has 20 products per page
         
         while True:
             if max_pages is not None and page > max_pages:
@@ -674,6 +677,7 @@ class MobileDokanScraper:
             
             if not links:
                 consecutive_empty_pages += 1
+                consecutive_low_pages += 1
                 logger.info(f"  - No products found on page {page}. Consecutive empty pages: {consecutive_empty_pages}/{max_consecutive_empty}")
                 
                 if consecutive_empty_pages >= max_consecutive_empty:
@@ -686,6 +690,19 @@ class MobileDokanScraper:
                 page += 1
                 time.sleep(2)
                 continue
+            
+            # Check for very low product count (likely end of catalog)
+            if len(links) <= 2:
+                consecutive_low_pages += 1
+                logger.info(f"  ⚠️ Found only {len(links)} products on page {page}. Consecutive low pages: {consecutive_low_pages}/{max_consecutive_low}")
+                
+                if consecutive_low_pages >= max_consecutive_low:
+                    logger.info(f"🏁 REACHED END OF CATALOG: Found {consecutive_low_pages} consecutive pages with ≤2 products.")
+                    logger.info(f"   This suggests we've reached the end of the product catalog.")
+                    logger.info(f"   Total pages with products: {total_pages_scraped}")
+                    break
+            else:
+                consecutive_low_pages = 0  # Reset if we find a normal page
             
             consecutive_empty_pages = 0
             all_product_links.extend(links)

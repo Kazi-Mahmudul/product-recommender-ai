@@ -140,11 +140,11 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
             result = {
                 'status': 'success',
                 'processing_method': 'enhanced',
-                'records_processed': len(processed_df),
-                'quality_score': quality_score,
-                'quality_passed': passed,
-                'cleaning_issues_count': len(cleaning_issues),
-                'features_generated': len(processed_df.columns),
+                'records_processed': int(len(processed_df)),
+                'quality_score': float(quality_score),
+                'quality_passed': bool(passed),
+                'cleaning_issues_count': int(len(cleaning_issues)),
+                'features_generated': int(len(processed_df.columns)),
                 'execution_time_seconds': round(time.time() - start_time, 2),
                 'quality_report': quality_report,
                 'cleaning_issues': cleaning_issues[:10] if cleaning_issues else []  # First 10 issues
@@ -174,19 +174,19 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
                 logger.warning("   Feature engineering not available, using raw data")
             
             # Basic quality estimation
-            completeness = processed_df.notna().mean().mean()
+            completeness = float(processed_df.notna().mean().mean())
             quality_score = completeness * 100
             
             result = {
                 'status': 'success',
                 'processing_method': 'basic',
-                'records_processed': len(processed_df),
-                'quality_score': round(quality_score, 2),
-                'quality_passed': quality_score >= 70,
+                'records_processed': int(len(processed_df)),
+                'quality_score': round(float(quality_score), 2),
+                'quality_passed': bool(quality_score >= 70),
                 'cleaning_issues_count': 0,
-                'features_generated': len(processed_df.columns),
+                'features_generated': int(len(processed_df.columns)),
                 'execution_time_seconds': round(time.time() - start_time, 2),
-                'completeness': round(completeness, 3)
+                'completeness': round(float(completeness), 3)
             }
         
         # Store processed data temporarily (for loading phase)
@@ -296,10 +296,25 @@ def main():
             result['pipeline_run_id'] = args.pipeline_run_id
             result['timestamp'] = datetime.now().isoformat()
         
+        # Convert numpy types to native Python types for JSON serialization
+        def convert_numpy_types(obj):
+            """Convert numpy types to native Python types for JSON serialization"""
+            if hasattr(obj, 'item'):  # numpy scalar
+                return obj.item()
+            elif isinstance(obj, dict):
+                return {k: convert_numpy_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_numpy_types(v) for v in obj]
+            else:
+                return obj
+        
+        # Convert result to JSON-serializable format
+        json_safe_result = convert_numpy_types(result)
+        
         # Set GitHub Actions output
         if 'GITHUB_OUTPUT' in os.environ:
             with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                f.write(f"processing_result={json.dumps(result)}\n")
+                f.write(f"processing_result={json.dumps(json_safe_result)}\n")
         
         # Summary
         logger.info(f"🎯 Data processing completed with status: {result['status'].upper()}")
