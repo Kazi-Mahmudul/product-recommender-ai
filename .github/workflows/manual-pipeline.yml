@@ -82,6 +82,10 @@ jobs:
               exit(1)
           "
 
+      - name: Run database migrations
+        run: |
+          alembic upgrade head
+
   extract_data:
     runs-on: ubuntu-latest
     needs: setup
