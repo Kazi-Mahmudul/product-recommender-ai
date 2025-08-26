@@ -567,7 +567,16 @@ def engineer_features(raw: pd.DataFrame, proc_df: pd.DataFrame) -> pd.DataFrame:
         src = cand_cols[0]
         df["charging_wattage"] = df[src].apply(extract_wattage)
         
-    from slugify import slugify
+    try:
+        from slugify import slugify
+    except ImportError:
+        # Fallback slugify implementation
+        def slugify(text):
+            import re
+            text = str(text).lower()
+            text = re.sub(r'[^a-z0-9]+', '-', text)
+            return text.strip('-')
+    
     # Generate slugs from the "name" column
     df['slug'] = df['name'].apply(lambda x: slugify(str(x)))
 

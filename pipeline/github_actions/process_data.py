@@ -159,19 +159,35 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
             
             # Basic feature engineering using the clean_transform_pipeline
             try:
-                sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'data_cleaning'))
+                # Add data_cleaning to path
+                data_cleaning_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data_cleaning')
+                if data_cleaning_path not in sys.path:
+                    sys.path.insert(0, data_cleaning_path)
+                
+                logger.info(f"   Importing from: {data_cleaning_path}")
                 from clean_transform_pipeline import engineer_features
+                logger.info("   ✅ Successfully imported engineer_features")
                 
                 if processor_df is not None:
+                    logger.info("   Starting feature engineering with processor rankings...")
                     processed_df = engineer_features(processed_df, processor_df)
-                    logger.info("   Applied feature engineering with processor rankings")
+                    logger.info("   ✅ Applied feature engineering with processor rankings")
                 else:
-                    # Basic feature engineering without processor rankings
+                    logger.info("   Starting basic feature engineering...")
                     processed_df = engineer_features(processed_df, None)
-                    logger.info("   Applied basic feature engineering")
+                    logger.info("   ✅ Applied basic feature engineering")
                 
-            except ImportError:
-                logger.warning("   Feature engineering not available, using raw data")
+            except ImportError as e:
+                logger.error(f"   ❌ Feature engineering import failed: {e}")
+                logger.error(f"   Path attempted: {data_cleaning_path}")
+                logger.warning("   Using raw data")
+                import traceback
+                logger.error(f"   Traceback: {traceback.format_exc()}")
+            except Exception as e:
+                logger.error(f"   ❌ Feature engineering execution failed: {e}")
+                logger.warning("   Using raw data")
+                import traceback
+                logger.error(f"   Traceback: {traceback.format_exc()}")
             
             # Basic quality estimation
             completeness = float(processed_df.notna().mean().mean())
