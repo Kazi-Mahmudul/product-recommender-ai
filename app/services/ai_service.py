@@ -18,7 +18,8 @@ from app.services.error_handler import (
     ExternalServiceError, handle_contextual_error, 
     contextual_error_handler
 )
-from app.services.monitoring_analytics import monitoring_analytics, QueryStatus
+# Monitoring removed as requested
+# from app.services.monitoring_analytics import monitoring_analytics, QueryStatus
 
 logger = logging.getLogger(__name__)
 
@@ -217,20 +218,9 @@ class AIService:
                 logger.debug(f"Contextual query cache hit for: {query[:50]}...")
                 result = json.loads(cached_result)
                 
-                # Record metrics
+                # Record metrics (monitoring removed)
                 processing_time = time.time() - start_time
-                if query_id:
-                    monitoring_analytics.record_query_metrics(
-                        query_id=query_id,
-                        session_id=session_id,
-                        query_text=query,
-                        query_type=result.get('intent_type', 'unknown'),
-                        processing_time=processing_time,
-                        confidence=result.get('confidence', 0.0),
-                        phone_count=len(result.get('phone_references', [])),
-                        status=QueryStatus.SUCCESS,
-                        metadata={'cached': True}
-                    )
+                logger.debug(f"Query processed in {processing_time:.3f}s (cached)")
                 
                 return result
             
@@ -254,40 +244,17 @@ class AIService:
                 self._cache.set(cache_key, json.dumps(result))
                 logger.debug(f"Cached contextual query result for: {query[:50]}...")
             
-            # Record metrics
+            # Record metrics (monitoring removed)
             processing_time = time.time() - start_time
-            if query_id:
-                monitoring_analytics.record_query_metrics(
-                    query_id=query_id,
-                    session_id=session_id,
-                    query_text=query,
-                    query_type=result.get('intent_type', 'unknown'),
-                    processing_time=processing_time,
-                    confidence=result.get('confidence', 0.0),
-                    phone_count=len(result.get('phone_references', [])),
-                    status=QueryStatus.SUCCESS,
-                    metadata={'cached': False, 'fallback_used': response is None}
-                )
+            logger.info(f"Query processed in {processing_time:.3f}s")
             
             return result
             
         except Exception as e:
             processing_time = time.time() - start_time
             
-            # Record error metrics
-            if query_id:
-                monitoring_analytics.record_query_metrics(
-                    query_id=query_id,
-                    session_id=session_id,
-                    query_text=query,
-                    query_type='unknown',
-                    processing_time=processing_time,
-                    confidence=0.0,
-                    phone_count=0,
-                    status=QueryStatus.ERROR,
-                    error_type=type(e).__name__,
-                    error_category='ai_processing_error'
-                )
+            # Record error metrics (monitoring removed)
+            logger.error(f"Query failed after {processing_time:.3f}s: {type(e).__name__}")
             
             # Handle error
             error_context = {

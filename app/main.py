@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import time
+import json
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -25,6 +26,49 @@ logger = get_logger(__name__)
 logger.info("Starting application...")
 logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'Not set')}")
 logger.info(f"Port: {os.getenv('PORT', 'Not set')}")
+
+# Validate critical configuration
+def validate_configuration():
+    """Validate critical configuration settings"""
+    issues = []
+    
+    # Check database URL
+    if not settings.DATABASE_URL or settings.DATABASE_URL == "postgresql://user:password@localhost/pickbd":
+        issues.append("DATABASE_URL is not properly configured")
+    
+    # Check Gemini service URL
+    if not settings.GEMINI_SERVICE_URL or "localhost" in settings.GEMINI_SERVICE_URL:
+        if os.getenv("ENVIRONMENT") == "production":
+            issues.append("GEMINI_SERVICE_URL should use production URL in production environment")
+    
+    # Check CORS origins
+    if not settings.CORS_ORIGINS:
+        issues.append("CORS_ORIGINS is not configured")
+    elif os.getenv("ENVIRONMENT") == "production":
+        # Ensure no localhost origins in production
+        localhost_origins = [origin for origin in settings.CORS_ORIGINS if "localhost" in origin]
+        if localhost_origins:
+            logger.warning(f"Localhost origins found in production CORS config: {localhost_origins}")
+    
+    # Check secret key
+    if not settings.SECRET_KEY or settings.SECRET_KEY == "your-secret-key-change-in-production":
+        issues.append("SECRET_KEY is not properly configured for production")
+    
+    # Check Google API key
+    if not os.getenv("GOOGLE_API_KEY"):
+        issues.append("GOOGLE_API_KEY is not set")
+    
+    if issues:
+        logger.error("Configuration validation failed:")
+        for issue in issues:
+            logger.error(f"  - {issue}")
+        if os.getenv("ENVIRONMENT") == "production":
+            logger.error("Critical configuration issues found in production!")
+    else:
+        logger.info("✅ Configuration validation passed")
+
+# Validate configuration on startup
+validate_configuration()
 
 # Try to import and initialize database
 try:
@@ -79,20 +123,53 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
     allow_headers=[
         "Accept",
         "Accept-Language",
-        "Content-Language",
+        "Content-Language", 
         "Content-Type",
         "Authorization",
         "X-Requested-With",
         "Origin",
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
+        "X-Session-Id",
+        "Cache-Control",
+        "Pragma",
+        "Expires",
+        "If-None-Match",
+        "If-Modified-Since"
     ],
-    expose_headers=["Content-Range", "X-Total-Count"],
+    expose_headers=[
+        "Content-Range", 
+        "X-Total-Count",
+        "Cache-Control",
+        "ETag",
+        "Last-Modified",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials"
+    ],
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
+
+# Add explicit OPTIONS handler for CORS preflight requests
+@app.options("/{path:path}")
+async def options_handler(request: Request):
+    """Handle CORS preflight requests explicitly"""
+    origin = request.headers.get("origin")
+    if origin in settings.CORS_ORIGINS or "*" in settings.CORS_ORIGINS:
+        return Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, X-Session-Id, Cache-Control, Pragma, Expires, If-None-Match, If-Modified-Since",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400"
+            }
+        )
+    return Response(status_code=403)
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_PREFIX)
@@ -102,25 +179,67 @@ app.include_router(api_router, prefix=settings.API_PREFIX)
 @app.get("/api/v1/health")
 async def health_check(request: Request):
     """
-    Health check endpoint for GCP Cloud Run.
-    Returns 200 OK if the service is running properly.
+    Enhanced health check endpoint for GCP Cloud Run.
+    Returns detailed status of all service dependencies.
     """
-    # Try to check database connection
-    db_status = "unknown"
+    health_status = "healthy"
+    services = {}
+    
+    # Check database connection
     try:
         from app.core.database import engine, current_db_type
         if current_db_type != "dummy":
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-                db_status = "healthy"
+                # Test if phones table exists and has data
+                result = conn.execute(text("SELECT COUNT(*) FROM phones LIMIT 1"))
+                phone_count = result.scalar()
+                services["database"] = {
+                    "status": "healthy",
+                    "type": current_db_type,
+                    "phone_count": phone_count
+                }
         else:
-            db_status = "dummy (no connection)"
+            services["database"] = {
+                "status": "dummy",
+                "type": "dummy",
+                "message": "Using dummy database in production fallback"
+            }
+            if os.getenv("ENVIRONMENT") == "production":
+                health_status = "degraded"
     except Exception as e:
-        # In production, we might still want to report as healthy even without database
-        if os.getenv("ENVIRONMENT") == "production":
-            db_status = f"error (but continuing in production): {str(e)}"
-        else:
-            db_status = f"error: {str(e)}"
+        services["database"] = {
+            "status": "error",
+            "error": str(e)
+        }
+        health_status = "degraded" if os.getenv("ENVIRONMENT") == "production" else "unhealthy"
+    
+    # Check AI service connection
+    try:
+        import httpx
+        ai_service_url = settings.GEMINI_SERVICE_URL_SECURE
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{ai_service_url}/health")
+            if response.status_code == 200:
+                services["ai_service"] = {
+                    "status": "healthy",
+                    "url": ai_service_url,
+                    "response_time": response.elapsed.total_seconds()
+                }
+            else:
+                services["ai_service"] = {
+                    "status": "error",
+                    "url": ai_service_url,
+                    "status_code": response.status_code
+                }
+                health_status = "degraded"
+    except Exception as e:
+        services["ai_service"] = {
+            "status": "error",
+            "url": settings.GEMINI_SERVICE_URL_SECURE,
+            "error": str(e)
+        }
+        health_status = "degraded"
     
     # Check HTTPS configuration
     https_status = {
@@ -135,16 +254,30 @@ async def health_check(request: Request):
     is_behind_proxy = bool(request.headers.get("x-forwarded-for") or 
                           request.headers.get("x-forwarded-proto"))
     
-    return {
-        "status": "healthy", 
+    # Overall health determination
+    if health_status == "healthy":
+        status_code = 200
+    elif health_status == "degraded":
+        status_code = 200  # Still return 200 for degraded but functional
+    else:
+        status_code = 503
+    
+    response_data = {
+        "status": health_status,
         "timestamp": time.time(),
-        "database": db_status,
+        "services": services,
         "https": https_status,
         "behind_proxy": is_behind_proxy,
         "port": os.getenv("PORT", "Not set"),
         "environment": os.getenv("ENVIRONMENT", "Not set"),
         "cors_origins": settings.CORS_ORIGINS
     }
+    
+    return Response(
+        content=json.dumps(response_data),
+        status_code=status_code,
+        media_type="application/json"
+    )
 
 @app.get("/")
 def root():

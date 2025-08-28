@@ -8,6 +8,7 @@ from typing import Generator
 import os
 import time
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 from app.core.config import settings
 
@@ -24,28 +25,33 @@ def create_database_engine(database_url: str, is_fallback: bool = False):
     # Determine connection arguments based on URL
     connect_args = {}
     if "supabase.com" in database_url or "amazonaws.com" in database_url:
-        # Cloud database - require SSL
-        connect_args = {"sslmode": "require"}
+        # Cloud database - require SSL with enhanced configuration
+        connect_args = {
+            "sslmode": "require",
+            "connect_timeout": 30,  # Increased timeout for cloud connections
+            "application_name": "pickbd_backend",
+            "keepalives_idle": 600,  # Keep connection alive
+            "keepalives_interval": 30,
+            "keepalives_count": 3
+        }
     elif "localhost" in database_url or "127.0.0.1" in database_url:
-        # Local database - no SSL required
-        connect_args = {}
+        # Local database - no SSL required but add timeout
+        connect_args = {
+            "connect_timeout": 10,
+            "application_name": "pickbd_backend_local"
+        }
     
     engine_name = "fallback" if is_fallback else "primary"
     logger.info(f"Creating {engine_name} database engine for: {sqlalchemy_url.split('@')[0]}@***")
     
-    # Add additional connection arguments for better reliability
-    # Note: command_timeout is not supported by psycopg2, so we only use connect_timeout
-    connect_args.update({
-        "connect_timeout": 10,  # 10 second connection timeout
-    })
-    
     return create_engine(
         sqlalchemy_url,
         echo=settings.DEBUG,  # Only enable SQL logging in debug mode
-        pool_size=5,
-        max_overflow=10,
+        pool_size=10,  # Increased pool size for production
+        max_overflow=20,  # Increased overflow for high load
         pool_recycle=300,  # Recycle connections after 5 minutes
         pool_pre_ping=True,  # Enable connection health checks
+        pool_timeout=30,  # Timeout for getting connection from pool
         connect_args=connect_args
     )
 
@@ -110,22 +116,46 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 def get_db() -> Generator[Session, None, None]:
-    """Database session dependency for FastAPI."""
+    """Database session dependency for FastAPI with enhanced error handling."""
     db = SessionLocal()
     try:
-        logger.info("Database connection opened")
+        # Test connection before yielding
+        db.execute(text("SELECT 1"))
         yield db
+    except OperationalError as e:
+        logger.error(f"Database operational error: {str(e)}")
+        db.rollback()
+        db.close()
+        # Try to recreate engine if connection is lost
+        if "connection" in str(e).lower() or "timeout" in str(e).lower():
+            logger.info("Attempting to recreate database connection...")
+            try:
+                global engine
+                if settings.DATABASE_URL:
+                    engine = create_database_engine(settings.DATABASE_URL)
+                    db = SessionLocal()
+                    db.execute(text("SELECT 1"))
+                    yield db
+                else:
+                    raise HTTPException(status_code=503, detail="Database connection failed")
+            except Exception as reconnect_error:
+                logger.error(f"Failed to reconnect to database: {str(reconnect_error)}")
+                raise HTTPException(status_code=503, detail="Database service unavailable")
+        else:
+            raise HTTPException(status_code=500, detail="Database error occurred")
     except SQLAlchemyError as e:
         logger.error(f"Database error occurred: {str(e)}")
         db.rollback()
-        raise
+        raise HTTPException(status_code=500, detail="Database error occurred")
     except Exception as e:
         logger.error(f"Unexpected error occurred: {str(e)}")
         db.rollback()
-        raise
+        raise HTTPException(status_code=500, detail="Internal server error")
     finally:
-        logger.info("Database connection closed")
-        db.close()
+        try:
+            db.close()
+        except Exception as close_error:
+            logger.warning(f"Error closing database connection: {str(close_error)}")
 
 # Final connection test and table verification
 def verify_database_connection():

@@ -48,24 +48,34 @@ class Settings(BaseSettings):
                 "http://localhost:8080"
             ]
             
-            # Add localhost origins if not already present
-            for localhost_origin in localhost_origins:
-                if localhost_origin not in origins:
-                    origins.append(localhost_origin)
+            # Add localhost origins if not already present (only in development)
+            if os.getenv("ENVIRONMENT") != "production":
+                for localhost_origin in localhost_origins:
+                    if localhost_origin not in origins:
+                        origins.append(localhost_origin)
             
             # Ensure all non-localhost origins use HTTPS in production
             if os.getenv("ENVIRONMENT") == "production":
                 origins = [self._ensure_https_origin(origin) for origin in origins]
+                # Remove localhost origins in production for security
+                origins = [origin for origin in origins if not ("localhost" in origin or "127.0.0.1" in origin)]
             
             return origins
         else:
-            # Default values - always include localhost for development
-            origins = [
-                "http://localhost:3000",
-                "http://localhost:8000", 
-                "http://localhost:8080",
-                "https://pickbd.vercel.app"
-            ]
+            # Default values
+            if os.getenv("ENVIRONMENT") == "production":
+                # Production defaults - only secure origins
+                origins = [
+                    "https://pickbd.vercel.app"
+                ]
+            else:
+                # Development defaults - include localhost
+                origins = [
+                    "http://localhost:3000",
+                    "http://localhost:8000", 
+                    "http://localhost:8080",
+                    "https://pickbd.vercel.app"
+                ]
             
             # Ensure HTTPS for production (except localhost for development)
             if os.getenv("ENVIRONMENT") == "production":

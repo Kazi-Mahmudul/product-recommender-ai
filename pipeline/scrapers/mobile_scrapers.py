@@ -1060,6 +1060,7 @@ class MobileDokanScraper:
             valid_columns = self.get_valid_database_columns()
             
             # Prepare data for insertion
+            current_time = datetime.now()
             data = {
                 'name': product_data.get('name'),
                 'brand': product_data.get('brand'),
@@ -1067,10 +1068,11 @@ class MobileDokanScraper:
                 'price': product_data.get('price'),
                 'url': product_data.get('url'),
                 'img_url': product_data.get('image_url'),
-                'scraped_at': datetime.now(),
+                'scraped_at': current_time,
                 'pipeline_run_id': pipeline_run_id,
                 'data_source': 'MobileDokan',
-                'is_pipeline_managed': True
+                'is_pipeline_managed': True,
+                'updated_at': current_time  # Always set updated_at for both insert and update
             }
             
             # Add specs data, but only for columns that exist in the database
@@ -1110,7 +1112,9 @@ class MobileDokanScraper:
                 
                 return 'updated'
             else:
-                # Insert new record
+                # Insert new record - add created_at timestamp
+                filtered_data['created_at'] = current_time
+                
                 columns = list(filtered_data.keys())
                 placeholders = ['%s'] * len(columns)
                 values = list(filtered_data.values())

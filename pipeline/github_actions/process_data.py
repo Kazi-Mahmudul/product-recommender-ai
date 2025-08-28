@@ -74,7 +74,43 @@ def get_scraped_data_from_database(pipeline_run_id: str) -> Optional[object]:
         ORDER BY updated_at DESC, created_at DESC
         """
         
+        # Debug: Check total records and recent records
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM phones")
+        total_count = cursor.fetchone()[0]
+        
+        cursor.execute("""
+            SELECT COUNT(*) FROM phones 
+            WHERE updated_at >= NOW() - INTERVAL '1 day'
+            OR created_at >= NOW() - INTERVAL '1 day'
+        """)
+        recent_count = cursor.fetchone()[0]
+        
+        cursor.execute("""
+            SELECT MAX(updated_at) as max_updated, MAX(created_at) as max_created, 
+                   MIN(updated_at) as min_updated, MIN(created_at) as min_created
+            FROM phones
+        """)
+        timestamp_info = cursor.fetchone()
+        
+        logger.info(f"📊 Database stats: {total_count} total records, {recent_count} recent records")
+        if timestamp_info:
+            logger.info(f"   Timestamp range - Updated: {timestamp_info[2]} to {timestamp_info[0]}")
+            logger.info(f"   Timestamp range - Created: {timestamp_info[3]} to {timestamp_info[1]}")
+        
         df = pd.read_sql_query(query, conn)
+        
+        # If no recent records found, try fallback query by pipeline_run_id
+        if len(df) == 0:
+            logger.warning("⚠️ No records found with recent timestamps, trying fallback query by pipeline_run_id...")
+            fallback_query = """
+            SELECT * FROM phones 
+            WHERE pipeline_run_id = %s
+            ORDER BY scraped_at DESC
+            """
+            df = pd.read_sql_query(fallback_query, conn, params=[pipeline_run_id])
+            logger.info(f"📊 Fallback query retrieved {len(df)} records for pipeline_run_id: {pipeline_run_id}")
+        
         conn.close()
         
         logger.info(f"✅ Retrieved {len(df)} records from database for processing")

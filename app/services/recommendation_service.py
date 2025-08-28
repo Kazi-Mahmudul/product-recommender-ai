@@ -14,7 +14,8 @@ from app.services.matchers.ai_similarity_engine import AISimilarityEngine
 from app.services.badge_generator import BadgeGenerator
 from app.services.highlight_generator import HighlightGenerator
 from app.core.cache import Cache, cached
-from app.core.monitoring import track_execution_time
+# Monitoring removed as requested
+# from app.core.monitoring import track_execution_time
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,6 @@ class RecommendationService:
         self.badge_generator = BadgeGenerator(db)
         self.highlight_generator = HighlightGenerator(db)
     
-    @track_execution_time("get_smart_recommendations")
     @cached(prefix="phone", ttl=86400)  # Cache for 24 hours
     def get_smart_recommendations(
         self, 
@@ -136,7 +136,6 @@ class RecommendationService:
             logger.error(f"Error generating recommendations for phone ID {phone_id}: {str(e)}")
             return []
     
-    @track_execution_time("get_candidate_phones", "db_query_times")
     def _get_candidate_phones(self, target_phone: Phone) -> List[Phone]:
         """
         Get candidate phones for recommendation (excluding target phone)

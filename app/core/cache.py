@@ -6,13 +6,9 @@ import redis
 from functools import wraps
 
 from app.core.config import settings
-# Import will be resolved when monitoring.py is created
-try:
-    from app.core.monitoring import track_cache_metrics
-except ImportError:
-    # Fallback if monitoring module is not available
-    def track_cache_metrics(hit, prefix):
-        pass
+# Monitoring removed as requested
+def track_cache_metrics(hit, prefix):
+    pass
 
 logger = logging.getLogger(__name__)
 

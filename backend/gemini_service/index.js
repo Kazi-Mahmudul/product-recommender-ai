@@ -31,7 +31,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Check if GOOGLE_API_KEY is available
+// Check if GOOGLE_API_KEY is available with enhanced validation
 if (!process.env.GOOGLE_API_KEY) {
   console.error("❌ GOOGLE_API_KEY is missing. Please set it in your Cloud Run environment variables.");
   console.error("This can be done in Google Cloud Console under Cloud Run service configuration.");
@@ -39,11 +39,50 @@ if (!process.env.GOOGLE_API_KEY) {
   process.exit(1);
 }
 
-// Initialize Google Generative AI
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+// Validate API key format
+const apiKey = process.env.GOOGLE_API_KEY;
+if (apiKey.length < 20 || !apiKey.startsWith('AIza')) {
+  console.error("❌ GOOGLE_API_KEY appears to be invalid. Please check the API key format.");
+  console.error("Expected format: AIzaSy... (should start with 'AIza' and be at least 20 characters)");
+  process.exit(1);
+}
 
-console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.5-flash-lite`);
+console.log(`✅ Google API Key validated: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+console.log(`🔹 API Key length: ${apiKey.length} characters`);
+
+// Initialize Google Generative AI with enhanced configuration
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+
+// Use the paid tier model as configured
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-2.5-flash-lite",
+  generationConfig: {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 4096,
+  },
+  safetySettings: [
+    {
+      category: "HARM_CATEGORY_HARASSMENT",
+      threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    },
+    {
+      category: "HARM_CATEGORY_HATE_SPEECH", 
+      threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    },
+    {
+      category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+      threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    },
+    {
+      category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+      threshold: "BLOCK_MEDIUM_AND_ABOVE",
+    },
+  ],
+});
+
+console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.5-flash-lite with enhanced configuration`);
 
 // Enhanced health check endpoints for Cloud Run
 app.get("/", (req, res) => {
@@ -128,10 +167,13 @@ function detectContextualQuery(query) {
   };
 }
 
-// Main Gemini prompt-based parser
-async function parseQuery(query) {
+// Main Gemini prompt-based parser with enhanced error handling
+async function parseQuery(query, retryCount = 0) {
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+  
   try {
-    console.log(`[${new Date().toISOString()}] 🔹 Sending query to Gemini: "${query}"`);
+    console.log(`[${new Date().toISOString()}] 🔹 Sending query to Gemini (attempt ${retryCount + 1}/${maxRetries + 1}): "${query}"`);
     console.log(`[${new Date().toISOString()}] 🔹 Using API key: ${process.env.GOOGLE_API_KEY ? 'Present' : 'Missing'}`);
     console.log(`[${new Date().toISOString()}] 🔹 API key length: ${process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.length : 0}`);
     
@@ -319,7 +361,7 @@ Only return valid JSON — no markdown formatting. User query: ${query}`;
     
   } catch (error) {
     console.error(
-      `[${new Date().toISOString()}] ❌ Error parsing Gemini response:`,
+      `[${new Date().toISOString()}] ❌ Error parsing Gemini response (attempt ${retryCount + 1}):`,
       error
     );
     console.error(
@@ -330,6 +372,27 @@ Only return valid JSON — no markdown formatting. User query: ${query}`;
         stack: error.stack
       }
     );
+    
+    // Check if we should retry
+    const shouldRetry = (
+      retryCount < maxRetries && 
+      (
+        error.message.includes('quota') || 
+        error.message.includes('limit') || 
+        error.message.includes('rate') ||
+        error.message.includes('timeout') ||
+        error.message.includes('503') ||
+        error.message.includes('502') ||
+        error.message.includes('500')
+      )
+    );
+    
+    if (shouldRetry) {
+      const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
+      console.log(`[${new Date().toISOString()}] 🔄 Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return parseQuery(query, retryCount + 1);
+    }
     
     // Provide more specific error messages based on the error type
     if (error.message.includes('API_KEY') || error.message.includes('authentication')) {

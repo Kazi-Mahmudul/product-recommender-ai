@@ -12,7 +12,7 @@ from app.utils.validation import parse_and_validate_ids, parse_and_validate_slug
 from app.core.database import get_db
 from app.models.phone import Phone as PhoneModel
 from app.services.recommendation_service import RecommendationService
-from app.core.monitoring import track_execution_time
+# Monitoring removed as requested
 
 router = APIRouter()
 
@@ -259,7 +259,6 @@ def get_smart_recommendations(
     return recommendations
 
 @router.get("/slug/{phone_slug}/recommendations", response_model=List[SmartRecommendation])
-@track_execution_time("get_phone_recommendations_endpoint", "api_response_times")
 def get_phone_recommendations(
     phone_slug: str,
     limit: int = 8,
@@ -301,7 +300,6 @@ def get_phone_recommendations(
     return recommendations
 
 @router.get("/bulk", response_model=BulkPhonesResponse)
-@track_execution_time("get_phones_bulk_slugs_endpoint", "api_response_times")
 def get_phones_bulk_by_slugs(
     slugs: str = Query(..., description="Comma-separated phone slugs (max 50)"),
     response: Response = None,
