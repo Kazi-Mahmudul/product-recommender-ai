@@ -5,147 +5,143 @@ import logging
 
 from app.models.phone import Phone
 from app.schemas.phone import PhoneCreate
+from app.utils.database_validation import DatabaseValidator
 from rapidfuzz import process, fuzz
 
 logger = logging.getLogger(__name__)
 
 def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[str, Any]:
     """
-    Convert SQLAlchemy Phone object to dictionary for JSON serialization
-    Ensures 'id' is present and is an integer > 0 if possible.
-    Logs the output for debugging.
+    Convert SQLAlchemy Phone object to dictionary for JSON serialization.
+    Uses safe attribute access to handle missing columns gracefully.
     """
-    # Import here to avoid circular imports
-    from app.services.image_optimizer import ImageOptimizer
-    
-    # Add optimized image URLs if requested
-    optimized_images = {}
-    if include_optimized_images and phone.img_url:
-        try:
-            optimized_images = {
-                "img_url_card": ImageOptimizer.get_optimized_phone_image(phone.img_url, "card"),
-                "img_url_thumbnail": ImageOptimizer.get_optimized_phone_image(phone.img_url, "thumbnail"),
-                "img_url_detail": ImageOptimizer.get_optimized_phone_image(phone.img_url, "detail"),
-                "img_url_list": ImageOptimizer.get_optimized_phone_image(phone.img_url, "list"),
-            }
-        except Exception as e:
-            logger.error(f"Error generating optimized image URLs: {str(e)}")
-    
-    result = {
-        "id": int(getattr(phone, 'id', 0)) if getattr(phone, 'id', None) is not None else 0,
-        "name": getattr(phone, 'name', None) or "Unknown Phone",
-        "brand": getattr(phone, 'brand', None) or "Unknown",
-        "model": getattr(phone, 'model', None) or "Unknown Model",
-        "slug": getattr(phone, 'slug', None),
-        "price": getattr(phone, 'price', None) or "",
-        "url": getattr(phone, 'url', None) or "",
-        "img_url": getattr(phone, 'img_url', None) or "https://via.placeholder.com/300x300?text=No+Image",
-        **optimized_images,
-        "display_type": phone.display_type,
-        "screen_size_inches": phone.screen_size_inches,
-        "display_resolution": phone.display_resolution,
-        "pixel_density_ppi": phone.pixel_density_ppi,
-        "refresh_rate_hz": phone.refresh_rate_hz,
-        "screen_protection": phone.screen_protection,
-        "display_brightness": phone.display_brightness,
-        "aspect_ratio": phone.aspect_ratio,
-        "hdr_support": phone.hdr_support,
-        "chipset": phone.chipset,
-        "cpu": phone.cpu,
-        "gpu": phone.gpu,
-        "ram": phone.ram,
-        "ram_type": phone.ram_type,
-        "internal_storage": phone.internal_storage,
-        "storage_type": phone.storage_type,
-        "camera_setup": phone.camera_setup,
-        "primary_camera_resolution": phone.primary_camera_resolution,
-        "selfie_camera_resolution": phone.selfie_camera_resolution,
-        "primary_camera_video_recording": phone.primary_camera_video_recording,
-        "selfie_camera_video_recording": phone.selfie_camera_video_recording,
-        "primary_camera_ois": phone.primary_camera_ois,
-        "primary_camera_aperture": phone.primary_camera_aperture,
-        "selfie_camera_aperture": phone.selfie_camera_aperture,
-        "camera_features": phone.camera_features,
-        "autofocus": phone.autofocus,
-        "flash": phone.flash,
-        "settings": phone.settings,
-        "zoom": phone.zoom,
-        "shooting_modes": phone.shooting_modes,
-        "video_fps": phone.video_fps,
-        "main_camera": phone.main_camera,
-        "front_camera": phone.front_camera,
-        "battery_type": phone.battery_type,
-        "capacity": phone.capacity,
-        "quick_charging": phone.quick_charging,
-        "wireless_charging": phone.wireless_charging,
-        "reverse_charging": phone.reverse_charging,
-        "build": phone.build,
-        "weight": phone.weight,
-        "thickness": phone.thickness,
-        "colors": phone.colors,
-        "waterproof": phone.waterproof,
-        "ip_rating": phone.ip_rating,
-        "ruggedness": phone.ruggedness,
-        "network": phone.network,
-        "speed": phone.speed,
-        "sim_slot": phone.sim_slot,
-        "volte": phone.volte,
-        "bluetooth": phone.bluetooth,
-        "wlan": phone.wlan,
-        "gps": phone.gps,
-        "nfc": phone.nfc,
-        "usb": phone.usb,
-        "usb_otg": phone.usb_otg,
-        "fingerprint_sensor": phone.fingerprint_sensor,
-        "finger_sensor_type": phone.finger_sensor_type,
-        "finger_sensor_position": phone.finger_sensor_position,
-        "face_unlock": phone.face_unlock,
-        "light_sensor": phone.light_sensor,
-        "infrared": phone.infrared,
-        "fm_radio": phone.fm_radio,
-        "operating_system": phone.operating_system,
-        "os_version": phone.os_version,
-        "user_interface": phone.user_interface,
-        "status": phone.status,
-        "made_by": phone.made_by,
-        "release_date": phone.release_date,
-        "price_original": phone.price_original,
-        "price_category": phone.price_category,
-        "storage_gb": phone.storage_gb,
-        "ram_gb": phone.ram_gb,
-        "price_per_gb": phone.price_per_gb,
-        "price_per_gb_ram": phone.price_per_gb_ram,
-        "screen_size_numeric": phone.screen_size_numeric,
-        "resolution_width": phone.resolution_width,
-        "resolution_height": phone.resolution_height,
-        "ppi_numeric": phone.ppi_numeric,
-        "refresh_rate_numeric": phone.refresh_rate_numeric,
-        "camera_count": phone.camera_count,
-        "primary_camera_mp": phone.primary_camera_mp,
-        "selfie_camera_mp": phone.selfie_camera_mp,
-        "battery_capacity_numeric": phone.battery_capacity_numeric,
-        "has_fast_charging": phone.has_fast_charging,
-        "has_wireless_charging": phone.has_wireless_charging,
-        "charging_wattage": phone.charging_wattage,
-        "battery_score": phone.battery_score,
-        "security_score": phone.security_score,
-        "connectivity_score": phone.connectivity_score,
-        "is_popular_brand": phone.is_popular_brand,
-        "release_date_clean": phone.release_date_clean.isoformat() if phone.release_date_clean else None,
-        "is_new_release": phone.is_new_release,
-        "age_in_months": phone.age_in_months,
-        "is_upcoming": phone.is_upcoming,
-        "overall_device_score": phone.overall_device_score,
-        "performance_score": phone.performance_score,
-        "display_score": phone.display_score,
-        "camera_score": phone.camera_score
-    }
-    # Defensive: If id is not a positive integer, log a warning
-    if not isinstance(result["id"], int) or result["id"] <= 0:
-        logger.warning(f"phone_to_dict: Invalid or missing id for phone: {getattr(phone, 'name', None)} (raw id: {getattr(phone, 'id', None)})")
-    # Log the output for debugging
-    logger.debug(f"phone_to_dict output: {result}")
-    return result
+    try:
+        # Add optimized image URLs if requested
+        optimized_images = {}
+        if include_optimized_images:
+            img_url = DatabaseValidator.get_safe_column_value(phone, 'img_url')
+            if img_url:
+                try:
+                    # Import here to avoid circular imports
+                    from app.services.image_optimizer import ImageOptimizer
+                    optimized_images = {
+                        "img_url_card": ImageOptimizer.get_optimized_phone_image(img_url, "card"),
+                        "img_url_thumbnail": ImageOptimizer.get_optimized_phone_image(img_url, "thumbnail"),
+                        "img_url_detail": ImageOptimizer.get_optimized_phone_image(img_url, "detail"),
+                        "img_url_list": ImageOptimizer.get_optimized_phone_image(img_url, "list"),
+                    }
+                except Exception as e:
+                    logger.warning(f"Error generating optimized image URLs: {str(e)}")
+        
+        # Core fields - these should always exist
+        result = {
+            "id": int(DatabaseValidator.get_safe_column_value(phone, 'id', 0)),
+            "name": DatabaseValidator.get_safe_column_value(phone, 'name') or "Unknown Phone",
+            "brand": DatabaseValidator.get_safe_column_value(phone, 'brand') or "Unknown",
+            "model": DatabaseValidator.get_safe_column_value(phone, 'model') or "Unknown Model",
+            "slug": DatabaseValidator.get_safe_column_value(phone, 'slug'),
+            "price": DatabaseValidator.get_safe_column_value(phone, 'price') or "",
+            "url": DatabaseValidator.get_safe_column_value(phone, 'url') or "",
+            "img_url": DatabaseValidator.get_safe_column_value(phone, 'img_url') or "https://via.placeholder.com/300x300?text=No+Image",
+            **optimized_images,
+        }
+        
+        # Display fields
+        display_fields = [
+            "display_type", "screen_size_inches", "display_resolution", "pixel_density_ppi",
+            "refresh_rate_hz", "screen_protection", "display_brightness", "aspect_ratio", "hdr_support"
+        ]
+        for field in display_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Performance fields
+        performance_fields = [
+            "chipset", "cpu", "gpu", "ram", "ram_type", "internal_storage", "storage_type"
+        ]
+        for field in performance_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Camera fields
+        camera_fields = [
+            "camera_setup", "primary_camera_resolution", "selfie_camera_resolution",
+            "primary_camera_video_recording", "selfie_camera_video_recording", "primary_camera_ois",
+            "primary_camera_aperture", "selfie_camera_aperture", "camera_features", "autofocus",
+            "flash", "settings", "zoom", "shooting_modes", "video_fps", "main_camera", "front_camera"
+        ]
+        for field in camera_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Battery fields
+        battery_fields = [
+            "battery_type", "capacity", "quick_charging", "wireless_charging", "reverse_charging"
+        ]
+        for field in battery_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Design fields
+        design_fields = [
+            "build", "weight", "thickness", "colors", "waterproof", "ip_rating", "ruggedness"
+        ]
+        for field in design_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Connectivity fields
+        connectivity_fields = [
+            "network", "speed", "sim_slot", "volte", "bluetooth", "wlan", "gps", "nfc",
+            "usb", "usb_otg", "fingerprint_sensor", "finger_sensor_type", "finger_sensor_position",
+            "face_unlock", "light_sensor", "infrared", "fm_radio"
+        ]
+        for field in connectivity_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # System fields
+        system_fields = [
+            "operating_system", "os_version", "user_interface", "status", "made_by", "release_date"
+        ]
+        for field in system_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Numeric/derived fields - these might not exist in all databases
+        numeric_fields = [
+            "price_original", "price_category", "storage_gb", "ram_gb", "price_per_gb",
+            "price_per_gb_ram", "screen_size_numeric", "resolution_width", "resolution_height",
+            "ppi_numeric", "refresh_rate_numeric", "camera_count", "primary_camera_mp",
+            "selfie_camera_mp", "battery_capacity_numeric", "has_fast_charging",
+            "has_wireless_charging", "charging_wattage", "battery_score", "security_score",
+            "connectivity_score", "is_popular_brand", "is_new_release", "age_in_months",
+            "is_upcoming", "overall_device_score", "performance_score", "display_score", "camera_score"
+        ]
+        for field in numeric_fields:
+            result[field] = DatabaseValidator.get_safe_column_value(phone, field)
+        
+        # Handle special date field
+        release_date_clean = DatabaseValidator.get_safe_column_value(phone, 'release_date_clean')
+        if release_date_clean and hasattr(release_date_clean, 'isoformat'):
+            result["release_date_clean"] = release_date_clean.isoformat()
+        else:
+            result["release_date_clean"] = None
+        
+        # Validate ID
+        if not isinstance(result["id"], int) or result["id"] <= 0:
+            logger.warning(f"phone_to_dict: Invalid or missing id for phone: {result.get('name', 'Unknown')} (raw id: {result['id']})")
+        
+        logger.debug(f"Successfully converted phone {result['id']} to dict")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in phone_to_dict for phone {getattr(phone, 'id', 'unknown')}: {str(e)}", exc_info=True)
+        # Return minimal safe dictionary
+        return {
+            "id": int(getattr(phone, 'id', 0)),
+            "name": getattr(phone, 'name', 'Unknown Phone'),
+            "brand": getattr(phone, 'brand', 'Unknown'),
+            "model": getattr(phone, 'model', 'Unknown Model'),
+            "slug": getattr(phone, 'slug', None),
+            "price": getattr(phone, 'price', ''),
+            "url": getattr(phone, 'url', ''),
+            "img_url": getattr(phone, 'img_url', 'https://via.placeholder.com/300x300?text=No+Image'),
+            "error": "Partial data due to serialization error"
+        }
 
 def get_phones(
     db: Session, 
@@ -170,72 +166,152 @@ def get_phones(
     sort: Optional[str] = None,
     search: Optional[str] = None
 ) -> Tuple[List[Phone], int]:
-    """Get phones with optional filtering"""
-    query = db.query(Phone)
-    
-    # Apply filters if provided
-    if brand:
-        query = query.filter(Phone.brand == brand)
-    if min_price is not None:
-        query = query.filter(Phone.price_original >= min_price)
-    if max_price is not None:
-        query = query.filter(Phone.price_original <= max_price)
-    if min_ram_gb is not None:
-        query = query.filter(Phone.ram_gb >= min_ram_gb)
-    if min_storage_gb is not None:
-        query = query.filter(Phone.storage_gb >= min_storage_gb)
-    
-    # Camera filters
-    if camera_setup is not None:
-        query = query.filter(func.lower(Phone.camera_setup) == func.lower(camera_setup))
-    if min_primary_camera_mp is not None:
-        query = query.filter(Phone.primary_camera_mp >= min_primary_camera_mp)
-    if min_selfie_camera_mp is not None:
-        query = query.filter(Phone.selfie_camera_mp >= min_selfie_camera_mp)
-    
-    # Battery filters
-    if battery_type is not None:
-        query = query.filter(func.lower(Phone.battery_type).contains(func.lower(battery_type)))
-    if min_battery_capacity is not None:
-        query = query.filter(Phone.battery_capacity_numeric >= min_battery_capacity)
-    
-    # Display filters
-    if display_type is not None:
-        query = query.filter(func.lower(Phone.display_type).contains(func.lower(display_type)))
-    if min_refresh_rate is not None:
-        query = query.filter(Phone.refresh_rate_numeric >= min_refresh_rate)
-    if min_screen_size is not None:
-        query = query.filter(Phone.screen_size_numeric >= min_screen_size)
-    if max_screen_size is not None:
-        query = query.filter(Phone.screen_size_numeric <= max_screen_size)
-    
-    # Platform filters
-    if chipset is not None:
-        query = query.filter(func.lower(Phone.chipset).contains(func.lower(chipset)))
-    if operating_system is not None:
-        query = query.filter(func.lower(Phone.operating_system).contains(func.lower(operating_system)))
-    
-    # Search filter
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Phone.name.ilike(search_term)) | 
-            (Phone.brand.ilike(search_term)) |
-            (Phone.model.ilike(search_term))
-        )
-    
-    # Apply sorting
-    if sort == "price_high":
-        query = query.order_by(Phone.price_original.desc())
-    elif sort == "price_low":
-        query = query.order_by(Phone.price_original.asc())
-    else:
-        # Default sorting
-        query = query.order_by(Phone.overall_device_score.desc())
-    
-    total = query.count()
-    phones = query.offset(skip).limit(limit).all()
-    return phones, total
+    """Get phones with optional filtering and safe column access"""
+    try:
+        # Validate column existence for critical columns
+        column_validation = DatabaseValidator.validate_phone_columns(db)
+        
+        query = db.query(Phone)
+        
+        # Apply filters if provided and columns exist
+        if brand:
+            query = query.filter(Phone.brand == brand)
+        
+        # Price filters - check if price_original column exists
+        if min_price is not None and column_validation.get('price_original', False):
+            query = query.filter(Phone.price_original >= min_price)
+        elif min_price is not None:
+            logger.warning("price_original column not found, skipping min_price filter")
+            
+        if max_price is not None and column_validation.get('price_original', False):
+            query = query.filter(Phone.price_original <= max_price)
+        elif max_price is not None:
+            logger.warning("price_original column not found, skipping max_price filter")
+        
+        # RAM and storage filters
+        if min_ram_gb is not None and column_validation.get('ram_gb', False):
+            query = query.filter(Phone.ram_gb >= min_ram_gb)
+        elif min_ram_gb is not None:
+            logger.warning("ram_gb column not found, skipping min_ram_gb filter")
+            
+        if min_storage_gb is not None and column_validation.get('storage_gb', False):
+            query = query.filter(Phone.storage_gb >= min_storage_gb)
+        elif min_storage_gb is not None:
+            logger.warning("storage_gb column not found, skipping min_storage_gb filter")
+        
+        # Camera filters
+        if camera_setup is not None and column_validation.get('camera_setup', False):
+            query = query.filter(func.lower(Phone.camera_setup) == func.lower(camera_setup))
+        elif camera_setup is not None:
+            logger.warning("camera_setup column not found, skipping camera_setup filter")
+            
+        if min_primary_camera_mp is not None and column_validation.get('primary_camera_mp', False):
+            query = query.filter(Phone.primary_camera_mp >= min_primary_camera_mp)
+        elif min_primary_camera_mp is not None:
+            logger.warning("primary_camera_mp column not found, skipping min_primary_camera_mp filter")
+            
+        if min_selfie_camera_mp is not None and column_validation.get('selfie_camera_mp', False):
+            query = query.filter(Phone.selfie_camera_mp >= min_selfie_camera_mp)
+        elif min_selfie_camera_mp is not None:
+            logger.warning("selfie_camera_mp column not found, skipping min_selfie_camera_mp filter")
+        
+        # Battery filters
+        if battery_type is not None and column_validation.get('battery_type', False):
+            query = query.filter(func.lower(Phone.battery_type).contains(func.lower(battery_type)))
+        elif battery_type is not None:
+            logger.warning("battery_type column not found, skipping battery_type filter")
+            
+        if min_battery_capacity is not None and column_validation.get('battery_capacity_numeric', False):
+            query = query.filter(Phone.battery_capacity_numeric >= min_battery_capacity)
+        elif min_battery_capacity is not None:
+            logger.warning("battery_capacity_numeric column not found, skipping min_battery_capacity filter")
+        
+        # Display filters
+        if display_type is not None and column_validation.get('display_type', False):
+            query = query.filter(func.lower(Phone.display_type).contains(func.lower(display_type)))
+        elif display_type is not None:
+            logger.warning("display_type column not found, skipping display_type filter")
+            
+        if min_refresh_rate is not None and column_validation.get('refresh_rate_numeric', False):
+            query = query.filter(Phone.refresh_rate_numeric >= min_refresh_rate)
+        elif min_refresh_rate is not None:
+            logger.warning("refresh_rate_numeric column not found, skipping min_refresh_rate filter")
+            
+        if min_screen_size is not None and column_validation.get('screen_size_numeric', False):
+            query = query.filter(Phone.screen_size_numeric >= min_screen_size)
+        elif min_screen_size is not None:
+            logger.warning("screen_size_numeric column not found, skipping min_screen_size filter")
+            
+        if max_screen_size is not None and column_validation.get('screen_size_numeric', False):
+            query = query.filter(Phone.screen_size_numeric <= max_screen_size)
+        elif max_screen_size is not None:
+            logger.warning("screen_size_numeric column not found, skipping max_screen_size filter")
+        
+        # Platform filters
+        if chipset is not None and column_validation.get('chipset', False):
+            query = query.filter(func.lower(Phone.chipset).contains(func.lower(chipset)))
+        elif chipset is not None:
+            logger.warning("chipset column not found, skipping chipset filter")
+            
+        if operating_system is not None and column_validation.get('operating_system', False):
+            query = query.filter(func.lower(Phone.operating_system).contains(func.lower(operating_system)))
+        elif operating_system is not None:
+            logger.warning("operating_system column not found, skipping operating_system filter")
+        
+        # Search filter - basic columns should always exist
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                (Phone.name.ilike(search_term)) | 
+                (Phone.brand.ilike(search_term)) |
+                (Phone.model.ilike(search_term))
+            )
+        
+        # Apply sorting with safe column access
+        if sort == "price_high" and column_validation.get('price_original', False):
+            query = query.order_by(Phone.price_original.desc())
+            logger.debug("Applied price_high sorting")
+        elif sort == "price_low" and column_validation.get('price_original', False):
+            query = query.order_by(Phone.price_original.asc())
+            logger.debug("Applied price_low sorting")
+        elif sort in ["price_high", "price_low"] and not column_validation.get('price_original', False):
+            logger.warning(f"Price sorting requested but price_original column not available, using default sorting")
+            query = query.order_by(Phone.id.desc())
+        elif column_validation.get('overall_device_score', False):
+            # Default sorting
+            query = query.order_by(Phone.overall_device_score.desc())
+            logger.debug("Applied overall_device_score sorting")
+        else:
+            # Fallback to ID ordering if no score column
+            query = query.order_by(Phone.id.desc())
+            logger.debug("Applied fallback ID sorting")
+        
+        # Execute query with error handling
+        try:
+            total = query.count()
+            phones = query.offset(skip).limit(limit).all()
+            
+            logger.info(f"Successfully retrieved {len(phones)} phones (total: {total}) with filters applied")
+            return phones, total
+            
+        except Exception as query_error:
+            logger.error(f"Error executing phone query: {str(query_error)}", exc_info=True)
+            # Try a simpler query as fallback
+            try:
+                logger.info("Attempting fallback query with basic columns only")
+                fallback_query = db.query(Phone).order_by(Phone.id.desc())
+                total = fallback_query.count()
+                phones = fallback_query.offset(skip).limit(limit).all()
+                logger.warning(f"Fallback query succeeded, returned {len(phones)} phones")
+                return phones, total
+            except Exception as fallback_error:
+                logger.error(f"Fallback query also failed: {str(fallback_error)}", exc_info=True)
+                return [], 0
+        
+    except Exception as e:
+        logger.error(f"Critical error in get_phones: {str(e)}", exc_info=True)
+        # Return empty result on error to prevent complete failure
+        return [], 0
 
 def get_phone(db: Session, phone_id: int) -> Optional[Phone]:
     """
@@ -686,3 +762,54 @@ def get_phones_by_fuzzy_names(db: Session, names: list, limit: int = 5, score_cu
         else:
             print(f"No good match for '{name}' (best: '{match}', score: {score})")
     return matched_phones[:limit]
+
+def validate_database_schema(db: Session) -> Dict[str, Any]:
+    """
+    Validate the database schema and return a report of available columns and potential issues.
+    This function should be called during application startup to identify schema problems early.
+    """
+    try:
+        validation_result = DatabaseValidator.validate_phone_columns(db)
+        
+        # Count missing columns
+        missing_columns = [col for col, exists in validation_result.items() if not exists]
+        available_columns = [col for col, exists in validation_result.items() if exists]
+        
+        # Test basic query
+        try:
+            test_query = db.query(Phone).limit(1).first()
+            query_test_passed = test_query is not None
+        except Exception as e:
+            query_test_passed = False
+            logger.error(f"Basic query test failed: {str(e)}")
+        
+        report = {
+            "schema_validation_passed": len(missing_columns) == 0,
+            "total_columns_checked": len(validation_result),
+            "available_columns": len(available_columns),
+            "missing_columns": len(missing_columns),
+            "missing_column_names": missing_columns,
+            "query_test_passed": query_test_passed,
+            "recommendations": []
+        }
+        
+        # Add recommendations based on missing columns
+        if "price_original" in missing_columns:
+            report["recommendations"].append("Price filtering will be disabled due to missing price_original column")
+        
+        if "overall_device_score" in missing_columns:
+            report["recommendations"].append("Default sorting will use ID instead of device score")
+        
+        if missing_columns:
+            report["recommendations"].append(f"Consider adding missing columns: {', '.join(missing_columns[:5])}")
+        
+        logger.info(f"Database schema validation completed: {report}")
+        return report
+        
+    except Exception as e:
+        logger.error(f"Database schema validation failed: {str(e)}", exc_info=True)
+        return {
+            "schema_validation_passed": False,
+            "error": str(e),
+            "recommendations": ["Database schema validation failed - check database connection and table structure"]
+        }

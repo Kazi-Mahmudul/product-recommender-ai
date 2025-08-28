@@ -4,17 +4,124 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import time
+import logging
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone, PhoneList, BulkPhonesResponse
 from app.schemas.recommendation import SmartRecommendation
 from app.utils.validation import parse_and_validate_ids, parse_and_validate_slugs
+from app.utils.error_handlers import APIErrorHandler
 from app.core.database import get_db
 from app.models.phone import Phone as PhoneModel
 from app.services.recommendation_service import RecommendationService
 # Monitoring removed as requested
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+def _read_phones_impl(
+    skip: int = 0,
+    limit: int = 100,
+    brand: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    min_ram_gb: Optional[int] = None,
+    min_storage_gb: Optional[int] = None,
+    camera_setup: Optional[str] = None,
+    min_primary_camera_mp: Optional[float] = None,
+    min_selfie_camera_mp: Optional[float] = None,
+    battery_type: Optional[str] = None,
+    min_battery_capacity: Optional[int] = None,
+    display_type: Optional[str] = None,
+    min_refresh_rate: Optional[int] = None,
+    min_screen_size: Optional[float] = None,
+    max_screen_size: Optional[float] = None,
+    chipset: Optional[str] = None,
+    os: Optional[str] = None,
+    sort: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Internal implementation for getting phones with filtering and pagination
+    """
+    # Log request information for debugging
+    params = {
+        "skip": skip, "limit": limit, "brand": brand, "min_price": min_price,
+        "max_price": max_price, "min_ram_gb": min_ram_gb, "min_storage_gb": min_storage_gb,
+        "camera_setup": camera_setup, "min_primary_camera_mp": min_primary_camera_mp,
+        "min_selfie_camera_mp": min_selfie_camera_mp, "battery_type": battery_type,
+        "min_battery_capacity": min_battery_capacity, "display_type": display_type,
+        "min_refresh_rate": min_refresh_rate, "min_screen_size": min_screen_size,
+        "max_screen_size": max_screen_size, "chipset": chipset, "os": os,
+        "sort": sort, "search": search
+    }
+    APIErrorHandler.log_request_info("/api/v1/phones", params)
+    
+    # Validate pagination parameters
+    validation_error = APIErrorHandler.validate_pagination_params(skip, limit)
+    if validation_error:
+        raise validation_error
+    
+    # Validate numeric parameters
+    if min_price is not None and min_price < 0:
+        raise APIErrorHandler.handle_validation_error(
+            "min_price", min_price, "Price must be non-negative"
+        )
+    
+    if max_price is not None and max_price < 0:
+        raise APIErrorHandler.handle_validation_error(
+            "max_price", max_price, "Price must be non-negative"
+        )
+    
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise APIErrorHandler.handle_validation_error(
+            "price_range", f"{min_price}-{max_price}", "Minimum price cannot be greater than maximum price"
+        )
+    
+    try:
+        phones, total = phone_crud.get_phones(
+            db, 
+            skip=skip, 
+            limit=limit,
+            brand=brand,
+            min_price=min_price,
+            max_price=max_price,
+            min_ram_gb=min_ram_gb,
+            min_storage_gb=min_storage_gb,
+            camera_setup=camera_setup,
+            min_primary_camera_mp=min_primary_camera_mp,
+            min_selfie_camera_mp=min_selfie_camera_mp,
+            battery_type=battery_type,
+            min_battery_capacity=min_battery_capacity,
+            display_type=display_type,
+            min_refresh_rate=min_refresh_rate,
+            min_screen_size=min_screen_size,
+            max_screen_size=max_screen_size,
+            chipset=chipset,
+            operating_system=os,
+            sort=sort,
+            search=search
+        )
+        
+        # Convert phones to dictionaries for response
+        phones_data = []
+        for phone in phones:
+            try:
+                phone_dict = phone_crud.phone_to_dict(phone)
+                phones_data.append(phone_dict)
+            except Exception as e:
+                logger.warning(f"Error converting phone {getattr(phone, 'id', 'unknown')} to dict: {str(e)}")
+                # Skip this phone but continue with others
+                continue
+        
+        logger.info(f"Successfully retrieved {len(phones_data)} phones out of {total} total")
+        return {"items": phones_data, "total": total}
+        
+    except Exception as e:
+        # Handle database and other errors
+        raise APIErrorHandler.handle_database_error(e, "fetching phones")
 
 @router.get("/", response_model=PhoneList)
 def read_phones(
@@ -43,30 +150,15 @@ def read_phones(
     """
     Get all phones with filtering and pagination
     """
-    phones, total = phone_crud.get_phones(
-        db, 
-        skip=skip, 
-        limit=limit,
-        brand=brand,
-        min_price=min_price,
-        max_price=max_price,
-        min_ram_gb=min_ram_gb,
-        min_storage_gb=min_storage_gb,
-        camera_setup=camera_setup,
-        min_primary_camera_mp=min_primary_camera_mp,
-        min_selfie_camera_mp=min_selfie_camera_mp,
-        battery_type=battery_type,
-        min_battery_capacity=min_battery_capacity,
-        display_type=display_type,
-        min_refresh_rate=min_refresh_rate,
-        min_screen_size=min_screen_size,
-        max_screen_size=max_screen_size,
-        chipset=chipset,
-        operating_system=os,
-        sort=sort,
-        search=search
+    return _read_phones_impl(
+        skip=skip, limit=limit, brand=brand, min_price=min_price, max_price=max_price,
+        min_ram_gb=min_ram_gb, min_storage_gb=min_storage_gb, camera_setup=camera_setup,
+        min_primary_camera_mp=min_primary_camera_mp, min_selfie_camera_mp=min_selfie_camera_mp,
+        battery_type=battery_type, min_battery_capacity=min_battery_capacity,
+        display_type=display_type, min_refresh_rate=min_refresh_rate,
+        min_screen_size=min_screen_size, max_screen_size=max_screen_size,
+        chipset=chipset, os=os, sort=sort, search=search, db=db
     )
-    return {"items": phones, "total": total}
 
 @router.get("/brands", response_model=List[str])
 def read_brands(db: Session = Depends(get_db)):

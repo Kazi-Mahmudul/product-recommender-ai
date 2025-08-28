@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging_config import setup_logging, get_logger
 from app.middleware.security import HTTPSRedirectMiddleware, SecurityHeadersMiddleware
+from app.middleware.logging import RequestLoggingMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.core.tasks import cleanup_expired_sessions
 
@@ -84,6 +85,8 @@ app = FastAPI(
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
+    # Configure to handle trailing slashes consistently
+    redirect_slashes=True,
 )
 
 # Initialize scheduler
@@ -94,6 +97,31 @@ async def startup_event():
     logger.info("Starting up application...")
     logger.info(f"PORT environment variable: {os.getenv('PORT')}")
     logger.info(f"ENVIRONMENT: {os.getenv('ENVIRONMENT')}")
+    
+    # Validate database schema on startup
+    try:
+        from app.crud.phone import validate_database_schema
+        from app.core.database import get_db
+        
+        # Get a database session for validation
+        db_gen = get_db()
+        db = next(db_gen)
+        
+        logger.info("Validating database schema...")
+        schema_report = validate_database_schema(db)
+        
+        if schema_report.get('schema_validation_passed', False):
+            logger.info("✅ Database schema validation passed")
+        else:
+            logger.warning("⚠️ Database schema validation found issues")
+            for recommendation in schema_report.get('recommendations', []):
+                logger.warning(f"   - {recommendation}")
+        
+        # Close the database session
+        db.close()
+        
+    except Exception as e:
+        logger.error(f"Failed to validate database schema: {e}")
     
     try:
         # Try to start the scheduler
@@ -111,7 +139,8 @@ async def shutdown_event():
     scheduler.shutdown()
     logger.info("Application shutdown complete")
 
-# Add security middleware for HTTPS
+# Add middleware in correct order (last added = first executed)
+app.add_middleware(RequestLoggingMiddleware)  # Add request logging
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(HTTPSRedirectMiddleware)
 
@@ -153,23 +182,8 @@ app.add_middleware(
     max_age=86400,  # Cache preflight requests for 24 hours
 )
 
-# Add explicit OPTIONS handler for CORS preflight requests
-@app.options("/{path:path}")
-async def options_handler(request: Request):
-    """Handle CORS preflight requests explicitly"""
-    origin = request.headers.get("origin")
-    if origin in settings.CORS_ORIGINS or "*" in settings.CORS_ORIGINS:
-        return Response(
-            status_code=200,
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
-                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, X-Session-Id, Cache-Control, Pragma, Expires, If-None-Match, If-Modified-Since",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "86400"
-            }
-        )
-    return Response(status_code=403)
+# Remove the catch-all OPTIONS handler as it's interfering with normal routes
+# CORS preflight requests will be handled by the CORSMiddleware
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_PREFIX)
