@@ -13,10 +13,6 @@ else
   echo "Using PORT: $PORT"
 fi
 
-# Start the application using gunicorn with uvicorn workers and proxy headers enabled
-echo "Starting server with command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --forwarded-allow-ips='*' --proxy-headers"
-exec gunicorn -w 4 -k uvicorn.workers.UvicornWorker \
-  app.main:app \
-  --bind 0.0.0.0:$PORT \
-  --forwarded-allow-ips="*" \
-  --proxy-headers
+# Start the application using Uvicorn (simpler, Cloud Run manages scaling)
+echo "Starting server with command: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers"
+exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
