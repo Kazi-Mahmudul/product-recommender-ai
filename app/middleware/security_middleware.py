@@ -1,456 +1,147 @@
-"""
-Security Middleware for Contextual Query API Endpoints
-"""
-
-import logging
+# app/middleware/security_middleware.py
+import os
 import time
-from typing import Callable, Dict, Any, Optional
-from fastapi import Request, Response, HTTPException, status
-from fastapi.responses import JSONResponse
+import secrets
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from datetime import datetime
-import json
+from starlette.responses import JSONResponse
 
-from app.services.security_validator import (
-    input_validator, rate_limiter, session_security, data_privacy_manager,
-    SecurityContext, ValidationResult
-)
-from app.services.monitoring_analytics import monitoring_analytics, MetricType
 
-logger = logging.getLogger(__name__)
+class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Allow disabling CSRF via env var (for Cloud Run / API use)
+        if os.getenv("DISABLE_CSRF", "false").lower() == "true":
+            return await call_next(request)
+
+        if request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            csrf_token = request.headers.get("x-csrf-token")
+            if not csrf_token:
+                return JSONResponse(
+                    {"detail": "CSRF token missing"},
+                    status_code=403
+                )
+
+        response = await call_next(request)
+        return response
+
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    """Security middleware for contextual query endpoints"""
-    
-    def __init__(self, app, protected_paths: list = None):
-        """Initialize security middleware"""
+    def __init__(self, app, config):
         super().__init__(app)
-        self.protected_paths = protected_paths or [
+        self.config = config
+        self.failed_attempts = {}
+        self.max_attempts = 5
+        self.block_time = 300  # 5 minutes
+        self.session_timeout = 1800  # 30 minutes
+        self.protected_paths = [
             "/api/v1/contextual-query",
             "/api/v1/query",
             "/api/v1/parse-intent",
             "/api/v1/resolve-phones",
             "/api/v1/context/"
         ]
-        
-        # Security headers
+        self.exempt_paths = [
+            "/health",               # Cloud Run health check
+            "/metrics",              # Metrics endpoint
+            "/api/v1/docs",          # Swagger docs
+            "/api/v1/openapi.json",  # OpenAPI schema
+            "/api/v1/redoc"          # ReDoc docs
+        ]
+
+        # Updated CSP: allow frontend + Cloud Run
         self.security_headers = {
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
             "X-Content-Type-Options": "nosniff",
             "X-Frame-Options": "DENY",
             "X-XSS-Protection": "1; mode=block",
-            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-            "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
-            "Referrer-Policy": "strict-origin-when-cross-origin"
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+            "Content-Security-Policy": (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "connect-src 'self' https://peyechi.com https://peyechi.vercel.app https://*.run.app; "
+                "font-src 'self' https:; "
+                "frame-ancestors 'none';"
+            ),
         }
-        
-        logger.info(f"Security middleware initialized for paths: {self.protected_paths}")
-    
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Process request through security middleware"""
-        start_time = time.time()
-        
-        # Check if path needs protection
-        needs_protection = any(request.url.path.startswith(path) for path in self.protected_paths)
-        
-        if needs_protection:
-            # Create security context
-            security_context = self._create_security_context(request)
-            
-            # Apply security checks
-            security_result = await self._apply_security_checks(request, security_context)
-            
-            if not security_result['allowed']:
-                # Security check failed
-                processing_time = time.time() - start_time
-                
-                # Record security violation
-                monitoring_analytics.record_metric(
-                    f"security_violation_{security_result['reason']}", 
-                    1, 
-                    MetricType.COUNTER
-                )
-                
-                monitoring_analytics.record_metric(
-                    "security_check_time", 
-                    processing_time, 
-                    MetricType.TIMER
-                )
-                
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Skip exempt paths
+        if path in self.exempt_paths:
+            return await call_next(request)
+
+        # Rate limiting
+        now = time.time()
+        if client_ip in self.failed_attempts:
+            attempts, last_attempt = self.failed_attempts[client_ip]
+            if attempts >= self.max_attempts and (now - last_attempt) < self.block_time:
                 return JSONResponse(
-                    status_code=security_result['status_code'],
-                    content={
-                        "error": security_result['message'],
-                        "code": security_result['reason'],
-                        "timestamp": datetime.now().isoformat()
-                    }
+                    {"detail": "Too many failed attempts, please try again later"},
+                    status_code=429,
                 )
-        
-        # Process request
-        try:
-            response = await call_next(request)
-            
-            # Add security headers
-            for header, value in self.security_headers.items():
-                response.headers[header] = value
-            
-            # Record successful request
-            if needs_protection:
-                processing_time = time.time() - start_time
-                monitoring_analytics.record_metric(
-                    "security_check_success", 
-                    1, 
-                    MetricType.COUNTER
-                )
-                monitoring_analytics.record_metric(
-                    "security_check_time", 
-                    processing_time, 
-                    MetricType.TIMER
-                )
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error in security middleware: {e}")
-            
-            # Record error
-            monitoring_analytics.record_metric(
-                "security_middleware_error", 
-                1, 
-                MetricType.COUNTER
+            if (now - last_attempt) >= self.block_time:
+                self.failed_attempts[client_ip] = (0, now)
+
+        # Check session (skip for exempt paths)
+        if path not in self.exempt_paths:
+            session_token = request.cookies.get("session_token")
+            session_timestamp = request.cookies.get("session_timestamp")
+
+            if not session_token or not session_timestamp:
+                self.failed_attempts[client_ip] = (self.failed_attempts.get(client_ip, (0, 0))[0] + 1, now)
+                return JSONResponse({"detail": "Invalid session"}, status_code=401)
+
+            if (now - float(session_timestamp)) > self.session_timeout:
+                return JSONResponse({"detail": "Session expired"}, status_code=401)
+
+        # Suspicious User-Agent
+        user_agent = request.headers.get("User-Agent", "")
+        if not user_agent or "curl" in user_agent.lower() or "wget" in user_agent.lower():
+            return JSONResponse({"detail": "Suspicious activity detected"}, status_code=400)
+
+        # Continue request
+        response = await call_next(request)
+
+        # Add security headers
+        for header, value in self.security_headers.items():
+            response.headers[header] = value
+
+        # Set secure session cookies if not present
+        if "session_token" not in request.cookies:
+            session_token = secrets.token_urlsafe(32)
+            response.set_cookie(
+                "session_token",
+                session_token,
+                httponly=True,
+                secure=True,
+                samesite="strict"
             )
-            
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={
-                    "error": "Internal security error",
-                    "timestamp": datetime.now().isoformat()
-                }
+            response.set_cookie(
+                "session_timestamp",
+                str(now),
+                httponly=True,
+                secure=True,
+                samesite="strict"
             )
-    
-    def _create_security_context(self, request: Request) -> SecurityContext:
-        """Create security context from request"""
-        # Extract client IP
-        client_ip = self._get_client_ip(request)
-        
-        # Extract user agent
-        user_agent = request.headers.get("user-agent", "")
-        
-        # Extract session ID from headers or query params
-        session_id = (
-            request.headers.get("x-session-id") or
-            request.query_params.get("session_id") or
-            ""
-        )
-        
-        # Extract user ID if available
-        user_id = request.headers.get("x-user-id")
-        
-        return SecurityContext(
-            session_id=session_id,
-            user_id=user_id,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            timestamp=datetime.now()
-        )
-    
-    def _get_client_ip(self, request: Request) -> str:
-        """Extract client IP address from request"""
-        # Check for forwarded headers (reverse proxy)
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            # Take the first IP in the chain
-            return forwarded_for.split(",")[0].strip()
-        
-        # Check for real IP header
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip
-        
-        # Fallback to client host
-        if hasattr(request, "client") and request.client:
-            return request.client.host
-        
-        return "unknown"
-    
-    async def _apply_security_checks(self, request: Request, context: SecurityContext) -> Dict[str, Any]:
-        """Apply comprehensive security checks"""
-        
-        # 1. Rate limiting check
-        rate_limit_result = rate_limiter.is_allowed(
-            context.ip_address, 
-            endpoint=request.url.path
-        )
-        
-        if not rate_limit_result[0]:
-            return {
-                'allowed': False,
-                'reason': 'rate_limited',
-                'message': 'Rate limit exceeded. Please try again later.',
-                'status_code': status.HTTP_429_TOO_MANY_REQUESTS,
-                'details': rate_limit_result[1]
-            }
-        
-        # 2. Input validation for POST requests
-        if request.method == "POST":
-            try:
-                # Read request body
-                body = await request.body()
-                if body:
-                    try:
-                        request_data = json.loads(body.decode())
-                        
-                        # Validate query input if present
-                        if 'query' in request_data:
-                            validation_result = input_validator.validate_query_input(
-                                request_data['query'], 
-                                context
-                            )
-                            
-                            if not validation_result.is_valid:
-                                return {
-                                    'allowed': False,
-                                    'reason': 'invalid_input',
-                                    'message': 'Invalid or potentially malicious input detected.',
-                                    'status_code': status.HTTP_400_BAD_REQUEST,
-                                    'details': {
-                                        'violations': validation_result.violations,
-                                        'risk_level': validation_result.risk_level
-                                    }
-                                }
-                        
-                        # Validate session ID if present
-                        if 'session_id' in request_data:
-                            session_validation = input_validator.validate_session_id(
-                                request_data['session_id']
-                            )
-                            
-                            if not session_validation.is_valid:
-                                return {
-                                    'allowed': False,
-                                    'reason': 'invalid_session',
-                                    'message': 'Invalid session ID format.',
-                                    'status_code': status.HTTP_400_BAD_REQUEST,
-                                    'details': session_validation.violations
-                                }
-                    
-                    except json.JSONDecodeError:
-                        return {
-                            'allowed': False,
-                            'reason': 'invalid_json',
-                            'message': 'Invalid JSON in request body.',
-                            'status_code': status.HTTP_400_BAD_REQUEST
-                        }
-                    
-            except Exception as e:
-                logger.error(f"Error reading request body: {e}")
-                return {
-                    'allowed': False,
-                    'reason': 'body_read_error',
-                    'message': 'Error processing request.',
-                    'status_code': status.HTTP_400_BAD_REQUEST
-                }
-        
-        # 3. Session validation for context endpoints
-        if "/context/" in request.url.path and context.session_id:
-            session_valid, session_details = session_security.validate_session_access(
-                context.session_id, 
-                context
-            )
-            
-            if not session_valid:
-                return {
-                    'allowed': False,
-                    'reason': 'session_invalid',
-                    'message': 'Invalid or expired session.',
-                    'status_code': status.HTTP_401_UNAUTHORIZED,
-                    'details': session_details
-                }
-        
-        # 4. Check for suspicious user agents
-        if self._is_suspicious_user_agent(context.user_agent):
-            return {
-                'allowed': False,
-                'reason': 'suspicious_user_agent',
-                'message': 'Request blocked due to suspicious client.',
-                'status_code': status.HTTP_403_FORBIDDEN
-            }
-        
-        # 5. Check request size limits
-        content_length = request.headers.get("content-length")
-        if content_length:
-            try:
-                size = int(content_length)
-                if size > 1024 * 1024:  # 1MB limit
-                    return {
-                        'allowed': False,
-                        'reason': 'request_too_large',
-                        'message': 'Request body too large.',
-                        'status_code': status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                    }
-            except ValueError:
-                pass
-        
-        # All checks passed
-        return {
-            'allowed': True,
-            'rate_limit_info': rate_limit_result[1]
-        }
-    
-    def _is_suspicious_user_agent(self, user_agent: str) -> bool:
-        """Check if user agent is suspicious"""
-        if not user_agent:
-            return True  # Empty user agent is suspicious
-        
-        suspicious_patterns = [
-            r'bot',
-            r'crawler',
-            r'spider',
-            r'scraper',
-            r'curl',
-            r'wget',
-            r'python-requests',
-            r'postman',
-            r'insomnia'
-        ]
-        
-        user_agent_lower = user_agent.lower()
-        
-        # Check for suspicious patterns
-        for pattern in suspicious_patterns:
-            if pattern in user_agent_lower:
-                return True
-        
-        # Check for very short user agents
-        if len(user_agent) < 10:
-            return True
-        
-        return False
+
+        return response
+
 
 class InputSanitizationMiddleware(BaseHTTPMiddleware):
-    """Middleware for input sanitization"""
-    
-    def __init__(self, app):
-        """Initialize input sanitization middleware"""
-        super().__init__(app)
-        logger.info("Input sanitization middleware initialized")
-    
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Sanitize request inputs"""
-        
-        # For POST requests, sanitize JSON body
-        if request.method == "POST":
-            try:
-                body = await request.body()
-                if body:
-                    try:
-                        request_data = json.loads(body.decode())
-                        sanitized_data = self._sanitize_request_data(request_data)
-                        
-                        # Replace request body with sanitized data
-                        sanitized_body = json.dumps(sanitized_data).encode()
-                        
-                        # Create new request with sanitized body
-                        async def receive():
-                            return {
-                                "type": "http.request",
-                                "body": sanitized_body,
-                                "more_body": False
-                            }
-                        
-                        request._receive = receive
-                        
-                    except json.JSONDecodeError:
-                        # Invalid JSON, let it pass through for proper error handling
-                        pass
-                        
-            except Exception as e:
-                logger.error(f"Error in input sanitization: {e}")
-        
-        # Process request
-        response = await call_next(request)
-        return response
-    
-    def _sanitize_request_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Recursively sanitize request data"""
-        if isinstance(data, dict):
-            sanitized = {}
-            for key, value in data.items():
-                sanitized_key = self._sanitize_string(key) if isinstance(key, str) else key
-                sanitized[sanitized_key] = self._sanitize_request_data(value)
-            return sanitized
-        
-        elif isinstance(data, list):
-            return [self._sanitize_request_data(item) for item in data]
-        
-        elif isinstance(data, str):
-            return self._sanitize_string(data)
-        
-        else:
-            return data
-    
-    def _sanitize_string(self, text: str) -> str:
-        """Sanitize string input"""
-        if not text:
-            return text
-        
-        # Use the input validator's sanitization
-        return input_validator._sanitize_text(text)
+    async def dispatch(self, request: Request, call_next):
+        # Sanitize query params
+        for key, value in request.query_params.items():
+            if any(char in value for char in "<>{}[];"):
+                return JSONResponse({"detail": "Invalid characters in query"}, status_code=400)
 
-class CSRFProtectionMiddleware(BaseHTTPMiddleware):
-    """CSRF protection middleware"""
-    
-    def __init__(self, app, exempt_paths: list = None):
-        """Initialize CSRF protection middleware"""
-        super().__init__(app)
-        self.exempt_paths = exempt_paths or [
-            "/api/v1/health",
-            "/api/v1/metrics"
-        ]
-        logger.info("CSRF protection middleware initialized")
-    
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Apply CSRF protection"""
-        
-        # Skip CSRF check for exempt paths
-        if any(request.url.path.startswith(path) for path in self.exempt_paths):
-            return await call_next(request)
-        
-        # Skip CSRF check for GET requests
-        if request.method == "GET":
-            return await call_next(request)
-        
-        # Check for CSRF token in headers
-        csrf_token = request.headers.get("x-csrf-token")
-        
-        if not csrf_token:
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={
-                    "error": "CSRF token required",
-                    "code": "csrf_token_missing"
-                }
-            )
-        
-        # Validate CSRF token (simple validation - in production, use proper CSRF tokens)
-        if not self._validate_csrf_token(csrf_token, request):
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content={
-                    "error": "Invalid CSRF token",
-                    "code": "csrf_token_invalid"
-                }
-            )
-        
+        # Sanitize headers
+        for key, value in request.headers.items():
+            if any(char in value for char in "<>{}[];"):
+                return JSONResponse({"detail": "Invalid characters in headers"}, status_code=400)
+
         return await call_next(request)
-    
-    def _validate_csrf_token(self, token: str, request: Request) -> bool:
-        """Validate CSRF token"""
-        # Simple validation - in production, implement proper CSRF token validation
-        # This could involve checking against a session-based token or signed token
-        
-        if not token or len(token) < 16:
-            return False
-        
-        # For now, accept any token that looks valid
-        # In production, implement proper token validation
-        return True

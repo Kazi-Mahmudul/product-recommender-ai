@@ -1,72 +1,87 @@
 """
-Logging middleware for API request tracking.
+Optimized logging middleware for API request tracking.
+Structured JSON logs for better observability in production.
 """
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import logging
 import json
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("api_logger")
+logger.setLevel(logging.INFO)
+
+# Stream handler with JSON formatter (can be ingested by GCP/Datadog/ELK)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(message)s')
+handler.setFormatter(formatter)
+if not logger.handlers:
+    logger.addHandler(handler)
+
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware to log API requests and responses for debugging."""
-    
+    """Middleware to log incoming API requests and responses."""
+
     async def dispatch(self, request: Request, call_next):
-        # Start timing
         start_time = time.time()
-        
-        # Log request details
+
+        # Collect request info
         request_info = {
             "method": request.method,
-            "url": str(request.url),
             "path": request.url.path,
-            "query_params": dict(request.query_params),
-            "headers": dict(request.headers),
-            "client_ip": request.client.host if request.client else "unknown"
+            "query": dict(request.query_params),
+            "client_ip": request.client.host if request.client else None,
         }
-        
-        # Don't log sensitive headers
-        sensitive_headers = ["authorization", "cookie", "x-api-key"]
-        for header in sensitive_headers:
-            if header in request_info["headers"]:
-                request_info["headers"][header] = "[REDACTED]"
-        
-        logger.info(f"API Request: {request.method} {request.url.path}")
-        logger.debug(f"Request details: {json.dumps(request_info, indent=2)}")
-        
-        # Process request
+
+        # Mask sensitive headers
+        headers = dict(request.headers)
+        sensitive = {"authorization", "cookie", "x-api-key"}
+        request_info["headers"] = {
+            k: ("[REDACTED]" if k.lower() in sensitive else v)
+            for k, v in headers.items()
+        }
+
+        # Log request
+        logger.info(json.dumps({
+            "event": "request",
+            **request_info
+        }))
+
         try:
-            response = await call_next(request)
-            
-            # Calculate processing time
-            process_time = time.time() - start_time
-            
-            # Log response details
+            response: Response = await call_next(request)
+            process_time = round((time.time() - start_time) * 1000, 2)
+
             response_info = {
                 "status_code": response.status_code,
-                "processing_time_ms": round(process_time * 1000, 2),
-                "response_headers": dict(response.headers)
+                "process_time_ms": process_time,
             }
-            
-            # Log based on status code
-            if response.status_code >= 500:
-                logger.error(f"API Response: {response.status_code} for {request.method} {request.url.path} ({process_time:.3f}s)")
-            elif response.status_code >= 400:
-                logger.warning(f"API Response: {response.status_code} for {request.method} {request.url.path} ({process_time:.3f}s)")
-            else:
-                logger.info(f"API Response: {response.status_code} for {request.method} {request.url.path} ({process_time:.3f}s)")
-            
-            logger.debug(f"Response details: {json.dumps(response_info, indent=2)}")
-            
-            # Add processing time header
+
+            # Log response (different levels depending on status code)
+            level = (
+                logging.ERROR if response.status_code >= 500 else
+                logging.WARNING if response.status_code >= 400 else
+                logging.INFO
+            )
+
+            logger.log(level, json.dumps({
+                "event": "response",
+                "method": request.method,
+                "path": request.url.path,
+                **response_info
+            }))
+
+            # Add custom header
             response.headers["X-Process-Time"] = str(process_time)
-            
             return response
-            
+
         except Exception as e:
-            # Log exceptions
-            process_time = time.time() - start_time
-            logger.error(f"API Exception: {str(e)} for {request.method} {request.url.path} ({process_time:.3f}s)", exc_info=True)
+            process_time = round((time.time() - start_time) * 1000, 2)
+            logger.error(json.dumps({
+                "event": "exception",
+                "method": request.method,
+                "path": request.url.path,
+                "error": str(e),
+                "process_time_ms": process_time
+            }), exc_info=True)
             raise

@@ -13,6 +13,6 @@ else
   echo "Using PORT: $PORT"
 fi
 
-# Start the application using Uvicorn (simpler, Cloud Run manages scaling)
-echo "Starting server with command: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers"
-exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
+# Start the application using Uvicorn with proxy headers enabled
+echo "Starting server with command: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
