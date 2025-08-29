@@ -39,30 +39,49 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
         # Add security headers for production
         if os.getenv("ENVIRONMENT") == "production":
+            # Check if this is a documentation endpoint
+            is_docs_endpoint = (request.url.path.startswith("/api/v1/docs") or 
+                              request.url.path.startswith("/api/v1/redoc") or
+                              request.url.path.startswith("/api/v1/openapi.json"))
+            
             # Force HTTPS
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-            
-            # Prevent clickjacking
-            response.headers["X-Frame-Options"] = "DENY"
             
             # Prevent MIME type sniffing
             response.headers["X-Content-Type-Options"] = "nosniff"
             
-            # XSS protection
-            response.headers["X-XSS-Protection"] = "1; mode=block"
-            
             # Referrer policy
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             
-            # Content Security Policy
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: https:; "
-                "connect-src 'self' https:; "
-                "font-src 'self' https:; "
-                "frame-ancestors 'none';"
-            )
+            if is_docs_endpoint:
+                # Relaxed security for API documentation
+                response.headers["X-Frame-Options"] = "SAMEORIGIN"  # Allow framing for docs
+                response.headers["X-XSS-Protection"] = "0"  # Disable for docs (can interfere)
+                
+                # Relaxed CSP for API documentation
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+                    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                    "img-src 'self' data: https: https://cdn.jsdelivr.net; "
+                    "connect-src 'self' https:; "
+                    "font-src 'self' https: https://cdn.jsdelivr.net; "
+                    "frame-ancestors 'self';"
+                )
+            else:
+                # Strict security for other endpoints
+                response.headers["X-Frame-Options"] = "DENY"
+                response.headers["X-XSS-Protection"] = "1; mode=block"
+                
+                # Strict CSP for other endpoints
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' data: https:; "
+                    "connect-src 'self' https:; "
+                    "font-src 'self' https:; "
+                    "frame-ancestors 'none';"
+                )
         
         return response

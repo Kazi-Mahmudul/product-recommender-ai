@@ -43,7 +43,7 @@ export interface PerformanceMetrics {
 }
 
 export class ContextAnalytics {
-  private static readonly STORAGE_KEY = 'epick_context_analytics';
+  private static readonly STORAGE_KEY = 'peyechi_context_analytics';
   private static readonly MAX_EVENTS = 1000;
   private static readonly METRICS_RETENTION_DAYS = 30;
   

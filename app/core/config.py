@@ -66,7 +66,8 @@ class Settings(BaseSettings):
             if os.getenv("ENVIRONMENT") == "production":
                 # Production defaults - only secure origins
                 origins = [
-                    "https://pickbd.vercel.app"
+                    "https://peyechi.com",
+                    "https://peyechi.vercel.app"
                 ]
             else:
                 # Development defaults - include localhost
@@ -74,7 +75,7 @@ class Settings(BaseSettings):
                     "http://localhost:3000",
                     "http://localhost:8000", 
                     "http://localhost:8080",
-                    "https://pickbd.vercel.app"
+                    "https://peyechi.vercel.app"
                 ]
             
             # Ensure HTTPS for production (except localhost for development)

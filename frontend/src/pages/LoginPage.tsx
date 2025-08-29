@@ -81,7 +81,7 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
               Welcome Back
             </h2>
             <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">
-              Login to your ePick account
+              Login to your Peyechi account
             </p>
           </div>
 

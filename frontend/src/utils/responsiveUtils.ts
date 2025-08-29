@@ -1,5 +1,5 @@
 /**
- * Responsive Utilities for ePick Application
+ * Responsive Utilities for Peyechi Application
  * This file contains breakpoint definitions and utility functions for responsive design
  */
 

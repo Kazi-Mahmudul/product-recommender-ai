@@ -106,13 +106,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       setChatHistory([
         {
           user: "",
-          bot: `Hi there! 👋 Welcome to ePick AI\n\nI'm your personal smartphone advisor, here to help you discover the perfect phone that matches your needs and budget in Bangladesh. 🇧🇩📱\n\n✨ **What I can help you with:**
-            • Find phones within your budget
-            • Compare specifications side-by-side
-            • Get detailed reviews and insights
-            • Discover the latest releases
-            • Answer technical questions\n\n💡 **Try asking me something like:**
-            "Best phones under 30,000 BDT" or "Compare iPhone vs Samsung" \n\n Let's find your perfect phone together! 🚀`,
+          bot: bot: `Hi there! 👋 Welcome to Peyechi AI
+
+I'm your personal smartphone advisor, here to help you discover the perfect phone that matches your needs and budget in Bangladesh. 🇧🇩📱
+
+✨ **What I can help you with:**,
         },
       ]);
     }
@@ -441,7 +439,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         >
           <div className="flex items-center space-x-2 min-w-0 flex-1">
             <span className="font-bold text-xl sm:text-2xl text-brand truncate">
-              ePick AI
+              Peyechi AI
             </span>
             <span className="text-base sm:text-lg">🤖</span>
           </div>

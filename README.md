@@ -1,6 +1,6 @@
-# ePick - Smart Phone Recommendation Platform
+# Peyechi - Smart Phone Recommendation Platform
 
-ePick is an intelligent mobile phone recommendation platform designed for the Bangladesh market. It combines comprehensive phone data with AI-powered recommendations to help users make informed purchasing decisions.
+Peyechi is an intelligent mobile phone recommendation platform designed for the Bangladesh market. It combines comprehensive phone data with AI-powered recommendations to help users make informed purchasing decisions.
 
 ## 🚀 Key Features
 
@@ -13,7 +13,7 @@ ePick is an intelligent mobile phone recommendation platform designed for the Ba
 
 ## 🏗️ Architecture
 
-ePick is built with a modern, scalable architecture:
+Peyechi is built with a modern, scalable architecture:
 
 - **Backend**: FastAPI with PostgreSQL database
 - **Frontend**: React with TypeScript

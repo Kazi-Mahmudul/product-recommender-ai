@@ -15,8 +15,8 @@ module.exports = {
         // New color palette based on the provided colors
         brand: {
           // Main brand colors
-          green: "#377D5B", // Main brand color - EpickGreen
-          darkGreen: "#80EF80", // Deeper brand accent - EpickDarkGreen
+          green: "#377D5B", // Main brand color - PeyechiGreen
+          darkGreen: "#80EF80", // Deeper brand accent - PeyechiDarkGreen
           DEFAULT: "#377D5B", // Default brand color is green
         },
         // Hover text colors for better readability
@@ -25,40 +25,40 @@ module.exports = {
           dark: "#FFFFFF", // White text for dark background hover states
         },
         // Neutral/structural colors
-        epick: {
-          white: "#FFFFFF", // Clean white - EpickWhite
-          offWhite: "#F9FAF9", // Slightly tinted white - EpickOffWhite
-          lightGray: "#EAEAEA", // Light gray - EpickLightGray
-          mediumGray: "#B0B0B0", // Medium gray - EpickMediumGray
-          darkGray: "#444444", // Dark gray - EpickDarkGray
-          black: "#1A1A1A", // Black - EpickBlack
+        peyechi: {
+          white: "#FFFFFF", // Clean white - PeyechiWhite
+          offWhite: "#F9FAF9", // Slightly tinted white - PeyechiOffWhite
+          lightGray: "#EAEAEA", // Light gray - PeyechiLightGray
+          mediumGray: "#B0B0B0", // Medium gray - PeyechiMediumGray
+          darkGray: "#444444", // Dark gray - PeyechiDarkGray
+          black: "#1A1A1A", // Black - PeyechiBlack
         },
         // Accent colors
         accent: {
-          purple: "#C1BFFF", // Soft purple - EpickSoftPurple
-          blue: "#A9DBF9", // Sky blue - EpickSkyBlue
-          peach: "#FFD6B0", // Peach - EpickPeach
-          neonGreen: "#33FF99", // Neon green - EpickNeonGreen
+          purple: "#C1BFFF", // Soft purple - PeyechiSoftPurple
+          blue: "#A9DBF9", // Sky blue - PeyechiSkyBlue
+          peach: "#FFD6B0", // Peach - PeyechiPeach
+          neonGreen: "#33FF99", // Neon green - PeyechiNeonGreen
           DEFAULT: "#33FF99", // Default accent color is neon green
         },
         // Semantic colors
         semantic: {
-          success: "#4CAF50", // Success - EpickSuccess
-          warning: "#FFC107", // Warning - EpickWarning
-          danger: "#F44336", // Danger - EpickDanger
+          success: "#4CAF50", // Success - PeyechiSuccess
+          warning: "#FFC107", // Warning - PeyechiWarning
+          danger: "#F44336", // Danger - PeyechiDanger
         },
         // System colors for Tailwind compatibility
         neutral: {
-          50: "#F9FAF9", // EpickOffWhite
-          100: "#F9FAF9", // EpickOffWhite
-          200: "#EAEAEA", // EpickLightGray
-          300: "#EAEAEA", // EpickLightGray
-          400: "#B0B0B0", // EpickMediumGray
-          500: "#B0B0B0", // EpickMediumGray
-          600: "#444444", // EpickDarkGray
-          700: "#444444", // EpickDarkGray
-          800: "#1A1A1A", // EpickBlack
-          900: "#1A1A1A", // EpickBlack
+          50: "#F9FAF9", // PeyechiOffWhite
+          100: "#F9FAF9", // PeyechiOffWhite
+          200: "#EAEAEA", // PeyechiLightGray
+          300: "#EAEAEA", // PeyechiLightGray
+          400: "#B0B0B0", // PeyechiMediumGray
+          500: "#B0B0B0", // PeyechiMediumGray
+          600: "#444444", // PeyechiDarkGray
+          700: "#444444", // PeyechiDarkGray
+          800: "#1A1A1A", // PeyechiBlack
+          900: "#1A1A1A", // PeyechiBlack
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

@@ -62,7 +62,7 @@ describe('Google OAuth Integration', () => {
     );
     
     // Check that the modal renders the expected heading
-    expect(screen.getByRole('heading', { name: 'Login to ePick' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Login to Peyechi' })).toBeInTheDocument();
   });
 
   test('OAuth error handler provides user-friendly messages', () => {

@@ -1,13 +1,13 @@
 /**
- * Color System for ePick Application
+ * Color System for Peyechi Application
  * This file contains color constants and utility functions for consistent color usage
  * across the application, especially in the chat result sections.
  */
 
 // Brand Colors
 export const BRAND_COLORS = {
-  green: "#377D5B", // Main brand color - EpickGreen
-  darkGreen: "#80EF80", // Accent brand color - EpickDarkGreen
+  green: "#377D5B", // Main brand color - PeyechiGreen
+  darkGreen: "#80EF80", // Accent brand color - PeyechiDarkGreen
 };
 
 // Theme-specific colors for light and dark modes

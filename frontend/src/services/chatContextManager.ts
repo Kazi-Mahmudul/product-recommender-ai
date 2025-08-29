@@ -46,10 +46,10 @@ export interface ChatContext {
 }
 
 export class ChatContextManager {
-  private static readonly STORAGE_KEY = 'epick_chat_context';
+  private static readonly STORAGE_KEY = 'peyechi_chat_context';
   private static readonly MAX_HISTORY_LENGTH = 50;
   private static readonly CONTEXT_EXPIRY_HOURS = 24;
-  private static readonly CACHE_KEY = 'epick_context_cache';
+  private static readonly CACHE_KEY = 'peyechi_context_cache';
   private static readonly MAX_PHONE_RECOMMENDATIONS = 10;
   private static readonly CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
   

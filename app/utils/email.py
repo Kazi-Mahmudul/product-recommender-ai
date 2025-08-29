@@ -22,23 +22,31 @@ def send_verification_email(email: str, verification_code: str) -> bool:
         msg = MIMEMultipart()
         msg['From'] = settings.EMAIL_FROM
         msg['To'] = email
-        msg['Subject'] = "Verify your ePick account"
+        msg['Subject'] = "Verify your Peyechi account"
         
         # Email body
         body = f"""
-        <html>
-        <body>
-            <h2>Welcome to ePick!</h2>
-            <p>Thank you for signing up. Please use the following verification code to complete your registration:</p>
-            <h1 style="color: #007bff; font-size: 32px; text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 8px; margin: 20px 0;">
-                {verification_code}
-            </h1>
-            <p>This code will expire in {settings.VERIFICATION_CODE_EXPIRE_MINUTES} minutes.</p>
-            <p>If you didn't create an account with ePick, please ignore this email.</p>
-            <br>
-            <p>Best regards,<br>The ePick Team</p>
-        </body>
-        </html>
+        html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #377D5B;">Peyechi</h1>
+            <h2>Welcome to Peyechi!</h2>
+            <p>Thank you for registering with Peyechi. To complete your registration, please verify your email address by clicking the button below:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{verification_link}" 
+                   style="background-color: #377D5B; color: white; padding: 12px 24px; 
+                          text-decoration: none; border-radius: 5px; display: inline-block;
+                          font-weight: bold;">
+                    Verify Email Address
+                </a>
+            </div>
+            <p>If you didn't create an account with Peyechi, please ignore this email.</p>
+            <p>Best regards,<br>The Peyechi Team</p>
+        </div>
+    </body>
+    </html>
+    """
         """
         
         msg.attach(MIMEText(body, 'html'))
@@ -78,7 +86,7 @@ def send_password_reset_email(email: str, reset_code: str) -> bool:
         msg = MIMEMultipart()
         msg['From'] = settings.EMAIL_FROM
         msg['To'] = email
-        msg['Subject'] = "Reset your ePick password"
+        msg['Subject'] = "Reset your Peyechi password"
         
         # Email body
         body = f"""
@@ -92,7 +100,7 @@ def send_password_reset_email(email: str, reset_code: str) -> bool:
             <p>This code will expire in {settings.VERIFICATION_CODE_EXPIRE_MINUTES} minutes.</p>
             <p>If you didn't request a password reset, please ignore this email.</p>
             <br>
-            <p>Best regards,<br>The ePick Team</p>
+            <p>Best regards,<br>The Peyechi Team</p>
         </body>
         </html>
         """

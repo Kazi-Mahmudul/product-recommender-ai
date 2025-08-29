@@ -73,7 +73,7 @@ function generateCompactPrintableHTML(
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Phone Comparison Report - Epick</title>
+      <title>Phone Comparison Report - Peyechi</title>
       <meta charset="UTF-8">
       <style>
         * {
@@ -482,7 +482,7 @@ function generateCompactPrintableHTML(
           <h1 class="report-title">📱 Phone Comparison Report</h1>
           <p class="report-subtitle">Professional Analysis & Recommendations</p>
           <div class="report-meta">
-            <span><strong>Epick AI</strong> - Smart Phone Decisions</span>
+            <span><strong>Peyechi AI</strong> - Smart Phone Decisions</span>
             <span>${new Date().toLocaleDateString()}</span>
           </div>
         </div>
@@ -525,7 +525,7 @@ function generateCompactPrintableHTML(
         
         <!-- Footer -->
         <div class="report-footer">
-          <div class="footer-logo">🎯 Epick - epick.com.bd</div>
+          <div class="footer-logo">🎯 Peyechi - peyechi.com</div>
           <p>AI-generated insights. Verify specifications before purchase.</p>
         </div>
       </div>
@@ -874,7 +874,7 @@ export async function shareComparison(
 
     await navigator.share({
       title: `Phone Comparison: ${phoneNames}`,
-      text: `Check out this phone comparison on Epick: ${phoneNames}`,
+      text: `Check out this phone comparison on Peyechi: ${phoneNames}`,
       url: url,
     });
 
@@ -893,7 +893,7 @@ export interface ComparisonHistoryItem {
   url: string;
 }
 
-const HISTORY_STORAGE_KEY = "epick_comparison_history";
+const HISTORY_STORAGE_KEY = "peyechi_comparison_history";
 const MAX_HISTORY_ITEMS = 10;
 
 export function saveComparisonToHistory(phones: Phone[]): void {

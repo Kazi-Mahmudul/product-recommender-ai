@@ -67,7 +67,7 @@ class TestHTTPSConfiguration:
     def test_cors_configuration(self):
         """Test CORS configuration."""
         response = client.options("/api/v1/phones", headers={
-            "Origin": "https://pickbd.vercel.app",
+            "Origin": "https://peyechi.vercel.app",
             "Access-Control-Request-Method": "GET"
         })
         

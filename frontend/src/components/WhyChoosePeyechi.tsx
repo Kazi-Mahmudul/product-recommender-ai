@@ -4,7 +4,7 @@ import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { Sparkles, BarChart3, Globe, Smartphone, MessageSquare, HelpCircle, ThumbsUp, FileText, ListChecks } from 'lucide-react';
 
-interface WhyChooseEpickProps {
+interface WhyChoosePeyechiProps {
   darkMode: boolean;
 }
 
@@ -56,7 +56,7 @@ const features = [
   }
 ];
 
-const WhyChooseEpick: React.FC<WhyChooseEpickProps> = ({ darkMode }) => {
+const WhyChoosePeyechi: React.FC<WhyChoosePeyechiProps> = ({ darkMode }) => {
   // Slider settings for auto-sliding carousel
   const sliderSettings = {
     dots: true,
@@ -88,7 +88,7 @@ const WhyChooseEpick: React.FC<WhyChooseEpickProps> = ({ darkMode }) => {
           Why Choose Us
         </span>
         <h2 className="text-3xl md:text-4xl font-bold text-neutral-800 dark:text-white mb-4">
-          Why Choose <span className="text-brand">ePick</span>?
+          Why Choose <span className="text-brand">Peyechi</span>?
         </h2>
         <p className="text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
           We're revolutionizing how you find and compare smartphones in Bangladesh with our cutting-edge AI technology.
@@ -160,4 +160,4 @@ const WhyChooseEpick: React.FC<WhyChooseEpickProps> = ({ darkMode }) => {
   );
 };
 
-export default WhyChooseEpick;
+export default WhyChoosePeyechi;

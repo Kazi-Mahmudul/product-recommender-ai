@@ -130,7 +130,7 @@ export default function AuthModal({ mode, onClose, onSwitch, darkMode = false }:
         <button onClick={onClose} className="absolute top-3 right-3 text-2xl text-gray-400 hover:text-gray-700 dark:hover:text-white">&times;</button>
         {step === 'form' ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <h2 className="text-2xl font-bold mb-2 text-center" style={{color: brandColor}}>{mode === 'login' ? 'Login to ePick' : 'Sign Up for ePick'}</h2>
+            <h2 className="text-2xl font-bold mb-2 text-center" style={{color: brandColor}}>{mode === 'login' ? 'Login to Peyechi' : 'Sign Up for Peyechi'}</h2>
             {mode === 'signup' && (
               <input type="text" name="name" placeholder="Name" value={form.name} onChange={handleChange} className="rounded-lg border px-4 py-2 bg-transparent" autoFocus />
             )}

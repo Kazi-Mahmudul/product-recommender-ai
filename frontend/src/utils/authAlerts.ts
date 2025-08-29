@@ -2,8 +2,8 @@ import Swal from 'sweetalert2';
 import { AuthAlertConfig, AlertTheme } from '../types/auth';
 
 // Brand colors matching the product theme
-const BRAND_COLOR = '#377D5B'; // EpickGreen - matches Tailwind config
-const BRAND_DARK = '#2d6249'; // Darker shade of EpickGreen
+const BRAND_COLOR = '#377D5B'; // PeyechiGreen - matches Tailwind config
+const BRAND_DARK = '#2d6249'; // Darker shade of PeyechiGreen
 
 // SweetAlert2 theme configuration matching product branding
 export const alertTheme: AlertTheme = {
@@ -13,12 +13,12 @@ export const alertTheme: AlertTheme = {
   borderRadius: '12px',
   fontFamily: 'system-ui, -apple-system, sans-serif',
   customClass: {
-    container: 'epick-alert-container',
-    popup: 'epick-alert-popup',
-    title: 'epick-alert-title',
-    content: 'epick-alert-content',
-    confirmButton: 'epick-alert-confirm',
-    cancelButton: 'epick-alert-cancel'
+    container: 'peyechi-alert-container',
+    popup: 'peyechi-alert-popup',
+    title: 'peyechi-alert-title',
+    content: 'peyechi-alert-content',
+    confirmButton: 'peyechi-alert-confirm',
+    cancelButton: 'peyechi-alert-cancel'
   }
 };
 
@@ -76,7 +76,7 @@ export const alertTemplates = {
   loginSuccess: (userName?: string): AuthAlertConfig => ({
     type: 'success',
     title: 'Welcome back!',
-    message: userName ? `Hello ${userName}, you're successfully logged in.` : 'You have successfully logged in to ePick.',
+    message: userName ? `Hello ${userName}, you're successfully logged in.` : 'You have successfully logged in to Peyechi.',
     timer: 3000,
     showConfirmButton: false
   }),
@@ -84,7 +84,7 @@ export const alertTemplates = {
   signupSuccess: (userName?: string): AuthAlertConfig => ({
     type: 'success',
     title: 'Account Created!',
-    message: userName ? `Welcome to ePick, ${userName}! Your account has been created successfully.` : 'Your account has been created successfully. Welcome to ePick!',
+    message: userName ? `Welcome to Peyechi, ${userName}! Your account has been created successfully.` : 'Your account has been created successfully. Welcome to Peyechi!',
     timer: 4000,
     showConfirmButton: false
   }),

@@ -66,7 +66,7 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
           
           <div className="text-center mb-2">
             <h2 className="text-2xl font-bold text-neutral-800 dark:text-white">Create Account</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">Sign up for your ePick account</p>
+            <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-1">Sign up for your Peyechi account</p>
           </div>
           
           <div className="space-y-4">

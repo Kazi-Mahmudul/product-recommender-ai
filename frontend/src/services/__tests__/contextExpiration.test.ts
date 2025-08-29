@@ -124,7 +124,7 @@ describe('Context Expiration and Cleanup Tests', () => {
       };
 
       // Save old context
-      localStorageMock.setItem('epick_chat_context', JSON.stringify(oldContext));
+      localStorageMock.setItem('peyechi_chat_context', JSON.stringify(oldContext));
 
       // Loading should create new context due to expiration
       const loadedContext = ChatContextManager.loadContext();
@@ -252,7 +252,7 @@ describe('Context Expiration and Cleanup Tests', () => {
         interactionPatterns: undefined
       } as any;
 
-      localStorageMock.setItem('epick_chat_context', JSON.stringify(invalidContext));
+      localStorageMock.setItem('peyechi_chat_context', JSON.stringify(invalidContext));
 
       const loadedContext = ChatContextManager.loadContext();
 
@@ -389,7 +389,7 @@ describe('Context Expiration and Cleanup Tests', () => {
   describe('Error Recovery', () => {
     it('should recover from corrupted localStorage data', () => {
       // Set corrupted JSON in localStorage
-      localStorageMock.setItem('epick_chat_context', 'invalid json {');
+      localStorageMock.setItem('peyechi_chat_context', 'invalid json {');
 
       // Should not throw and should create new context
       const context = ChatContextManager.loadContext();

@@ -101,7 +101,7 @@ def test_cors_configuration(base_url):
         response = requests.options(
             urljoin(base_url, "/api/v1/phones"),
             headers={
-                'Origin': 'https://pickbd.vercel.app',
+                'Origin': 'https://peyechi.vercel.app',
                 'Access-Control-Request-Method': 'GET'
             },
             timeout=10

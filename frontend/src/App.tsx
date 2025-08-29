@@ -6,7 +6,7 @@ import Sidebar from "./components/Sidebar";
 import TrendingPhones from "./components/TrendingPhones";
 import TopSearchedPhones from "./components/TopSearchedPhones";
 import UpcomingPhones from "./components/UpcomingPhones";
-import WhyChooseEpick from "./components/WhyChooseEpick";
+import WhyChoosePeyechi from "./components/WhyChoosePeyechi";
 
 import Footer from "./components/Footer";
 import LoginPage from "./pages/LoginPage";
@@ -456,7 +456,7 @@ function App() {
           <div className="my-8" />
           <UpcomingPhones darkMode={darkMode} />
           <div className="my-8" />
-          <WhyChooseEpick darkMode={darkMode} />
+          <WhyChoosePeyechi darkMode={darkMode} />
           {/* Chat/Message Section */}
           {messages.length > 0 && (
             <div className="rounded-lg p-6 flex-grow overflow-y-auto lg:w-[800px] mx-auto bg-white shadow-lg mb-4 mt-8">

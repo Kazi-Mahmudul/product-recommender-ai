@@ -57,7 +57,7 @@ describe('SuggestionMigration', () => {
       };
       delete (legacyContext as any).phoneRecommendations;
 
-      localStorageMock.setItem('epick_chat_context', JSON.stringify(legacyContext));
+      localStorageMock.setItem('peyechi_chat_context', JSON.stringify(legacyContext));
 
       const status = SuggestionMigration.getMigrationStatus();
       expect(status.isMigrated).toBe(false);
@@ -94,7 +94,7 @@ describe('SuggestionMigration', () => {
         phoneRecommendations: []
       };
 
-      localStorageMock.setItem('epick_chat_context', JSON.stringify(legacyContext));
+      localStorageMock.setItem('peyechi_chat_context', JSON.stringify(legacyContext));
 
       // Perform migration
       SuggestionMigration.migrateToContextualSuggestions();
@@ -131,7 +131,7 @@ describe('SuggestionMigration', () => {
         phoneRecommendations: []
       };
 
-      localStorageMock.setItem('epick_chat_context', JSON.stringify(legacyContext));
+      localStorageMock.setItem('peyechi_chat_context', JSON.stringify(legacyContext));
 
       SuggestionMigration.migrateToContextualSuggestions();
 
@@ -214,7 +214,7 @@ describe('SuggestionMigration', () => {
   describe('Error Handling', () => {
     it('should handle migration errors gracefully', () => {
       // Set invalid JSON in localStorage
-      localStorageMock.setItem('epick_chat_context', 'invalid json');
+      localStorageMock.setItem('peyechi_chat_context', 'invalid json');
 
       expect(() => {
         SuggestionMigration.migrateToContextualSuggestions();

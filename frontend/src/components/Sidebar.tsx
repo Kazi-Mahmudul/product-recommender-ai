@@ -44,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
-            <span className="font-bold text-xl bg-gradient-to-r from-brand to-brand-darkGreen bg-clip-text text-transparent">ePick</span>
+            <span className="font-bold text-xl bg-gradient-to-r from-brand to-brand-darkGreen bg-clip-text text-transparent">Peyechi</span>
             <button 
               onClick={onClose} 
               className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
@@ -116,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Footer */}
           <div className="p-6 border-t border-neutral-200 dark:border-neutral-800">
             <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              © 2025 ePick. All rights reserved.
+              © 2025 Peyechi. All rights reserved.
             </div>
           </div>
         </div>

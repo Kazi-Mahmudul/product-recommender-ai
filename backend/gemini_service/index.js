@@ -181,7 +181,7 @@ async function parseQuery(query, retryCount = 0) {
     const contextInfo = detectContextualQuery(query);
     console.log(`[${new Date().toISOString()}] 🔹 Contextual analysis:`, contextInfo);
     
-    const prompt = `You are a friendly, knowledgeable, and conversational AI assistant for ePick, a smartphone recommendation platform in Bangladesh.
+    const prompt = `You are a friendly, knowledgeable, and conversational AI assistant for Peyechi, a smartphone recommendation platform in Bangladesh.
 Your job is to understand the user's intent and respond with a JSON object while being helpful and engaging.
 
 CONTEXTUAL QUERY ENHANCEMENT:
@@ -534,7 +534,7 @@ process.on('SIGINT', () => {
 // Start the server - Cloud Run sets PORT environment variable
 const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 ePick Gemini AI API running on http://0.0.0.0:${PORT}`);
+  console.log(`🚀 Peyechi Gemini AI API running on http://0.0.0.0:${PORT}`);
   console.log(`[${new Date().toISOString()}] 🔹 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`[${new Date().toISOString()}] 🔹 Google API Key: ${process.env.GOOGLE_API_KEY ? 'Configured' : 'Missing'}`);
 });

@@ -1,5 +1,5 @@
 /**
- * Navigation utility functions for the ePick application
+ * Navigation utility functions for the Peyechi application
  */
 
 import { generateComparisonUrl, generatePhoneDetailUrl } from './slugUtils';

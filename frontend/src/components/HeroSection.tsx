@@ -18,11 +18,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({ children }) => (
       <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-brand/10 text-brand dark:text-brand font-medium text-sm">
         AI-Powered Smartphone Recommendations
       </div>
-      <h1 className="text-4xl md:text-6xl font-bold mb-6 text-epick-darkGray dark:text-epick-offWhite leading-tight">
-        Find Your <span className="text-brand">Perfect Device</span> with AI
+      <h1 className="text-4xl md:text-6xl font-bold mb-6 text-peyechi-darkGray dark:text-peyechi-offWhite leading-tight">
+        Find Your Perfect <span className="text-brand">Smartphone</span> in Bangladesh
       </h1>
-      <p className="text-lg md:text-xl mb-8 text-epick-darkGray/80 dark:text-epick-offWhite/80 max-w-2xl mx-auto">
-        Get personalized smartphone recommendations tailored specifically for your needs and preferences. Just ask our AI assistant.
+      <p className="text-lg md:text-xl mb-8 text-peyechi-darkGray/80 dark:text-peyechi-offWhite/80 max-w-2xl mx-auto">
+        Get personalized phone recommendations based on your preferences, budget, and usage patterns. Powered by AI to help you make the smart choice.
       </p>
       {children}
       
@@ -34,9 +34,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ children }) => (
           { icon: "🇧🇩", text: "Local BD Pricing" },
           { icon: "⚡", text: "Instant Results" }
         ].map((feature, idx) => (
-          <div key={idx} className="flex flex-col items-center p-4 rounded-xl bg-white/50 dark:bg-epick-black/20 backdrop-blur-sm border border-epick-lightGray/50 dark:border-epick-darkGray/20">
+          <div key={idx} className="flex flex-col items-center p-4 rounded-xl bg-white/50 dark:bg-peyechi-black/20 backdrop-blur-sm border border-peyechi-lightGray/50 dark:border-peyechi-darkGray/20">
             <span className="text-2xl mb-2">{feature.icon}</span>
-            <span className="text-sm font-medium text-epick-darkGray dark:text-epick-offWhite">{feature.text}</span>
+            <span className="text-sm font-medium text-peyechi-darkGray dark:text-peyechi-offWhite">{feature.text}</span>
           </div>
         ))}
       </div>

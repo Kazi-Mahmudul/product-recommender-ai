@@ -4,16 +4,16 @@
 
 @layer base {
   :root {
-    /* Light mode color scheme based on Epick colors */
+    /* Light mode color scheme based on Peyechi colors */
     --background: 120 0% 98%; /* Slightly off-white background (#F9FAF9) */
     --foreground: 0 0% 27%; /* Dark gray text for readability (#444444) */
     --card: 0 0% 100%; /* Pure white cards (#FFFFFF) */
     --card-foreground: 0 0% 27%; /* Dark gray text on cards (#444444) */
     --popover: 0 0% 100%; /* White popovers (#FFFFFF) */
     --popover-foreground: 0 0% 27%; /* Dark gray text on popovers (#444444) */
-    --primary: 156 39% 35%; /* Main brand green (#377D5B) - EpickGreen */
+    --primary: 156 39% 35%; /* Main brand green (#377D5B) - PeyechiGreen */
     --primary-foreground: 0 0% 100%; /* White text on primary (#FFFFFF) */
-    --secondary: 120 80% 72%; /* Lighter green accent (#80EF80) - EpickDarkGreen */
+    --secondary: 120 80% 72%; /* Lighter green accent (#80EF80) - PeyechiDarkGreen */
     --secondary-foreground: 0 0% 0%; /* Black text on secondary for better readability (#000000) */
     --muted: 0 0% 92%; /* Light gray for muted areas (#EAEAEA) */
     --muted-foreground: 0 0% 69%; /* Medium gray for muted text (#B0B0B0) */
@@ -35,9 +35,9 @@
     --card-foreground: 0 0% 98%; /* Off-white text on cards (#F9FAF9) */
     --popover: 0 0% 15%; /* Dark popovers (#262626) */
     --popover-foreground: 0 0% 98%; /* Off-white text on popovers (#F9FAF9) */
-    --primary: 156 39% 35%; /* Main brand green for dark mode (#377D5B) - EpickGreen */
+    --primary: 156 39% 35%; /* Main brand green for dark mode (#377D5B) - PeyechiGreen */
     --primary-foreground: 0 0% 100%; /* White text on primary (#FFFFFF) */
-    --secondary: 120 80% 72%; /* Lighter green accent for dark mode (#80EF80) - EpickDarkGreen */
+    --secondary: 120 80% 72%; /* Lighter green accent for dark mode (#80EF80) - PeyechiDarkGreen */
     --secondary-foreground: 0 0% 0%; /* Black text on secondary for better readability (#000000) */
     --muted: 0 0% 20%; /* Dark gray for muted areas (#333333) */
     --muted-foreground: 0 0% 69%; /* Medium gray for muted text (#B0B0B0) */
@@ -117,23 +117,23 @@
 }
 
 /* SweetAlert2 Custom Styles */
-.epick-alert-popup {
+.peyechi-alert-popup {
   border-radius: 12px !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
 }
 
-.epick-alert-title {
+.peyechi-alert-title {
   font-weight: 600 !important;
   font-size: 1.25rem !important;
   color: #377D5B !important;
 }
 
-.epick-alert-content {
+.peyechi-alert-content {
   font-size: 0.95rem !important;
   line-height: 1.5 !important;
 }
 
-.epick-alert-confirm {
+.peyechi-alert-confirm {
   background-color: #377D5B !important;
   border: none !important;
   border-radius: 8px !important;
@@ -142,12 +142,12 @@
   transition: all 0.2s ease !important;
 }
 
-.epick-alert-confirm:hover {
+.peyechi-alert-confirm:hover {
   background-color: #2d6249 !important;
   transform: translateY(-1px) !important;
 }
 
-.epick-alert-cancel {
+.peyechi-alert-cancel {
   background-color: #e5e7eb !important;
   color: #374151 !important;
   border: none !important;
@@ -158,7 +158,7 @@
   transition: all 0.2s ease !important;
 }
 
-.epick-alert-cancel:hover {
+.peyechi-alert-cancel:hover {
   background-color: #d1d5db !important;
   transform: translateY(-1px) !important;
 }
@@ -180,15 +180,15 @@
 }
 
 /* Dark mode SweetAlert2 styles */
-.dark .epick-alert-popup {
+.dark .peyechi-alert-popup {
   background-color: #1f2937 !important;
   color: #f9fafb !important;
 }
 
-.dark .epick-alert-title {
+.dark .peyechi-alert-title {
   color: #377D5B !important;
 }
 
-.dark .epick-alert-content {
+.dark .peyechi-alert-content {
   color: #f9fafb !important;
 } 

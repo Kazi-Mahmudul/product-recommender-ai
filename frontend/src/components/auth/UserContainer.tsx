@@ -189,7 +189,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
             {displayName}
           </p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            {user.auth_provider === 'google' ? 'Google Account' : 'ePick Account'}
+            {user.auth_provider === 'google' ? 'Google Account' : 'Peyechi Account'}
           </p>
         </div>
         <ChevronDown 

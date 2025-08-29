@@ -92,7 +92,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       };
     }
     return {
-      name: 'ePick Account',
+      name: 'Peyechi Account',
       icon: <Shield size={16} className="text-brand" />
     };
   };

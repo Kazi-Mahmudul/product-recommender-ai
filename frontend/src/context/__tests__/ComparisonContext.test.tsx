@@ -207,7 +207,7 @@ describe("ComparisonContext", () => {
       await user.click(screen.getByTestId("clear-comparison"));
       expect(screen.getByTestId("selected-count")).toHaveTextContent("0");
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-        "epick_comparison_selection"
+        "peyechi_comparison_selection"
       );
     });
 
@@ -373,7 +373,7 @@ describe("ComparisonContext", () => {
 
       expect(screen.getByTestId("selected-count")).toHaveTextContent("0");
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-        "epick_comparison_selection"
+        "peyechi_comparison_selection"
       );
     });
 
@@ -389,7 +389,7 @@ describe("ComparisonContext", () => {
 
       expect(screen.getByTestId("selected-count")).toHaveTextContent("0");
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
-        "epick_comparison_selection"
+        "peyechi_comparison_selection"
       );
     });
 

@@ -11,7 +11,7 @@ export interface FeatureFlags {
 }
 
 export class FeatureFlagManager {
-  private static readonly STORAGE_KEY = 'epick_feature_flags';
+  private static readonly STORAGE_KEY = 'peyechi_feature_flags';
   private static readonly DEFAULT_FLAGS: FeatureFlags = {
     enhancedSuggestions: true,
     drillDownMode: true,
