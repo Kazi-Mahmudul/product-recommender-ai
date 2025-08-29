@@ -1,10 +1,11 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import time
 import logging
+import os
 
 from app.crud import phone as phone_crud
 from app.schemas.phone import Phone, PhoneList, BulkPhonesResponse
@@ -470,7 +471,7 @@ def read_phone_by_name(phone_name: str, db: Session = Depends(get_db)):
     return db_phone
 
 @router.get("/{phone_id}")
-def read_phone(phone_id: int, db: Session = Depends(get_db)):
+def read_phone(phone_id: int, request: Request, db: Session = Depends(get_db)):
     """
     Get a specific phone by ID - redirects to slug-based URL for SEO
     """
@@ -482,9 +483,18 @@ def read_phone(phone_id: int, db: Session = Depends(get_db)):
     # Get the phone's slug for redirect
     phone_slug = phone_crud.get_phone_slug_by_id(db, phone_id)
     if phone_slug:
+        # Build redirect URL ensuring HTTPS in production
+        if os.getenv("ENVIRONMENT") == "production":
+            # Use absolute URL with HTTPS in production
+            base_url = str(request.base_url).replace("http://", "https://")
+            redirect_url = f"{base_url.rstrip('/')}/api/v1/phones/slug/{phone_slug}"
+        else:
+            # Use relative URL in development
+            redirect_url = f"/api/v1/phones/slug/{phone_slug}"
+            
         # Redirect to slug-based URL with 301 (permanent redirect)
         return RedirectResponse(
-            url=f"/api/v1/phones/slug/{phone_slug}",
+            url=redirect_url,
             status_code=301
         )
     else:

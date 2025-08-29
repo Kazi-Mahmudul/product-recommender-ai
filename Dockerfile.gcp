@@ -7,6 +7,8 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV ENVIRONMENT=production
 ENV LOG_LEVEL=INFO
+ENV FORCE_HTTPS=true
+ENV CORS_ORIGINS='["https://peyechi.com","https://peyechi.vercel.app"]'
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \

@@ -17,15 +17,33 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         # Only redirect in production environment
         if os.getenv("ENVIRONMENT") == "production":
             # Check if the request is HTTP and not from a health check
-            if (request.url.scheme == "http" and 
-                not request.url.path.startswith("/health") and
-                not request.headers.get("x-forwarded-proto") == "https"):
-                
-                # Redirect to HTTPS
-                https_url = request.url.replace(scheme="https")
-                return RedirectResponse(url=str(https_url), status_code=301)
+            is_health_check = request.url.path.startswith("/health")
+            is_docs_endpoint = (request.url.path.startswith("/api/v1/docs") or 
+                               request.url.path.startswith("/api/v1/redoc") or
+                               request.url.path.startswith("/api/v1/openapi.json"))
+            
+            # Check if request is already HTTPS (considering proxies)
+            is_https = (request.url.scheme == "https" or 
+                       request.headers.get("x-forwarded-proto") == "https")
+            
+            # Redirect to HTTPS if not already HTTPS and not a special endpoint
+            if request.url.scheme == "http" and not is_health_check and not is_docs_endpoint and not is_https:
+                # Build HTTPS URL preserving the original host and path
+                https_url = str(request.url).replace("http://", "https://", 1)
+                return RedirectResponse(url=https_url, status_code=301)
         
         response = await call_next(request)
+        
+        # Ensure all redirect responses also use HTTPS in production
+        if (os.getenv("ENVIRONMENT") == "production" and 
+            isinstance(response, RedirectResponse) and 
+            response.headers.get("location", "").startswith("http://")):
+            
+            # Replace HTTP with HTTPS in the location header
+            location = response.headers["location"]
+            secure_location = location.replace("http://", "https://", 1)
+            response.headers["location"] = secure_location
+        
         return response
 
 

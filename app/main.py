@@ -141,8 +141,8 @@ async def shutdown_event():
 
 # Add middleware in correct order (last added = first executed)
 app.add_middleware(RequestLoggingMiddleware)  # Add request logging
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(HTTPSRedirectMiddleware)
+app.add_middleware(HTTPSRedirectMiddleware)  # Add HTTPS redirect middleware early
+app.add_middleware(SecurityHeadersMiddleware)  # Add security headers middleware
 
 # Set up CORS middleware with production settings
 cors_origins = settings.CORS_ORIGINS if settings.CORS_ORIGINS and "*" not in settings.CORS_ORIGINS else ["*"]
