@@ -77,7 +77,7 @@ const FollowUpSuggestions: React.FC<FollowUpSuggestionsProps> = ({
 
   return (
     <div className="mt-4 space-y-3">
-      <div className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+      <div className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
         💡 You might also want to:
         {phoneContext && phoneContext.length > 0 && (
           <span className={`ml-2 text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
@@ -86,7 +86,7 @@ const FollowUpSuggestions: React.FC<FollowUpSuggestionsProps> = ({
         )}
       </div>
       
-      <div className={`flex flex-wrap gap-2 ${isMobile ? 'justify-center' : ''}`}>
+      <div className={`flex flex-wrap gap-3 ${isMobile ? 'justify-center' : ''}`}>
         {suggestions.map((suggestion) => {
           const contextStyle = getContextIndicatorStyle(suggestion);
           const isContextual = isContextualSuggestion(suggestion);
@@ -107,16 +107,16 @@ const FollowUpSuggestions: React.FC<FollowUpSuggestionsProps> = ({
                   minWidth: isMobile ? '44px' : 'auto'
                 }}
                 className={`
-                  inline-flex items-center gap-2 rounded-full font-medium relative
+                  inline-flex items-center gap-2 rounded-xl font-medium relative
                   transition-all duration-200 transform hover:scale-105 active:scale-95
-                  ${isMobile ? 'px-4 py-3 text-base' : 'px-3 py-2 text-sm'}
+                  ${isMobile ? 'px-4 py-3 text-base' : 'px-4 py-2 text-sm'}
                   ${darkMode 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600' 
-                    : 'bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 shadow-sm'
+                    ? 'bg-gradient-to-br from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 text-gray-200 border border-gray-700 hover:border-brand' 
+                    : 'bg-gradient-to-br from-white to-gray-50 hover:from-gray-50 hover:to-white text-gray-800 border border-gray-200 hover:border-brand shadow-sm'
                   }
                   ${contextStyle.borderStyle}
                   ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md cursor-pointer'}
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                  focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2
                   ${darkMode ? 'focus:ring-offset-gray-800' : 'focus:ring-offset-white'}
                   ${isTouchDevice ? 'touch-manipulation' : ''}
                   group
@@ -126,15 +126,15 @@ const FollowUpSuggestions: React.FC<FollowUpSuggestionsProps> = ({
               >
                 {/* Enhanced context indicator with animation */}
                 {contextStyle.hasContext && (
-                  <span className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${contextStyle.indicatorColor} 
-                    animate-pulse bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center`}>
-                    <span className="text-xs text-white">🔗</span>
+                  <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full ${contextStyle.indicatorColor} 
+                    animate-pulse bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs`}>
+                    🔗
                   </span>
                 )}
                 
                 {/* Loading indicator */}
                 {isLoading && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-full">
+                  <span className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-xl">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   </span>
                 )}
@@ -161,7 +161,7 @@ const FollowUpSuggestions: React.FC<FollowUpSuggestionsProps> = ({
                     {suggestion.referencedPhones.length > 2 && ` +${suggestion.referencedPhones.length - 2} more`}
                   </div>
                   {/* Tooltip arrow */}
-                  <div className={`absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 rotate-45 
+                  <div className={`absolute top-full left-1/2 transform -translate-x-1/2 w-2.5 h-2.5 rotate-45 
                     ${darkMode ? 'bg-gray-800 border-r border-b border-gray-600' : 'bg-white border-r border-b border-gray-200'}
                   `}></div>
                 </div>
@@ -179,9 +179,11 @@ const FollowUpSuggestions: React.FC<FollowUpSuggestionsProps> = ({
       
       {/* Context legend for first-time users */}
       {phoneContext && phoneContext.length > 0 && suggestions.some(s => isContextualSuggestion(s)) && (
-        <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 flex items-center gap-1`}>
-          <span>🔗</span>
-          <span>Suggestions with this icon reference your previous phone recommendations</span>
+        <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 flex items-center gap-2 p-3 rounded-lg ${
+          darkMode ? 'bg-gray-800/50' : 'bg-blue-50'
+        }`}>
+          <span className="text-blue-500">🔗</span>
+          <span>Suggestions with this icon reference your previous phone recommendations and provide contextual insights</span>
         </div>
       )}
     </div>

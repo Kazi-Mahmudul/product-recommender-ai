@@ -26,35 +26,12 @@ interface ChatPageProps {
 }
 
 const SUGGESTED_QUERIES = [
-  // Budget-friendly options
-  "Best phones under 25,000 BDT",
-  "Budget phones with great cameras",
-  "Affordable phones with good performance",
-
-  // Mid-range recommendations
-  "Best phones under 50,000 BDT",
-  "Mid-range phones with 120Hz display",
-  "Phones with wireless charging under 60,000",
-
-  // Premium options
-  "Latest flagship phones 2025",
-  "Premium phones with best cameras",
-  "High-end gaming phones",
-
-  // Feature-specific queries
-  "Phones with longest battery life",
-  "Best camera phones for photography",
-  "Phones with fast charging support",
-
-  // Brand comparisons
-  "Samsung vs iPhone comparison",
-  "Compare Xiaomi POCO X6 vs Realme GT Neo",
-  "Best OnePlus phones available",
-
-  // Specific information
-  "What's new in iPhone 15 series?",
-  "Samsung Galaxy A55 full specifications",
-  "Which phones support 5G in Bangladesh?",
+  "Best phone under 30k?",
+  "Compare iPhone vs Samsung",
+  "Long battery life phones?",
+  "5G phones in Bangladesh?",
+  "Best camera phone?",
+  "Gaming phones under 50k?",
 ];
 
 // Ensure we always use HTTPS in production
@@ -106,12 +83,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       setChatHistory([
         {
           user: "",
-          bot: `Hi there! 👋 Welcome to Peyechi AI
+          bot: `👋 Welcome to Peyechi AI - Your Smartphone Advisor for Bangladesh! 🇧🇩
 
-I'm your personal smartphone advisor, here to help you discover the perfect phone that matches your needs and budget in Bangladesh. 🇧🇩📱
+I can help you:
+• Find the perfect phone for your budget 💰
+• Compare devices side-by-side 📊
+• Get latest prices and specs 📱
+• Answer any smartphone questions ❓
 
-✨ **What I can help you with:**
-`,
+Try asking:
+• "Best phone under 30,000 BDT"
+• "Compare iPhone 14 and Samsung Galaxy S23"
+• "Phones with good battery life"
+
+How can I help you today?`,
         },
       ]);
     }
@@ -421,51 +406,37 @@ I'm your personal smartphone advisor, here to help you discover the perfect phon
 
   return (
     <div
-      className={`my-8 flex items-center justify-center bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 min-h-screen`}
+      className={`my-8 flex items-center justify-center min-h-screen`}
     >
       <div
-        className={`w-full max-w-3xl mx-auto my-8 rounded-3xl shadow-2xl ${
-          darkMode
-            ? "bg-[#232323] border-gray-800"
-            : "bg-white border-[#eae4da]"
-        } border flex flex-col`}
+        className={`w-full max-w-3xl mx-auto my-8 rounded-2xl shadow-xl ${darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"} border flex flex-col`}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-b rounded-t-3xl ${
-            darkMode
-              ? "bg-[#232323] border-gray-800"
-              : "bg-white border-[#eae4da]"
-          }`}
+          className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-[#eae4da]"}`}
         >
-          <div className="flex items-center space-x-2 min-w-0 flex-1">
-            <span className="font-bold text-xl sm:text-2xl text-brand truncate">
-              Peyechi AI
-            </span>
-            <span className="text-base sm:text-lg">🤖</span>
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-brand flex items-center justify-center">
+                <span className="text-white font-bold">AI</span>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></div>
+            </div>
+            <div>
+              <span className="font-bold text-xl text-brand">
+                Peyechi AI
+              </span>
+            </div>
           </div>
-          <div className="flex gap-1 sm:gap-2 ml-2">
+          <div className="flex gap-2">
             <button
-              className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-brand text-white shadow-md hover:opacity-90 transition whitespace-nowrap"
+              className="px-4 py-2 rounded-full text-sm font-semibold bg-brand text-white hover:bg-brand-darkGreen transition"
               onClick={() => {
                 setChatHistory([]);
                 setShowWelcome(true);
               }}
             >
-              <span className="hidden sm:inline">New chat</span>
-              <span className="sm:hidden">New</span>
-            </button>
-            <button
-              className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-gray-500 text-white shadow-md hover:opacity-90 transition whitespace-nowrap"
-              onClick={() => {
-                const newContext = ChatContextManager.clearContext();
-                setChatContext(newContext);
-                setChatHistory([]);
-                setShowWelcome(true);
-              }}
-              title="Clear all preferences and start fresh"
-            >
-              Reset
+              New Chat
             </button>
           </div>
         </div>
@@ -600,11 +571,11 @@ I'm your personal smartphone advisor, here to help you discover the perfect phon
 
                 {/* Welcome Suggestions */}
                 {index === 0 && showWelcome && (
-                  <div className="flex flex-wrap gap-2 mt-4">
+                  <div className="flex flex-wrap gap-2 mt-4 justify-center">
                     {SUGGESTED_QUERIES.map((suggestion) => (
                       <button
                         key={suggestion}
-                        className={`px-4 py-2 rounded-full border text-sm font-medium transition ${
+                        className={`px-3 py-2 rounded-full border text-sm font-medium transition ${
                           darkMode
                             ? "bg-[#181818] border-gray-700 text-gray-200 hover:bg-brand hover:text-white"
                             : "bg-[#f7f3ef] border-[#eae4da] text-gray-900 hover:bg-brand hover:text-white"
@@ -626,9 +597,9 @@ I'm your personal smartphone advisor, here to help you discover the perfect phon
         <div className="fixed bottom-0 left-0 w-full flex justify-center z-30 pb-4 pointer-events-none">
           <div className="w-full max-w-xl mx-auto px-2 sm:px-4 pointer-events-auto">
             <div
-              className={`flex items-center bg-white dark:bg-[#232323] border ${
+              className={`flex items-center bg-white dark:bg-gradient-to-br from-gray-800 to-gray-900 border ${
                 darkMode ? "border-gray-700" : "border-[#eae4da]"
-              } shadow-lg rounded-2xl py-2 px-3 sm:py-3 sm:px-5 mb-2`}
+              } shadow-xl rounded-2xl py-3 px-4 mb-2`}
             >
               <input
                 type="text"
@@ -638,18 +609,18 @@ I'm your personal smartphone advisor, here to help you discover the perfect phon
                 className={`flex-1 bg-transparent text-base focus:outline-none placeholder-gray-400 ${
                   darkMode ? "text-white" : "text-gray-900"
                 }`}
-                placeholder="Type your message..."
+                placeholder="Ask me anything about smartphones..."
                 disabled={isLoading}
               />
               <button
                 onClick={() => handleSendMessage()}
                 disabled={isLoading || !message.trim()}
-                className="ml-2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-transparent text-brand hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand transition disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="ml-3 w-12 h-12 rounded-full text-brand  focus:outline-none focus:ring-2 focus:ring-brand transition disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Send"
               >
                 {isLoading ? (
                   <svg
-                    className="animate-spin h-6 w-6 text-brand"
+                    className="animate-spin h-6 w-6 text-white mx-auto"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -671,7 +642,7 @@ I'm your personal smartphone advisor, here to help you discover the perfect phon
                 ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-brand"
+                    className="h-5 w-5"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -685,9 +656,14 @@ I'm your personal smartphone advisor, here to help you discover the perfect phon
                 )}
               </button>
             </div>
-            {error && (
-              <p className="text-red-500 text-sm mt-2 text-center">{error}</p>
+                        {error && (
+              <p className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
+                {error}
+              </p>
             )}
+            <div className={`text-xs text-center mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+              Ask me about smartphones in Bangladesh
+            </div>
           </div>
         </div>
       </div>

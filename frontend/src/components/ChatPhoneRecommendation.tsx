@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ChatPhoneCard from "./ChatPhoneCard";
@@ -149,7 +150,7 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
     return [
       {
         command: "full_specs",
-        label: "Show full specs",
+        label: "Show full specifications",
         icon: "📋",
         contextualQuery: `Show full specifications for ${phoneNames.join(', ')}`,
         referencedPhones: phoneNames,
@@ -162,7 +163,7 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
       },
       {
         command: "chart_view",
-        label: "Open chart view",
+        label: "Open performance charts",
         icon: "📊",
         contextualQuery: `Show performance charts comparing ${phoneNames.join(', ')}`,
         referencedPhones: phoneNames,
@@ -175,7 +176,7 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
       },
       {
         command: "detail_focus",
-        label: "Tell me more about display",
+        label: "Compare display quality",
         icon: "📱",
         target: "display",
         contextualQuery: `Compare display specifications of ${phoneNames.join(', ')}`,
@@ -205,6 +206,25 @@ const ChatPhoneRecommendation: React.FC<ChatPhoneRecommendationProps> = ({
 
   return (
     <div className="space-y-6 p-4">
+      {/* AI Reasoning Section */}
+      <div
+        className={`rounded-xl p-4 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-blue-50 border-blue-200"} border`}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-1">
+            <span className="text-xl">🤖</span>
+          </div>
+          <div>
+            <h3 className={`font-bold ${darkMode ? "text-blue-300" : "text-blue-700"}`}>
+              AI Recommendation Insight
+            </h3>
+            <p className={`text-sm mt-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              {explanation || "Based on your query, I've selected these phones that best match your needs."}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Contextual explanation */}
       <div
         className={`text-base ${darkMode ? "text-gray-200" : "text-gray-800"}`}
