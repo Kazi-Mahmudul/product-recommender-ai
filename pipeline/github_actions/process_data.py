@@ -120,7 +120,7 @@ def get_scraped_data_from_database(pipeline_run_id: str) -> Optional[object]:
         logger.error(f"❌ Failed to retrieve data from database: {str(e)}")
         return None
 
-def process_data_with_pipeline(df: object, processor_df: Optional[object] = None, test_mode: bool = False) -> Dict[str, Any]:
+def process_data_with_pipeline(df: object, processor_df: Optional[object] = None, pipeline_run_id: str = 'unknown', test_mode: bool = False) -> Dict[str, Any]:
     """
     Process data using the enhanced pipeline services
     
@@ -241,18 +241,72 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
                 'completeness': round(float(completeness), 3)
             }
         
-        # Store processed data temporarily (for loading phase)
+        # Load processed data directly to database (no intermediate CSV file)
         if not test_mode:
-            processed_file = config.get_output_paths()['processed_data']
-            os.makedirs(os.path.dirname(processed_file), exist_ok=True)
-            processed_df.to_csv(processed_file, index=False)
-            logger.info(f"   Processed data saved to: {processed_file}")
+            logger.info("💾 Loading processed data directly to database...")
+            try:
+                # Import DirectDatabaseLoader
+                sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services'))
+                from direct_database_loader import DirectDatabaseLoader
+                
+                # Initialize database loader
+                loader = DirectDatabaseLoader(config.database_url, config.database_config['batch_size'])
+                
+                # Use the pipeline_run_id passed as parameter
+                
+                # Load data directly to database
+                loading_result = loader.load_processed_dataframe(processed_df, pipeline_run_id)
+                
+                # Merge loading results into processing results
+                if loading_result['status'] == 'success':
+                    result.update({
+                        'records_inserted': loading_result['records_inserted'],
+                        'records_updated': loading_result['records_updated'],
+                        'database_operations': loading_result['database_operations'],
+                        'database_loading_time': loading_result['execution_time_seconds']
+                    })
+                    logger.info(f"   ✅ Database loading completed: {loading_result['records_inserted']} inserted, {loading_result['records_updated']} updated")
+                else:
+                    # If database loading fails, mark the entire operation as failed
+                    logger.error(f"   ❌ Database loading failed: {loading_result.get('error_message', 'Unknown error')}")
+                    result.update({
+                        'status': 'failed',
+                        'error': f"Database loading failed: {loading_result.get('error_message', 'Unknown error')}",
+                        'records_inserted': 0,
+                        'records_updated': 0,
+                        'database_loading_failed': True
+                    })
+                    
+            except ImportError as e:
+                logger.warning(f"⚠️ DirectDatabaseLoader not available: {e}")
+                logger.info("   Skipping direct database loading - will rely on separate loading step")
+                # Don't fail the processing step if DirectDatabaseLoader is not available
+                result['database_loading_skipped'] = True
+                result['database_loading_skip_reason'] = str(e)
+            except Exception as e:
+                logger.error(f"❌ Direct database loading failed: {str(e)}")
+                result.update({
+                    'status': 'failed',
+                    'error': f"Direct database loading failed: {str(e)}",
+                    'records_inserted': 0,
+                    'records_updated': 0,
+                    'database_loading_failed': True
+                })
+        else:
+            logger.info("🧪 Test mode: Skipping database loading")
+            result['test_mode'] = True
         
-        logger.info(f"✅ Data processing completed successfully!")
+        logger.info(f"✅ Data processing and loading completed successfully!")
         logger.info(f"   Records processed: {result['records_processed']}")
         logger.info(f"   Quality score: {result['quality_score']:.2f}")
         logger.info(f"   Features generated: {result['features_generated']}")
-        logger.info(f"   Execution time: {result['execution_time_seconds']:.2f} seconds")
+        logger.info(f"   Processing time: {result['execution_time_seconds']:.2f} seconds")
+        if 'records_inserted' in result:
+            logger.info(f"   Records inserted: {result['records_inserted']}")
+        if 'records_updated' in result:
+            logger.info(f"   Records updated: {result['records_updated']}")
+        if 'database_loading_time' in result:
+            logger.info(f"   Database loading time: {result['database_loading_time']:.2f} seconds")
         
         return result
         
@@ -344,7 +398,7 @@ def main():
         else:
             # Process the data
             logger.info(f"📊 Processing {len(df)} records...")
-            result = process_data_with_pipeline(df, processor_df, test_mode)
+            result = process_data_with_pipeline(df, processor_df, args.pipeline_run_id, test_mode)
             result['pipeline_run_id'] = args.pipeline_run_id
             result['timestamp'] = datetime.now().isoformat()
         
@@ -369,8 +423,10 @@ def main():
                 f.write(f"processing_result={json.dumps(json_safe_result)}\n")
         
         # Summary
-        logger.info(f"🎯 Data processing completed with status: {result['status'].upper()}")
+        logger.info(f"🎯 Data processing and loading completed with status: {result['status'].upper()}")
         logger.info(f"   Records processed: {result.get('records_processed', 0)}")
+        logger.info(f"   Records inserted: {result.get('records_inserted', 0)}")
+        logger.info(f"   Records updated: {result.get('records_updated', 0)}")
         logger.info(f"   Quality score: {result.get('quality_score', 0):.2f}")
         
         # Exit with appropriate code

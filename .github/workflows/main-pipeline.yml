@@ -125,7 +125,7 @@ jobs:
             --max-pages "${{ github.event.inputs.max_pages || '' }}" \
             --skip-processor-rankings "${{ github.event.inputs.skip_processor_rankings || 'false' }}"
 
-  process_data:
+  process_and_load_data:
     runs-on: ubuntu-latest
     needs: [setup, extract_data]
     outputs:
@@ -153,7 +153,7 @@ jobs:
           pip install numpy==1.24.3
           pip install -r requirements.txt
 
-      - name: Process data
+      - name: Process and load data
         id: process
         run: |
           python pipeline/github_actions/process_data.py \
@@ -161,11 +161,11 @@ jobs:
             --scraping-result '${{ needs.extract_data.outputs.scraping_result }}' \
             --processor-result '${{ needs.extract_data.outputs.processor_result }}'
 
-  load_data:
+  validate_data:
     runs-on: ubuntu-latest
-    needs: [setup, extract_data, process_data]
+    needs: [setup, extract_data, process_and_load_data]
     outputs:
-      loading_result: ${{ steps.load.outputs.loading_result }}
+      loading_result: ${{ steps.validate.outputs.loading_result }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -189,16 +189,16 @@ jobs:
           pip install numpy==1.24.3
           pip install -r requirements.txt
 
-      - name: Load data
-        id: load
+      - name: Validate data loading
+        id: validate
         run: |
           python pipeline/github_actions/load_data.py \
             --pipeline-run-id "${{ needs.setup.outputs.pipeline_run_id }}" \
-            --processing-result '${{ needs.process_data.outputs.processing_result }}'
+            --processing-result '${{ needs.process_and_load_data.outputs.processing_result }}'
 
   update_top_searched:
     runs-on: ubuntu-latest
-    needs: [setup, load_data]
+    needs: [setup, validate_data]
     outputs:
       top_searched_result: ${{ steps.update.outputs.top_searched_result }}
     steps:
@@ -232,7 +232,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-latest
-    needs: [setup, extract_data, process_data, load_data, update_top_searched]
+    needs: [setup, extract_data, process_and_load_data, validate_data, update_top_searched]
     if: always()
     steps:
       - name: Pipeline Summary
@@ -250,18 +250,18 @@ jobs:
             echo "❌ **Data Extraction:** FAILED" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Process data results
-          if [ "${{ needs.process_data.result }}" == "success" ]; then
-            echo "✅ **Data Processing:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          # Process and load data results (combined step)
+          if [ "${{ needs.process_and_load_data.result }}" == "success" ]; then
+            echo "✅ **Data Processing & Loading:** SUCCESS" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Data Processing:** FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Data Processing & Loading:** FAILED" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Load data results
-          if [ "${{ needs.load_data.result }}" == "success" ]; then
-            echo "✅ **Data Loading:** SUCCESS" >> $GITHUB_STEP_SUMMARY
+          # Validation results
+          if [ "${{ needs.validate_data.result }}" == "success" ]; then
+            echo "✅ **Data Validation:** SUCCESS" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Data Loading:** FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Data Validation:** FAILED" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Top searched results
@@ -273,3 +273,5 @@ jobs:
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Overall Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Architecture:** Direct in-memory database loading (no intermediate CSV files)" >> $GITHUB_STEP_SUMMARY

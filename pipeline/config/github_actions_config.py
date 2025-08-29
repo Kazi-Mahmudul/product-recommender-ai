@@ -60,15 +60,16 @@ class PipelineConfig:
             'connection_timeout': 30,
             'query_timeout': 60,
             'max_retries': 3,
-            'batch_size': self.batch_size
+            'batch_size': self.batch_size,
+            'direct_loading_enabled': True,
+            'transaction_timeout': 300  # 5 minutes for large datasets
         }
     
     def get_output_paths(self) -> Dict[str, str]:
-        """Get output file paths"""
+        """Get output file paths (processed_data removed - now using direct database loading)"""
         return {
             'processor_rankings': 'data_cleaning/processor_rankings.csv',
             'scraped_data': 'data/scraped_phones.csv',
-            'processed_data': 'data/processed_phones.csv',
             'logs': 'logs/pipeline.log'
         }
 
