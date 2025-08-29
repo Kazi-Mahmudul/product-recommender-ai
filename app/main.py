@@ -139,12 +139,7 @@ async def shutdown_event():
     scheduler.shutdown()
     logger.info("Application shutdown complete")
 
-# Add middleware in correct order (last added = first executed)
-app.add_middleware(RequestLoggingMiddleware)  # Add request logging
-app.add_middleware(HTTPSRedirectMiddleware)  # Add HTTPS redirect middleware early
-app.add_middleware(SecurityHeadersMiddleware)  # Add security headers middleware
-
-# Set up CORS middleware with production settings
+# Set up CORS middleware with production settings (must be added before other middleware)
 cors_origins = settings.CORS_ORIGINS if settings.CORS_ORIGINS and "*" not in settings.CORS_ORIGINS else ["*"]
 logger.info(f"CORS origins configured: {cors_origins}")
 
@@ -181,6 +176,11 @@ app.add_middleware(
     ],
     max_age=86400,  # Cache preflight requests for 24 hours
 )
+
+# Add other middleware in correct order (last added = first executed)
+app.add_middleware(RequestLoggingMiddleware)  # Add request logging
+app.add_middleware(HTTPSRedirectMiddleware)  # Add HTTPS redirect middleware early
+app.add_middleware(SecurityHeadersMiddleware)  # Add security headers middleware
 
 # Remove the catch-all OPTIONS handler as it's interfering with normal routes
 # CORS preflight requests will be handled by the CORSMiddleware

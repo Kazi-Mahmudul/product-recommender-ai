@@ -67,6 +67,7 @@ class Settings(BaseSettings):
                 # Production defaults - only secure origins
                 origins = [
                     "https://peyechi.com",
+                    "https://www.peyechi.com",
                     "https://peyechi.vercel.app"
                 ]
             else:
@@ -75,7 +76,9 @@ class Settings(BaseSettings):
                     "http://localhost:3000",
                     "http://localhost:8000", 
                     "http://localhost:8080",
-                    "https://peyechi.vercel.app"
+                    "https://peyechi.vercel.app",
+                    "https://peyechi.com",
+                    "https://www.peyechi.com"
                 ]
             
             # Ensure HTTPS for production (except localhost for development)
