@@ -1,26 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Cell
-} from 'recharts';
-import { Phone } from '../api/phones';
-import { ArrowLeft, BarChart3, TrendingUp, Target } from 'lucide-react';
-import { useMobileResponsive, useSwipeGesture } from '../hooks/useMobileResponsive';
-import { MobileUtils } from '../utils/mobileUtils';
+import React, { useState } from "react";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
+  LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer 
+} from "recharts";
+import { Phone } from "../api/phones";
 
 interface ChartVisualizationProps {
   phones: Phone[];
@@ -28,451 +12,302 @@ interface ChartVisualizationProps {
   onBackToSimple?: () => void;
 }
 
-type ChartType = 'bar' | 'line' | 'radar';
-
-interface ChartMetric {
-  key: keyof Phone;
-  label: string;
-  unit?: string;
-  color: string;
-}
-
 const ChartVisualization: React.FC<ChartVisualizationProps> = ({
   phones,
   darkMode,
-  onBackToSimple
+  onBackToSimple,
 }) => {
-  const { isMobile, isTablet } = useMobileResponsive();
-  const [chartType, setChartType] = useState<ChartType>('bar');
+  // Chart type state
+  const [chartType, setChartType] = useState<"bar" | "line" | "radar">("bar");
+  
+  // Metrics selection state
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
-    'overall_device_score',
-    'camera_score',
-    'battery_score',
-    'performance_score'
+    "overall_device_score",
+    "camera_score",
+    "battery_score",
+    "performance_score",
+    "display_score"
   ]);
 
-  // Swipe gesture support for mobile chart type switching
-  const swipeGestures = useSwipeGesture(
-    () => {
-      // Swipe left - next chart type
-      const types: ChartType[] = ['bar', 'line', 'radar'];
-      const currentIndex = types.indexOf(chartType);
-      const nextIndex = (currentIndex + 1) % types.length;
-      setChartType(types[nextIndex]);
-      MobileUtils.addHapticFeedback('light');
-    },
-    () => {
-      // Swipe right - previous chart type
-      const types: ChartType[] = ['bar', 'line', 'radar'];
-      const currentIndex = types.indexOf(chartType);
-      const prevIndex = currentIndex === 0 ? types.length - 1 : currentIndex - 1;
-      setChartType(types[prevIndex]);
-      MobileUtils.addHapticFeedback('light');
-    }
-  );
-
-  const availableMetrics: ChartMetric[] = [
-    { key: 'overall_device_score', label: 'Overall Score', unit: '/10', color: '#8884d8' },
-    { key: 'camera_score', label: 'Camera Score', unit: '/10', color: '#82ca9d' },
-    { key: 'battery_score', label: 'Battery Score', unit: '/10', color: '#ffc658' },
-    { key: 'performance_score', label: 'Performance Score', unit: '/10', color: '#ff7300' },
-    { key: 'display_score', label: 'Display Score', unit: '/10', color: '#00ff88' },
-    { key: 'security_score', label: 'Security Score', unit: '/10', color: '#ff0088' },
-    { key: 'connectivity_score', label: 'Connectivity Score', unit: '/10', color: '#8800ff' },
-    { key: 'price_original', label: 'Price', unit: 'BDT', color: '#ff4444' },
-    { key: 'ram_gb', label: 'RAM', unit: 'GB', color: '#44ff44' },
-    { key: 'storage_gb', label: 'Storage', unit: 'GB', color: '#4444ff' },
-    { key: 'primary_camera_mp', label: 'Main Camera', unit: 'MP', color: '#ffaa44' },
-    { key: 'battery_capacity_numeric', label: 'Battery Capacity', unit: 'mAh', color: '#aa44ff' },
-    { key: 'refresh_rate_numeric', label: 'Refresh Rate', unit: 'Hz', color: '#44aaff' }
+  // Generate colors for phones
+  const phoneColors = ["#4F46E5", "#059669", "#DC2626", "#7C3AED", "#EA580C"];
+  
+  // Available metrics
+  const availableMetrics = [
+    { key: "overall_device_score", label: "Overall Score" },
+    { key: "camera_score", label: "Camera Score" },
+    { key: "battery_score", label: "Battery Score" },
+    { key: "performance_score", label: "Performance Score" },
+    { key: "display_score", label: "Display Score" },
+    { key: "primary_camera_mp", label: "Main Camera (MP)" },
+    { key: "battery_capacity_numeric", label: "Battery (mAh)" },
+    { key: "ram_gb", label: "RAM (GB)" },
+    { key: "storage_gb", label: "Storage (GB)" },
+    { key: "refresh_rate_numeric", label: "Refresh Rate (Hz)" },
+    { key: "screen_size_numeric", label: "Screen Size (in)" },
+    { key: "ppi_numeric", label: "Pixel Density (PPI)" },
   ];
 
-  const chartData = useMemo(() => {
-    return phones.map(phone => {
-      const dataPoint: any = {
-        name: phone.name,
-        brand: phone.brand
-      };
-      
-      availableMetrics.forEach(metric => {
-        const value = phone[metric.key];
-        if (typeof value === 'number') {
-          dataPoint[metric.key] = value;
-        } else {
-          dataPoint[metric.key] = 0;
-        }
-      });
-      
-      return dataPoint;
-    });
-  }, [phones]);
-
-  const radarData = useMemo(() => {
-    const metrics = availableMetrics.filter(m => selectedMetrics.includes(m.key));
-    return metrics.map(metric => {
+  // Prepare data for charts
+  const chartData = availableMetrics
+    .filter(metric => selectedMetrics.includes(metric.key))
+    .map(metric => {
       const dataPoint: any = {
         metric: metric.label,
-        fullMark: metric.key === 'price_original' ? Math.max(...phones.map(p => p[metric.key] as number || 0)) : 10
+        key: metric.key,
       };
       
       phones.forEach((phone, index) => {
-        const value = phone[metric.key] as number || 0;
-        dataPoint[`phone${index}`] = value;
-        dataPoint[`phoneName${index}`] = phone.name;
+        dataPoint[`phone_${index}`] = (phone as any)[metric.key] || 0;
       });
       
       return dataPoint;
     });
-  }, [phones, selectedMetrics]);
 
+  // Toggle metric selection
   const toggleMetric = (metricKey: string) => {
-    setSelectedMetrics(prev => {
-      if (prev.includes(metricKey)) {
-        return prev.filter(key => key !== metricKey);
-      } else {
-        return [...prev, metricKey];
-      }
-    });
+    setSelectedMetrics(prev => 
+      prev.includes(metricKey) 
+        ? prev.filter(key => key !== metricKey) 
+        : [...prev, metricKey]
+    );
   };
 
-  const getChartIcon = (type: ChartType) => {
-    switch (type) {
-      case 'bar':
-        return <BarChart3 size={16} />;
-      case 'line':
-        return <TrendingUp size={16} />;
-      case 'radar':
-        return <Target size={16} />;
-    }
-  };
+  // Render appropriate chart based on type
+  const renderChart = () => {
+    const commonProps = {
+      data: chartData,
+      margin: { top: 20, right: 30, left: 20, bottom: 100 },
+    };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+    if (chartType === "bar") {
       return (
-        <div className={`p-3 rounded-lg shadow-lg border ${
-          darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'
-        }`}>
-          <p className="font-semibold mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => {
-            const metric = availableMetrics.find(m => m.key === entry.dataKey);
-            return (
-              <p key={index} style={{ color: entry.color }} className="text-sm">
-                {metric?.label}: {entry.value}{metric?.unit || ''}
-              </p>
-            );
-          })}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const renderBarChart = () => {
-    const chartDimensions = MobileUtils.getChartDimensions();
-    return (
-      <ResponsiveContainer width="100%" height={chartDimensions.height}>
-        <BarChart data={chartData} margin={chartDimensions.margin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e5e7eb'} />
+        <BarChart {...commonProps}>
+          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#e5e7eb"} />
           <XAxis 
-            dataKey="name" 
-            tick={{ fontSize: isMobile ? 10 : 12, fill: darkMode ? '#d1d5db' : '#374151' }}
-            angle={isMobile ? -45 : -30}
-            textAnchor="end"
-            height={isMobile ? 100 : 80}
-            interval={0}
-          />
-          <YAxis tick={{ fontSize: isMobile ? 10 : 12, fill: darkMode ? '#d1d5db' : '#374151' }} />
-          <Tooltip content={<CustomTooltip />} />
-          {!isMobile && <Legend />}
-          {selectedMetrics.map(metricKey => {
-            const metric = availableMetrics.find(m => m.key === metricKey);
-            if (!metric) return null;
-            return (
-              <Bar
-                key={metricKey}
-                dataKey={metricKey}
-                fill={metric.color}
-                name={metric.label}
-                radius={[2, 2, 0, 0]}
-              />
-            );
-          })}
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  };
-
-  const renderLineChart = () => {
-    const chartDimensions = MobileUtils.getChartDimensions();
-    return (
-      <ResponsiveContainer width="100%" height={chartDimensions.height}>
-        <LineChart data={chartData} margin={chartDimensions.margin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e5e7eb'} />
-          <XAxis 
-            dataKey="name" 
-            tick={{ fontSize: isMobile ? 10 : 12, fill: darkMode ? '#d1d5db' : '#374151' }}
-            angle={isMobile ? -45 : -30}
-            textAnchor="end"
-            height={isMobile ? 100 : 80}
-            interval={0}
-          />
-          <YAxis tick={{ fontSize: isMobile ? 10 : 12, fill: darkMode ? '#d1d5db' : '#374151' }} />
-          <Tooltip content={<CustomTooltip />} />
-          {!isMobile && <Legend />}
-          {selectedMetrics.map(metricKey => {
-            const metric = availableMetrics.find(m => m.key === metricKey);
-            if (!metric) return null;
-            return (
-              <Line
-                key={metricKey}
-                type="monotone"
-                dataKey={metricKey}
-                stroke={metric.color}
-                strokeWidth={isMobile ? 3 : 2}
-                dot={{ r: isMobile ? 6 : 4 }}
-                name={metric.label}
-              />
-            );
-          })}
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  };
-
-  const renderRadarChart = () => {
-    const chartDimensions = MobileUtils.getChartDimensions();
-    return (
-      <ResponsiveContainer width="100%" height={chartDimensions.height}>
-        <RadarChart 
-          data={radarData} 
-          margin={{ 
-            top: 20, 
-            right: isMobile ? 20 : 80, 
-            bottom: 20, 
-            left: isMobile ? 20 : 80 
-          }}
-        >
-          <PolarGrid stroke={darkMode ? '#374151' : '#e5e7eb'} />
-          <PolarAngleAxis 
             dataKey="metric" 
-            tick={{ fontSize: isMobile ? 9 : 11, fill: darkMode ? '#d1d5db' : '#374151' }}
+            angle={-45} 
+            textAnchor="end" 
+            height={80}
+            tick={{ fill: darkMode ? "#d1d5db" : "#374151" }}
           />
-          <PolarRadiusAxis 
-            angle={90} 
-            domain={[0, 'dataMax']}
-            tick={{ fontSize: isMobile ? 8 : 10, fill: darkMode ? '#9ca3af' : '#6b7280' }}
+          <YAxis 
+            tick={{ fill: darkMode ? "#d1d5db" : "#374151" }}
           />
-          <Tooltip content={<CustomTooltip />} />
-          {!isMobile && <Legend />}
+          <Tooltip 
+            contentStyle={darkMode ? { 
+              backgroundColor: "#1f2937", 
+              borderColor: "#374151",
+              color: "#f9fafb"
+            } : {}} 
+          />
+          <Legend />
           {phones.map((phone, index) => (
-            <Radar
-              key={index}
-              name={phone.name}
-              dataKey={`phone${index}`}
-              stroke={availableMetrics[index % availableMetrics.length].color}
-              fill={availableMetrics[index % availableMetrics.length].color}
-              fillOpacity={0.1}
-              strokeWidth={isMobile ? 3 : 2}
+            <Bar 
+              key={`phone_${index}`} 
+              dataKey={`phone_${index}`} 
+              name={`${phone.name} (${phone.brand})`}
+              fill={phoneColors[index % phoneColors.length]} 
             />
           ))}
-        </RadarChart>
-      </ResponsiveContainer>
-    );
-  };
-
-  const renderChart = () => {
-    switch (chartType) {
-      case 'bar':
-        return renderBarChart();
-      case 'line':
-        return renderLineChart();
-      case 'radar':
-        return renderRadarChart();
-      default:
-        return renderBarChart();
+        </BarChart>
+      );
     }
+
+    if (chartType === "line") {
+      return (
+        <LineChart {...commonProps}>
+          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#4b5563" : "#e5e7eb"} />
+          <XAxis 
+            dataKey="metric" 
+            angle={-45} 
+            textAnchor="end" 
+            height={80}
+            tick={{ fill: darkMode ? "#d1d5db" : "#374151" }}
+          />
+          <YAxis 
+            tick={{ fill: darkMode ? "#d1d5db" : "#374151" }}
+          />
+          <Tooltip 
+            contentStyle={darkMode ? { 
+              backgroundColor: "#1f2937", 
+              borderColor: "#374151",
+              color: "#f9fafb"
+            } : {}} 
+          />
+          <Legend />
+          {phones.map((phone, index) => (
+            <Line 
+              key={`phone_${index}`} 
+              dataKey={`phone_${index}`} 
+              name={`${phone.name} (${phone.brand})`}
+              stroke={phoneColors[index % phoneColors.length]} 
+              strokeWidth={2}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          ))}
+        </LineChart>
+      );
+    }
+
+    // Radar chart
+    return (
+      <RadarChart 
+        cx="50%" 
+        cy="50%" 
+        outerRadius="80%" 
+        data={chartData}
+        margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+      >
+        <PolarGrid stroke={darkMode ? "#4b5563" : "#e5e7eb"} />
+        <PolarAngleAxis 
+          dataKey="metric" 
+          tick={{ fill: darkMode ? "#d1d5db" : "#374151" }}
+        />
+        <PolarRadiusAxis 
+          angle={30} 
+          domain={[0, 10]} 
+          tick={{ fill: darkMode ? "#d1d5db" : "#374151" }}
+        />
+        <Tooltip 
+          contentStyle={darkMode ? { 
+            backgroundColor: "#1f2937", 
+            borderColor: "#374151",
+            color: "#f9fafb"
+          } : {}} 
+        />
+        <Legend />
+        {phones.map((phone, index) => (
+          <Radar 
+            key={`phone_${index}`} 
+            dataKey={`phone_${index}`} 
+            name={`${phone.name} (${phone.brand})`}
+            stroke={phoneColors[index % phoneColors.length]} 
+            fill={phoneColors[index % phoneColors.length]} 
+            fillOpacity={0.2}
+          />
+        ))}
+      </RadarChart>
+    );
   };
 
   return (
-    <div className={`max-w-7xl mx-auto p-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+    <div className={`max-w-6xl mx-auto p-6 rounded-2xl ${darkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-[#eae4da]'} border shadow-xl`}>
+      <div className="mb-6">
+        <div className="flex justify-between items-center">
+          <h3 className={`text-2xl font-bold flex items-center gap-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <span className="text-2xl">📊</span>
+            Interactive Chart View
+          </h3>
           {onBackToSimple && (
             <button
               onClick={onBackToSimple}
-              className={`p-2 rounded-lg transition-colors ${
-                darkMode 
-                  ? 'hover:bg-gray-700 text-gray-300' 
-                  : 'hover:bg-gray-100 text-gray-600'
-              }`}
-              aria-label="Back to simple view"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
             >
-              <ArrowLeft size={20} />
+              Back to Simple View
             </button>
           )}
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <span>📊</span>
-              Interactive Chart View
-            </h2>
-            <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Compare phones across multiple metrics with interactive visualizations
-            </p>
-          </div>
         </div>
+        <p className={`mt-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          Compare {phones.length} phones across multiple metrics
+        </p>
       </div>
-
+      
       {/* Chart Type Selector */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Chart Type</h3>
-          {isMobile && (
-            <p className="text-xs text-gray-500">Swipe chart to change type</p>
-          )}
-        </div>
-        <div className={`flex gap-2 ${isMobile ? 'justify-center' : ''}`}>
-          {(['bar', 'line', 'radar'] as ChartType[]).map(type => (
+      <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}>
+        <h4 className={`font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Chart Type
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { type: "bar", label: "Bar", icon: "📊" },
+            { type: "line", label: "Line", icon: "📈" },
+            { type: "radar", label: "Radar", icon: "🕸️" }
+          ] as const).map(({ type, label, icon }) => (
             <button
               key={type}
               onClick={() => setChartType(type)}
-              style={{
-                minHeight: isMobile ? '44px' : '36px',
-                minWidth: isMobile ? '44px' : 'auto'
-              }}
-              className={`flex items-center gap-2 rounded-lg font-medium transition-colors touch-manipulation ${
-                isMobile ? 'px-3 py-3 text-sm' : 'px-4 py-2 text-base'
-              } ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
                 chartType === type
-                  ? 'bg-brand text-white'
+                  ? darkMode
+                    ? 'bg-brand text-white'
+                    : 'bg-brand text-white'
                   : darkMode
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-600 hover:bg-gray-500 text-white'
+                    : 'bg-white hover:bg-gray-200 text-gray-800'
               }`}
             >
-              {getChartIcon(type)}
-              {!isMobile && (type.charAt(0).toUpperCase() + type.slice(1))}
+              <span>{icon}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
       </div>
-
-      {/* Metric Selector */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-3">Metrics to Display</h3>
-        <div className={`grid gap-2 ${
-          isMobile 
-            ? 'grid-cols-1' 
-            : isTablet 
-            ? 'grid-cols-2' 
-            : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-        }`}>
-          {availableMetrics.map(metric => (
+      
+      {/* Metrics Selector */}
+      <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}>
+        <h4 className={`font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Metrics to Display
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          {availableMetrics.map((metric) => (
             <button
               key={metric.key}
               onClick={() => toggleMetric(metric.key)}
-              style={{
-                minHeight: isMobile ? '44px' : '36px'
-              }}
-              className={`flex items-center gap-2 rounded-lg font-medium transition-colors touch-manipulation ${
-                isMobile ? 'px-4 py-3 text-base justify-start' : 'px-3 py-2 text-sm'
-              } ${
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                 selectedMetrics.includes(metric.key)
-                  ? 'bg-brand text-white'
+                  ? darkMode
+                    ? 'bg-brand text-white'
+                    : 'bg-brand text-white'
                   : darkMode
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gray-600 hover:bg-gray-500 text-white'
+                    : 'bg-white hover:bg-gray-200 text-gray-800'
               }`}
             >
-              <div 
-                className={`rounded-full ${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`}
-                style={{ backgroundColor: metric.color }}
-              />
               {metric.label}
             </button>
           ))}
         </div>
       </div>
-
-      {/* Chart Container */}
-      <div 
-        className={`rounded-lg border ${isMobile ? 'p-2' : 'p-6'} ${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}
-        {...(isMobile ? swipeGestures : {})}
-      >
-        {selectedMetrics.length === 0 ? (
-          <div className="text-center py-12">
-            <p className={`${isMobile ? 'text-base' : 'text-lg'} ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Select at least one metric to display the chart
-            </p>
-          </div>
-        ) : (
-          <div className="relative">
-            {renderChart()}
-            {isMobile && (
-              <div className="absolute top-2 right-2 text-xs text-gray-400">
-                Swipe to change chart type
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
+      
       {/* Phone Legend */}
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3">Phones</h3>
-        <div className={`grid gap-4 ${
-          isMobile 
-            ? 'grid-cols-1' 
-            : isTablet 
-            ? 'grid-cols-2' 
-            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-        }`}>
+      <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}>
+        <h4 className={`font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Phones
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {phones.map((phone, index) => (
-            <div
-              key={index}
-              className={`flex items-center gap-3 rounded-lg border ${
-                isMobile ? 'p-4' : 'p-3'
-              } ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-              }`}
+            <div 
+              key={phone.id || index} 
+              className="flex items-center gap-3 p-2 rounded-lg"
             >
-              <img
-                src={phone.img_url || '/phone.png'}
-                alt={phone.name}
-                className={`object-contain rounded ${
-                  isMobile ? 'w-16 h-16' : 'w-12 h-12'
-                }`}
+              <div 
+                className="w-4 h-4 rounded-full" 
+                style={{ backgroundColor: phoneColors[index % phoneColors.length] }}
               />
-              <div className="flex-1 min-w-0">
-                <h4 className={`font-medium truncate ${isMobile ? 'text-base' : 'text-sm'}`}>
+              <div>
+                <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   {phone.name}
-                </h4>
-                <p className={`${isMobile ? 'text-sm' : 'text-xs'} ${
-                  darkMode ? 'text-gray-400' : 'text-gray-600'
-                } truncate`}>
-                  {phone.brand} • ৳{phone.price}
-                </p>
+                </div>
+                <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {phone.brand} • ৳{phone.price_original?.toLocaleString() || 'N/A'}
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="mt-8 text-center">
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Interactive chart comparison of {phones.length} phone(s) across {selectedMetrics.length} metric(s)
-        </p>
-        {onBackToSimple && (
-          <button
-            onClick={onBackToSimple}
-            className="mt-4 px-6 py-2 bg-brand text-white rounded-lg hover:bg-brand-darkGreen transition-colors"
-          >
-            Back to Simple View
-          </button>
-        )}
+      
+      {/* Chart */}
+      <div className="h-96 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          {renderChart()}
+        </ResponsiveContainer>
+      </div>
+      
+      <div className={`mt-6 text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+        🔍 Hover over chart elements to see detailed values
       </div>
     </div>
   );

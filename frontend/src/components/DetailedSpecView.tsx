@@ -1,312 +1,251 @@
-import React, { useState } from 'react';
-import { Phone } from '../api/phones';
-import { ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
+import React from "react";
+import { Phone } from "../api/phones";
+import { useNavigate } from "react-router-dom";
 
 interface DetailedSpecViewProps {
   phones: Phone[];
+  message: string;
   darkMode: boolean;
   onBackToSimple?: () => void;
 }
 
-interface SpecSection {
-  title: string;
-  icon: string;
-  fields: Array<{
-    key: keyof Phone;
-    label: string;
-    unit?: string;
-    formatter?: (value: any) => string;
-  }>;
-}
-
 const DetailedSpecView: React.FC<DetailedSpecViewProps> = ({
   phones,
+  message,
   darkMode,
-  onBackToSimple
+  onBackToSimple,
 }) => {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['basic']));
-  const [selectedPhone, setSelectedPhone] = useState<number>(0);
+  const navigate = useNavigate();
 
-  const toggleSection = (sectionKey: string) => {
-    const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(sectionKey)) {
-      newExpanded.delete(sectionKey);
-    } else {
-      newExpanded.add(sectionKey);
-    }
-    setExpandedSections(newExpanded);
+  // Generate slug from phone name
+  const generateSlug = (name: string): string => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
   };
 
-  const specSections: SpecSection[] = [
-    {
-      title: 'Basic Information',
-      icon: '📱',
-      fields: [
-        { key: 'name', label: 'Model Name' },
-        { key: 'brand', label: 'Brand' },
-        { key: 'price', label: 'Price', unit: 'BDT' },
-        { key: 'price_category', label: 'Price Category' },
-        { key: 'overall_device_score', label: 'Overall Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Display',
-      icon: '🖥️',
-      fields: [
-        { key: 'display_type', label: 'Display Type' },
-        { key: 'screen_size_numeric', label: 'Screen Size', unit: 'inches', formatter: (v) => v?.toFixed(1) || 'N/A' },
-        { key: 'display_resolution', label: 'Resolution' },
-        { key: 'ppi_numeric', label: 'Pixel Density', unit: 'PPI' },
-        { key: 'refresh_rate_numeric', label: 'Refresh Rate', unit: 'Hz' },
-        { key: 'screen_protection', label: 'Screen Protection' },
-        { key: 'display_brightness', label: 'Brightness' },
-        { key: 'aspect_ratio', label: 'Aspect Ratio' },
-        { key: 'hdr_support', label: 'HDR Support' },
-        { key: 'display_score', label: 'Display Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Performance',
-      icon: '⚡',
-      fields: [
-        { key: 'chipset', label: 'Chipset' },
-        { key: 'cpu', label: 'CPU' },
-        { key: 'gpu', label: 'GPU' },
-        { key: 'ram', label: 'RAM' },
-        { key: 'ram_gb', label: 'RAM Capacity', unit: 'GB' },
-        { key: 'ram_type', label: 'RAM Type' },
-        { key: 'internal_storage', label: 'Storage' },
-        { key: 'storage_gb', label: 'Storage Capacity', unit: 'GB' },
-        { key: 'storage_type', label: 'Storage Type' },
-        { key: 'performance_score', label: 'Performance Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Camera',
-      icon: '📸',
-      fields: [
-        { key: 'camera_setup', label: 'Camera Setup' },
-        { key: 'primary_camera_mp', label: 'Main Camera', unit: 'MP' },
-        { key: 'selfie_camera_mp', label: 'Front Camera', unit: 'MP' },
-        { key: 'primary_camera_video_recording', label: 'Main Camera Video' },
-        { key: 'selfie_camera_video_recording', label: 'Front Camera Video' },
-        { key: 'primary_camera_ois', label: 'OIS (Main)' },
-        { key: 'primary_camera_aperture', label: 'Main Camera Aperture' },
-        { key: 'selfie_camera_aperture', label: 'Front Camera Aperture' },
-        { key: 'camera_features', label: 'Camera Features' },
-        { key: 'camera_count', label: 'Total Cameras' },
-        { key: 'camera_score', label: 'Camera Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Battery',
-      icon: '🔋',
-      fields: [
-        { key: 'battery_type', label: 'Battery Type' },
-        { key: 'battery_capacity_numeric', label: 'Capacity', unit: 'mAh' },
-        { key: 'quick_charging', label: 'Quick Charging' },
-        { key: 'wireless_charging', label: 'Wireless Charging' },
-        { key: 'reverse_charging', label: 'Reverse Charging' },
-        { key: 'has_fast_charging', label: 'Fast Charging', formatter: (v) => v ? 'Yes' : 'No' },
-        { key: 'has_wireless_charging', label: 'Wireless Charging', formatter: (v) => v ? 'Yes' : 'No' },
-        { key: 'charging_wattage', label: 'Charging Power', unit: 'W' },
-        { key: 'battery_score', label: 'Battery Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Design & Build',
-      icon: '🎨',
-      fields: [
-        { key: 'build', label: 'Build Materials' },
-        { key: 'weight', label: 'Weight' },
-        { key: 'thickness', label: 'Thickness' },
-        { key: 'colors', label: 'Available Colors' },
-        { key: 'waterproof', label: 'Water Resistance' },
-        { key: 'ip_rating', label: 'IP Rating' },
-        { key: 'ruggedness', label: 'Ruggedness' }
-      ]
-    },
-    {
-      title: 'Connectivity',
-      icon: '📶',
-      fields: [
-        { key: 'network', label: 'Network Support' },
-        { key: 'speed', label: 'Network Speed' },
-        { key: 'sim_slot', label: 'SIM Slot' },
-        { key: 'volte', label: 'VoLTE' },
-        { key: 'bluetooth', label: 'Bluetooth' },
-        { key: 'wlan', label: 'Wi-Fi' },
-        { key: 'gps', label: 'GPS' },
-        { key: 'nfc', label: 'NFC' },
-        { key: 'usb', label: 'USB' },
-        { key: 'usb_otg', label: 'USB OTG' },
-        { key: 'connectivity_score', label: 'Connectivity Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Security & Sensors',
-      icon: '🔒',
-      fields: [
-        { key: 'fingerprint_sensor', label: 'Fingerprint Sensor' },
-        { key: 'finger_sensor_type', label: 'Fingerprint Type' },
-        { key: 'finger_sensor_position', label: 'Fingerprint Position' },
-        { key: 'face_unlock', label: 'Face Unlock' },
-        { key: 'light_sensor', label: 'Light Sensor' },
-        { key: 'infrared', label: 'Infrared' },
-        { key: 'fm_radio', label: 'FM Radio' },
-        { key: 'security_score', label: 'Security Score', unit: '/10', formatter: (v) => v?.toFixed(1) || 'N/A' }
-      ]
-    },
-    {
-      title: 'Software & Status',
-      icon: '💾',
-      fields: [
-        { key: 'operating_system', label: 'Operating System' },
-        { key: 'os_version', label: 'OS Version' },
-        { key: 'user_interface', label: 'User Interface' },
-        { key: 'status', label: 'Status' },
-        { key: 'made_by', label: 'Manufacturer' },
-        { key: 'release_date', label: 'Release Date' },
-        { key: 'is_new_release', label: 'New Release', formatter: (v) => v ? 'Yes' : 'No' },
-        { key: 'age_in_months', label: 'Age', unit: 'months' },
-        { key: 'is_upcoming', label: 'Upcoming', formatter: (v) => v ? 'Yes' : 'No' }
-      ]
-    }
+  // Format field names for display
+  const formatFieldName = (field: string): string => {
+    const fieldMap: Record<string, string> = {
+      id: "ID",
+      name: "Name",
+      brand: "Brand",
+      model: "Model",
+      price: "Price",
+      display_type: "Display Type",
+      screen_size_inches: "Screen Size (inches)",
+      display_resolution: "Display Resolution",
+      pixel_density_ppi: "Pixel Density (PPI)",
+      refresh_rate_hz: "Refresh Rate (Hz)",
+      screen_protection: "Screen Protection",
+      display_brightness: "Display Brightness",
+      aspect_ratio: "Aspect Ratio",
+      hdr_support: "HDR Support",
+      chipset: "Chipset",
+      cpu: "CPU",
+      gpu: "GPU",
+      ram: "RAM",
+      ram_type: "RAM Type",
+      internal_storage: "Internal Storage",
+      storage_type: "Storage Type",
+      camera_setup: "Camera Setup",
+      primary_camera_mp: "Primary Camera (MP)",
+      selfie_camera_mp: "Selfie Camera (MP)",
+      primary_camera_video_recording: "Primary Camera Video Recording",
+      selfie_camera_video_recording: "Selfie Camera Video Recording",
+      primary_camera_ois: "Primary Camera OIS",
+      primary_camera_aperture: "Primary Camera Aperture",
+      selfie_camera_aperture: "Selfie Camera Aperture",
+      camera_features: "Camera Features",
+      autofocus: "Autofocus",
+      flash: "Flash",
+      settings: "Settings",
+      zoom: "Zoom",
+      shooting_modes: "Shooting Modes",
+      video_fps: "Video FPS",
+      battery_type: "Battery Type",
+      capacity: "Battery Capacity",
+      quick_charging: "Quick Charging",
+      wireless_charging: "Wireless Charging",
+      reverse_charging: "Reverse Charging",
+      build: "Build",
+      weight: "Weight",
+      thickness: "Thickness",
+      colors: "Colors",
+      waterproof: "Waterproof",
+      ip_rating: "IP Rating",
+      ruggedness: "Ruggedness",
+      network: "Network",
+      speed: "Speed",
+      sim_slot: "SIM Slot",
+      volte: "VoLTE",
+      bluetooth: "Bluetooth",
+      wlan: "WLAN",
+      gps: "GPS",
+      nfc: "NFC",
+      usb: "USB",
+      usb_otg: "USB OTG",
+      fingerprint_sensor: "Fingerprint Sensor",
+      finger_sensor_type: "Finger Sensor Type",
+      finger_sensor_position: "Finger Sensor Position",
+      face_unlock: "Face Unlock",
+      light_sensor: "Light Sensor",
+      infrared: "Infrared",
+      fm_radio: "FM Radio",
+      operating_system: "Operating System",
+      os_version: "OS Version",
+      user_interface: "User Interface",
+      status: "Status",
+      made_by: "Made By",
+      release_date: "Release Date",
+    };
+    return (
+      fieldMap[field] ||
+      field.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
+  };
+
+  // Fields to show in full specification table
+  const fullSpecFields = [
+    "id",
+    "name",
+    "brand",
+    "model",
+    "price",
+    "display_type",
+    "screen_size_inches",
+    "display_resolution",
+    "pixel_density_ppi",
+    "refresh_rate_hz",
+    "screen_protection",
+    "display_brightness",
+    "aspect_ratio",
+    "hdr_support",
+    "chipset",
+    "cpu",
+    "gpu",
+    "ram",
+    "ram_type",
+    "internal_storage",
+    "storage_type",
+    "camera_setup",
+    "primary_camera_mp",
+    "selfie_camera_mp",
+    "primary_camera_video_recording",
+    "selfie_camera_video_recording",
+    "primary_camera_ois",
+    "primary_camera_aperture",
+    "selfie_camera_aperture",
+    "camera_features",
+    "autofocus",
+    "flash",
+    "settings",
+    "zoom",
+    "shooting_modes",
+    "video_fps",
+    "battery_type",
+    "capacity",
+    "quick_charging",
+    "wireless_charging",
+    "reverse_charging",
+    "build",
+    "weight",
+    "thickness",
+    "colors",
+    "waterproof",
+    "ip_rating",
+    "ruggedness",
+    "network",
+    "speed",
+    "sim_slot",
+    "volte",
+    "bluetooth",
+    "wlan",
+    "gps",
+    "nfc",
+    "usb",
+    "usb_otg",
+    "fingerprint_sensor",
+    "finger_sensor_type",
+    "finger_sensor_position",
+    "face_unlock",
+    "light_sensor",
+    "infrared",
+    "fm_radio",
+    "operating_system",
+    "os_version",
+    "user_interface",
+    "status",
+    "made_by",
+    "release_date",
   ];
 
-  const formatValue = (value: any, field: SpecSection['fields'][0]): string => {
-    if (value === null || value === undefined || value === '') {
-      return 'N/A';
-    }
-
-    if (field.formatter) {
-      return field.formatter(value);
-    }
-
-    if (field.unit) {
-      return `${value} ${field.unit}`;
-    }
-
-    return String(value);
-  };
-
-  const currentPhone = phones[selectedPhone];
-
   return (
-    <div className={`max-w-4xl mx-auto p-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+    <div className={`max-w-6xl mx-auto p-6 rounded-2xl ${darkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700' : 'bg-gradient-to-br from-white to-gray-50 border-[#eae4da]'} border shadow-xl`}>
+      <div className="mb-6">
+        <div className="flex justify-between items-center">
+          <h3 className={`text-2xl font-bold flex items-center gap-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <span className="text-2xl">📋</span>
+            {message}
+          </h3>
           {onBackToSimple && (
             <button
               onClick={onBackToSimple}
-              className={`p-2 rounded-lg transition-colors ${
-                darkMode 
-                  ? 'hover:bg-gray-700 text-gray-300' 
-                  : 'hover:bg-gray-100 text-gray-600'
-              }`}
-              aria-label="Back to simple view"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
             >
-              <ArrowLeft size={20} />
+              Back to Simple View
             </button>
           )}
-          <h2 className="text-2xl font-bold">📋 Detailed Specifications</h2>
         </div>
-      </div>
-
-      {/* Phone Selector */}
-      {phones.length > 1 && (
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-2">
-            {phones.map((phone, index) => (
-              <button
-                key={index}
-                onClick={() => setSelectedPhone(index)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedPhone === index
-                    ? 'bg-brand text-white'
-                    : darkMode
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {phone.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Specifications */}
-      <div className="space-y-4">
-        {specSections.map((section, sectionIndex) => {
-          const isExpanded = expandedSections.has(section.title.toLowerCase().replace(/\s+/g, '_'));
-          const hasData = section.fields.some(field => {
-            const value = currentPhone[field.key];
-            return value !== null && value !== undefined && value !== '';
-          });
-
-          if (!hasData) return null;
-
-          return (
-            <div
-              key={sectionIndex}
-              className={`rounded-lg border ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              } overflow-hidden`}
-            >
-              <button
-                onClick={() => toggleSection(section.title.toLowerCase().replace(/\s+/g, '_'))}
-                className={`w-full px-6 py-4 flex items-center justify-between text-left transition-colors ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{section.icon}</span>
-                  <h3 className="text-lg font-semibold">{section.title}</h3>
-                </div>
-                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-              </button>
-
-              {isExpanded && (
-                <div className={`px-6 pb-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    {section.fields.map((field, fieldIndex) => {
-                      const value = currentPhone[field.key];
-                      if (value === null || value === undefined || value === '') return null;
-
-                      return (
-                        <div key={fieldIndex} className="flex justify-between items-center py-2">
-                          <span className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                            {field.label}:
-                          </span>
-                          <span className={`text-right ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {formatValue(value, field)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer */}
-      <div className="mt-8 text-center">
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Showing detailed specifications for {currentPhone.name}
+        <p className={`mt-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          Complete technical specifications for {phones.length} phone(s)
         </p>
-        {onBackToSimple && (
-          <button
-            onClick={onBackToSimple}
-            className="mt-4 px-6 py-2 bg-brand text-white rounded-lg hover:bg-brand-darkGreen transition-colors"
+      </div>
+      
+      <div className="space-y-8">
+        {phones.map((phone, index) => (
+          <div 
+            key={phone.id || index}
+            className={`rounded-xl p-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'} cursor-pointer hover:scale-[1.01] transition-transform`}
+            onClick={() => navigate(`/phones/${generateSlug(phone.name)}`)}
           >
-            Back to Simple View
-          </button>
-        )}
+            <h4 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              {phone.name} {phone.brand && `(${phone.brand})`}
+            </h4>
+            
+            <div className="overflow-x-auto">
+              <table className={`min-w-full border-separate ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`} style={{ borderSpacing: '0 0.25rem' }}>
+                <tbody>
+                  {fullSpecFields.map((field) => {
+                    const value = (phone as any)[field];
+                    // Only show fields that have values
+                    if (value === null || value === undefined || value === "") {
+                      return null;
+                    }
+                    
+                    return (
+                      <tr key={field} className="border-b border-gray-200 dark:border-gray-700">
+                        <td className={`py-2 px-4 font-semibold whitespace-nowrap ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                          {formatFieldName(field)}
+                        </td>
+                        <td className={`py-2 px-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                          {value}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <div className={`mt-6 text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+        🔍 Click on any phone to view in detail page
       </div>
     </div>
   );

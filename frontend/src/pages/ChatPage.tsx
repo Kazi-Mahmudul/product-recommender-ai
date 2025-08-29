@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-// Recharts imports removed as they're now handled by EnhancedComparison component
-import ChatPhoneRecommendation from "../components/ChatPhoneRecommendation";
-import EnhancedComparison from "../components/EnhancedComparison";
-import ConciseSpecView from "../components/ConciseSpecView";
+import UniversalResponseHandler from "../components/UniversalResponseHandler";
 import {
   ChatContextManager,
   ChatContext,
@@ -454,120 +451,54 @@ How can I help you today?`,
                   </div>
                 )}
 
-                {/* Handle phone recommendation with enhanced components */}
-                {chat.bot && chat.phones && chat.phones.length > 0 ? (
-                  <div className="flex justify-start">
-                    <div
-                      className={`rounded-2xl px-0 py-0 max-w-2xl shadow-md text-base whitespace-pre-wrap border w-full overflow-x-auto ${
-                        darkMode
-                          ? "bg-[#181818] text-gray-100 border-gray-700"
-                          : "bg-[#f7f3ef] text-gray-900 border-[#eae4da]"
-                      }`}
-                    >
-                      {/* Use our new ChatPhoneRecommendation component */}
-                      <ChatPhoneRecommendation
-                        phones={chat.phones}
-                        darkMode={darkMode}
-                        originalQuery={
-                          featureFlags.enhancedSuggestions
-                            ? chat.user || ""
-                            : ""
-                        }
-                        chatContext={chatContext}
-                        onContextUpdate={handleContextUpdate}
-                        onSuggestionClick={
-                          featureFlags.enhancedSuggestions
-                            ? (suggestion) => {
-                                // Use contextual query if available, otherwise fall back to regular query
-                                const queryToSend =
-                                  "contextualQuery" in suggestion
-                                    ? suggestion.contextualQuery
-                                    : suggestion.query;
-                                handleSendMessage(queryToSend);
+                {/* Handle all response types with UniversalResponseHandler */}
+                <div className="flex justify-start">
+                  <UniversalResponseHandler
+                    response={chat.bot}
+                    darkMode={darkMode}
+                    originalQuery={chat.user || ""}
+                    chatContext={chatContext}
+                    onContextUpdate={handleContextUpdate}
+                    onSuggestionClick={
+                      featureFlags.enhancedSuggestions
+                        ? (suggestion) => {
+                            // Use contextual query if available, otherwise fall back to regular query
+                            const queryToSend =
+                              suggestion.contextualQuery || suggestion.query;
+                            handleSendMessage(queryToSend);
+                          }
+                        : undefined
+                    }
+                    onDrillDownClick={
+                      featureFlags.drillDownMode
+                        ? (option) => {
+                            // Handle drill-down commands with context
+                            // Use the contextualQuery if available, otherwise fallback to default queries
+                            let query = option.contextualQuery || "";
+                            if (!query) {
+                              switch (option.command) {
+                                case "full_specs":
+                                  query =
+                                    "show full specifications for these phones";
+                                  break;
+                                case "chart_view":
+                                  query =
+                                    "compare these phones in chart view";
+                                  break;
+                                case "detail_focus":
+                                  query = `tell me more about the ${option.target || "features"} of these phones`;
+                                  break;
+                                default:
+                                  query = option.label || "show full specifications for these phones";
                               }
-                            : undefined
-                        }
-                        onDrillDownClick={
-                          featureFlags.drillDownMode
-                            ? (option) => {
-                                // Handle drill-down commands with context
-                                // Use the contextualQuery if available, otherwise fallback to default queries
-                                let query = "";
-                                if (option.contextualQuery) {
-                                  query = option.contextualQuery;
-                                } else {
-                                  switch (option.command) {
-                                    case "full_specs":
-                                      query =
-                                        "show full specifications for these phones";
-                                      break;
-                                    case "chart_view":
-                                      query =
-                                        "compare these phones in chart view";
-                                      break;
-                                    case "detail_focus":
-                                      query = `tell me more about the ${option.target || "features"} of these phones`;
-                                      break;
-                                    default:
-                                      query = option.label || "show full specifications for these phones";
-                                  }
-                                }
-                                handleSendMessage(query);
-                              }
-                            : undefined
-                        }
-                        isLoading={isLoading}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  typeof chat.bot === "string" && (
-                    <div className="flex justify-start">
-                      <div
-                        className={`rounded-2xl px-5 py-3 max-w-2xl shadow-md text-base whitespace-pre-wrap border ${
-                          darkMode
-                            ? "bg-[#181818] text-gray-100 border-gray-700"
-                            : "bg-[#f7f3ef] text-gray-900 border-[#eae4da]"
-                        }`}
-                      >
-                        {chat.bot}
-                      </div>
-                    </div>
-                  )
-                )}
-
-                {chat.bot &&
-                  typeof chat.bot === "object" &&
-                  (chat.bot as any).type === "comparison" &&
-                  Array.isArray((chat.bot as any).phones) &&
-                  Array.isArray((chat.bot as any).features) && (
-                    <div className="my-8">
-                      <EnhancedComparison
-                        phones={(chat.bot as any).phones}
-                        features={(chat.bot as any).features}
-                        summary={(chat.bot as any).summary || ""}
-                        darkMode={darkMode}
-                        onFeatureFocus={(feature) => {
-                          // Handle feature focus - could trigger detailed analysis
-                          console.log("Feature focused:", feature);
-                        }}
-                      />
-                    </div>
-                  )}
-
-                {/* Handle concise specifications response */}
-                {chat.bot &&
-                  typeof chat.bot === "object" &&
-                  (chat.bot as any).type === "concise_specs" &&
-                  Array.isArray((chat.bot as any).phones) && (
-                    <div className="my-4">
-                      <ConciseSpecView
-                        phones={(chat.bot as any).phones}
-                        message={(chat.bot as any).message || "View phone details:"}
-                        darkMode={darkMode}
-                      />
-                    </div>
-                  )}
+                            }
+                            handleSendMessage(query);
+                          }
+                        : undefined
+                    }
+                    isLoading={isLoading}
+                  />
+                </div>
 
                 {/* Welcome Suggestions */}
                 {index === 0 && showWelcome && (
