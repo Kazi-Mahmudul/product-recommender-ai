@@ -21,8 +21,10 @@ export const searchPhones = async (query: string): Promise<SearchResult[]> => {
   }
 
   try {
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     const res = await axios.get(
-      `${API_BASE}/api/v1/phones?search=${encodeURIComponent(query)}&limit=10`
+      `${baseUrl}/api/v1/phones?search=${encodeURIComponent(query)}&limit=10`
     );
     return res.data.items || [];
   } catch (error) {

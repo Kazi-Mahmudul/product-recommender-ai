@@ -14,7 +14,7 @@ def check_database_state():
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         # Fallback to hardcoded URL for testing
-        database_url = "postgresql://postgres.lvxqroeldpaqjbmsjjqr:Mahmudulepickdb162@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+        database_url = os.getenv('DATABASE_URL')
         print("Using fallback DATABASE_URL")
     else:
         print(f"Using DATABASE_URL from environment")

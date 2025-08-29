@@ -49,7 +49,7 @@ def load_processors_from_csv(csv_file='data_cleaning/processor_rankings.csv'):
 
 def populate_processor_rankings(csv_file='data_cleaning/processor_rankings.csv'):
     """Populate processor rankings with data from CSV file."""
-    database_url = os.getenv('DATABASE_URL', 'postgresql://postgres.lvxqroeldpaqjbmsjjqr:Mahmudulepickdb162@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres')
+    database_url = os.getenv('DATABASE_URL')
     
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)

@@ -623,7 +623,7 @@ class MobileDokanScraper:
             import os
             self.database_url = os.getenv("DATABASE_URL")
             if not self.database_url:
-                self.database_url = "postgresql://postgres.lvxqroeldpaqjbmsjjqr:Mahmudulepickdb162@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+                self.database_url = os.getenv('DATABASE_URL')
         
         if self.database_url and self.database_url.startswith("postgres://"):
             self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)

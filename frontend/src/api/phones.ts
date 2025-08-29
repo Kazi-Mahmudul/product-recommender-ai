@@ -224,7 +224,9 @@ export async function fetchPhones({
 
 
   // Fetch phones from API
-  const res = await fetch(`${API_BASE}/api/v1/phones?${params.toString()}`);
+  // Ensure no double slashes in URL
+  const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+  const res = await fetch(`${baseUrl}/api/v1/phones?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch phones");
   const data = await res.json();
   let items = data.items;
@@ -263,7 +265,9 @@ export async function fetchPhoneBySlug(slug: string): Promise<Phone> {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/phones/slug/${slug}`);
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+    const res = await fetch(`${baseUrl}/api/v1/phones/slug/${slug}`);
 
     if (!res.ok) {
       // Handle different HTTP error codes
@@ -333,7 +337,9 @@ export async function fetchPhoneBySlug(slug: string): Promise<Phone> {
  */
 export async function fetchBrands(): Promise<string[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/phones/brands`);
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+    const res = await fetch(`${baseUrl}/api/v1/phones/brands`);
 
     if (!res.ok) {
       return [];
@@ -366,7 +372,9 @@ export async function fetchCameraSetups(): Promise<string[]> {
       skip: "0",
     });
 
-    const res = await fetch(`${API_BASE}/api/v1/phones?${params.toString()}`);
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+    const res = await fetch(`${baseUrl}/api/v1/phones?${params.toString()}`);
 
     if (!res.ok) {
       return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
@@ -428,8 +436,10 @@ export async function fetchPhonesBySlugs(phoneSlugs: string[], signal?: AbortSig
 
     try {
       // Use comma-separated slugs for bulk fetch
+      // Ensure no double slashes in URL
+      const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
       const slugsParam = phoneSlugs.join(',');
-      const res = await fetch(`${API_BASE}/api/v1/phones/bulk?slugs=${slugsParam}`, {
+      const res = await fetch(`${baseUrl}/api/v1/phones/bulk?slugs=${slugsParam}`, {
         signal,
       });
 
@@ -538,8 +548,10 @@ async function fetchIndividualPhonesBySlugs(phoneSlugs: string[], signal?: Abort
  */
 export async function fetchFilterOptions(): Promise<FilterOptions> {
   try {
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     // Fetch filter options
-    const optionsPromise = fetch(`${API_BASE}/api/v1/phones/filter-options`)
+    const optionsPromise = fetch(`${baseUrl}/api/v1/phones/filter-options`)
       .then((res) => {
         if (!res.ok) {
           return {};

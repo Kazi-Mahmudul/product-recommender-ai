@@ -52,7 +52,7 @@ def verify_essential_files():
         
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
-            database_url = "postgresql://postgres.lvxqroeldpaqjbmsjjqr:Mahmudulepickdb162@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+            database_url = os.getenv('DATABASE_URL')
         
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)

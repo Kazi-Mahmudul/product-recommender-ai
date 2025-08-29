@@ -123,7 +123,8 @@ class ContextualAPIService {
   constructor() {
     // Ensure we always use HTTPS in production
     let baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
-    if (baseURL.startsWith('http://')) {
+    // Always ensure HTTPS for production URLs (Cloud Run, etc.)
+    if (process.env.NODE_ENV === 'production' && baseURL.startsWith('http://')) {
       baseURL = baseURL.replace('http://', 'https://');
     }
     this.baseURL = baseURL;

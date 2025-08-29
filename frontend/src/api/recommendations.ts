@@ -47,8 +47,10 @@ export async function fetchRecommendations(
   }
   
   try {
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     const response = await fetch(
-      `${API_BASE}/api/v1/phones/slug/${phoneSlug}/recommendations?limit=${limit}`,
+      `${baseUrl}/api/v1/phones/slug/${phoneSlug}/recommendations?limit=${limit}`,
       { signal }
     );
     
@@ -136,7 +138,9 @@ export async function prefetchPhoneDetails(phoneSlug: string): Promise<void> {
     // Use a timeout to abort the prefetch if it takes too long
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(`${API_BASE}/api/v1/phones/slug/${phoneSlug}`, {
+    // Ensure no double slashes in URL
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+    const response = await fetch(`${baseUrl}/api/v1/phones/slug/${phoneSlug}`, {
       signal
     });
     
