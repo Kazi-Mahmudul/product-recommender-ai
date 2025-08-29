@@ -86,7 +86,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   });
   const [retryCount, setRetryCount] = useState(0);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const {} = useMobileResponsive();
+  useMobileResponsive();
   const featureFlags = useFeatureFlags();
 
   // Create a stable callback for context updates to prevent infinite re-renders
@@ -106,11 +106,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       setChatHistory([
         {
           user: "",
-          bot: bot: `Hi there! 👋 Welcome to Peyechi AI
+          bot: `Hi there! 👋 Welcome to Peyechi AI
 
 I'm your personal smartphone advisor, here to help you discover the perfect phone that matches your needs and budget in Bangladesh. 🇧🇩📱
 
-✨ **What I can help you with:**,
+✨ **What I can help you with:**
+`,
         },
       ]);
     }

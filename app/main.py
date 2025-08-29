@@ -66,7 +66,7 @@ def validate_configuration():
         if os.getenv("ENVIRONMENT") == "production":
             logger.error("Critical configuration issues found in production!")
     else:
-        logger.info("✅ Configuration validation passed")
+        logger.info("Configuration validation passed")
 
 # Validate configuration on startup
 validate_configuration()

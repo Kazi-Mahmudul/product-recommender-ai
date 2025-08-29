@@ -25,7 +25,7 @@ def send_verification_email(email: str, verification_code: str) -> bool:
         msg['Subject'] = "Verify your Peyechi account"
         
         # Email body
-        body = f"""
+        verification_link = f"https://peyechi.com/verify?email={email}&code={verification_code}"
         html_content = f"""
     <html>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -47,7 +47,7 @@ def send_verification_email(email: str, verification_code: str) -> bool:
     </body>
     </html>
     """
-        """
+        body = html_content
         
         msg.attach(MIMEText(body, 'html'))
         
@@ -89,7 +89,7 @@ def send_password_reset_email(email: str, reset_code: str) -> bool:
         msg['Subject'] = "Reset your Peyechi password"
         
         # Email body
-        body = f"""
+        html_content = f"""
         <html>
         <body>
             <h2>Password Reset Request</h2>
@@ -104,6 +104,7 @@ def send_password_reset_email(email: str, reset_code: str) -> bool:
         </body>
         </html>
         """
+        body = html_content
         
         msg.attach(MIMEText(body, 'html'))
         
