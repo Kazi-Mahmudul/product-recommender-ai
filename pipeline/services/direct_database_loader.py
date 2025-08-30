@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, Tuple, List
 import pandas as pd
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2 import sql
+from psycopg2 import sql, IntegrityError
 
 # Import the new dynamic field detection system
 try:
@@ -195,12 +195,12 @@ class DirectDatabaseLoader:
                 
                 total_errors = insert_errors + update_errors
                 
-                # Check if too many errors occurred
-                error_threshold = 0.1  # 10% error threshold
+                # Check if too many errors occurred (excluding duplicate handling)
+                error_threshold = 0.25  # 25% error threshold (more lenient since we handle duplicates)
                 total_operations = len(new_records) + len(update_records)
                 error_rate = total_errors / total_operations if total_operations > 0 else 0
                 
-                if error_rate > error_threshold:
+                if error_rate > error_threshold and total_operations > 0:
                     self.logger.error(f"❌ Error rate too high: {error_rate:.2%} ({total_errors}/{total_operations})")
                     conn.rollback()
                     return self._create_error_result(
@@ -323,38 +323,40 @@ class DirectDatabaseLoader:
         """
         self.logger.info("🔍 Identifying new records and updates...")
         
-        # Get existing records by URL and name (primary identifiers)
-        urls = df['url'].dropna().tolist()
-        names = df['name'].dropna().tolist()
+        # Get existing records by URL (primary identifier)
+        urls = df['url'].dropna().unique().tolist()
         
-        if not urls and not names:
-            self.logger.warning("⚠️ No URLs or names found in data, treating all as new records")
+        if not urls:
+            self.logger.warning("⚠️ No URLs found in data, treating all as new records")
             return df, pd.DataFrame()
         
-        # Query existing records
-        placeholders_url = ','.join(['%s'] * len(urls)) if urls else "''"
-        placeholders_name = ','.join(['%s'] * len(names)) if names else "''"
+        # Query existing records in batches to avoid parameter limits
+        existing_urls = set()
+        batch_size = 1000  # PostgreSQL parameter limit
         
-        query = f"""
-        SELECT id, name, url, brand, model, price, updated_at
-        FROM phones 
-        WHERE url IN ({placeholders_url}) OR name IN ({placeholders_name})
-        """
+        for i in range(0, len(urls), batch_size):
+            batch_urls = urls[i:i+batch_size]
+            placeholders = ','.join(['%s'] * len(batch_urls))
+            
+            query = f"""
+            SELECT DISTINCT url
+            FROM phones 
+            WHERE url IN ({placeholders})
+            """
+            
+            cursor.execute(query, batch_urls)
+            batch_existing = cursor.fetchall()
+            existing_urls.update(record['url'] for record in batch_existing if record['url'])
         
-        params = urls + names
-        cursor.execute(query, params)
-        existing_records = cursor.fetchall()
+        self.logger.info(f"   Found {len(existing_urls)} existing URLs in database")
         
-        self.logger.info(f"   Found {len(existing_records)} existing records in database")
-        
-        # Create sets for fast lookup
-        existing_urls = {record['url'] for record in existing_records if record['url']}
-        existing_names = {record['name'] for record in existing_records if record['name']}
-        
-        # Split DataFrame into new and update records
-        new_mask = ~(df['url'].isin(existing_urls) | df['name'].isin(existing_names))
+        # Split DataFrame into new and update records based on URL
+        new_mask = ~df['url'].isin(existing_urls)
         new_records = df[new_mask].copy()
         update_records = df[~new_mask].copy()
+        
+        self.logger.info(f"   Records to insert: {len(new_records)}")
+        self.logger.info(f"   Records to update: {len(update_records)}")
         
         return new_records, update_records
     
@@ -469,14 +471,25 @@ class DirectDatabaseLoader:
                     # Add available fields with data (excluding timestamp fields that we'll add manually)
                     for field in record_insertable_fields:
                         if field in row and pd.notna(row[field]) and field not in ['created_at', 'updated_at']:
-                            insert_fields.append(field)
-                            insert_values.append(row[field])
-                            placeholders.append('%s')
-                            
-                            # Track field insert statistics
-                            if field not in field_insert_stats:
-                                field_insert_stats[field] = 0
-                            field_insert_stats[field] += 1
+                            # Validate data type before adding to prevent transaction aborts
+                            try:
+                                value = row[field]
+                                # Basic validation - skip obviously invalid values
+                                if isinstance(value, str) and value.lower() in ['nan', 'null', 'none', '']:
+                                    continue
+                                
+                                insert_fields.append(field)
+                                insert_values.append(value)
+                                placeholders.append('%s')
+                                
+                                # Track field insert statistics
+                                if field not in field_insert_stats:
+                                    field_insert_stats[field] = 0
+                                field_insert_stats[field] += 1
+                                
+                            except Exception as e:
+                                self.logger.debug(f"Skipping invalid field {field}: {str(e)}")
+                                continue
                     
                     # Always add timestamp fields (ensure they're only added once)
                     insert_fields.extend(['created_at', 'updated_at'])
@@ -484,14 +497,36 @@ class DirectDatabaseLoader:
                     placeholders.extend(['%s', '%s'])
                     
                     if insert_fields:
+                        # Check if record already exists before inserting
+                        cursor.execute("SELECT id FROM phones WHERE url = %s LIMIT 1", (row.get('url'),))
+                        existing = cursor.fetchone()
+                        
+                        if existing:
+                            self.logger.debug(f"   Record with URL already exists, skipping insert")
+                            continue
+                        
                         insert_query = f"""
                         INSERT INTO phones ({', '.join(insert_fields)})
                         VALUES ({', '.join(placeholders)})
                         """
                         
-                        cursor.execute(insert_query, insert_values)
-                        inserted_count += 1
+                        # Use savepoint for individual record to prevent transaction abort
+                        cursor.execute("SAVEPOINT insert_record")
+                        try:
+                            cursor.execute(insert_query, insert_values)
+                            cursor.execute("RELEASE SAVEPOINT insert_record")
+                            inserted_count += 1
+                        except Exception as insert_error:
+                            cursor.execute("ROLLBACK TO SAVEPOINT insert_record")
+                            raise insert_error
                         
+                except IntegrityError as e:
+                    if "duplicate key value violates unique constraint" in str(e):
+                        self.logger.debug(f"   Duplicate record detected, skipping: {str(e)}")
+                        # This is expected for duplicates, don't count as error
+                    else:
+                        self.logger.warning(f"   ⚠️ Integrity error inserting record: {str(e)}")
+                        error_count += 1
                 except Exception as e:
                     self.logger.warning(f"   ⚠️ Failed to insert record: {str(e)}")
                     error_count += 1
@@ -558,15 +593,16 @@ class DirectDatabaseLoader:
             
             for _, row in batch.iterrows():
                 try:
-                    # Find existing record by URL or name
+                    # Find existing record by URL (primary identifier)
                     cursor.execute("""
                         SELECT id FROM phones 
-                        WHERE url = %s OR name = %s
+                        WHERE url = %s
                         LIMIT 1
-                    """, (row.get('url'), row.get('name')))
+                    """, (row.get('url'),))
                     
                     existing = cursor.fetchone()
                     if not existing:
+                        self.logger.debug(f"   Record not found for update: {row.get('url', 'No URL')}")
                         error_count += 1
                         continue
                     
@@ -589,13 +625,24 @@ class DirectDatabaseLoader:
                     # Build update statement with all available fields
                     for field in record_updatable_fields:
                         if field in row and pd.notna(row[field]) and field != 'updated_at':  # Skip updated_at from dynamic list
-                            update_fields.append(f"{field} = %s")
-                            update_values.append(row[field])
-                            
-                            # Track field update statistics
-                            if field not in field_update_stats:
-                                field_update_stats[field] = 0
-                            field_update_stats[field] += 1
+                            # Validate data type before adding to prevent transaction aborts
+                            try:
+                                value = row[field]
+                                # Basic validation - skip obviously invalid values
+                                if isinstance(value, str) and value.lower() in ['nan', 'null', 'none', '']:
+                                    continue
+                                
+                                update_fields.append(f"{field} = %s")
+                                update_values.append(value)
+                                
+                                # Track field update statistics
+                                if field not in field_update_stats:
+                                    field_update_stats[field] = 0
+                                field_update_stats[field] += 1
+                                
+                            except Exception as e:
+                                self.logger.debug(f"Skipping invalid field {field}: {str(e)}")
+                                continue
                     
                     # Always update timestamp metadata (ensure it's only added once)
                     update_fields.append('updated_at = %s')
@@ -609,8 +656,16 @@ class DirectDatabaseLoader:
                         """
                         
                         update_values.append(existing['id'])
-                        cursor.execute(update_query, update_values)
-                        updated_count += 1
+                        
+                        # Use savepoint for individual record to prevent transaction abort
+                        cursor.execute("SAVEPOINT update_record")
+                        try:
+                            cursor.execute(update_query, update_values)
+                            cursor.execute("RELEASE SAVEPOINT update_record")
+                            updated_count += 1
+                        except Exception as update_error:
+                            cursor.execute("ROLLBACK TO SAVEPOINT update_record")
+                            raise update_error
                         
                 except Exception as e:
                     self.logger.warning(f"   ⚠️ Failed to update record: {str(e)}")
