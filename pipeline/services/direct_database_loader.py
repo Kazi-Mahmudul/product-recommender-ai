@@ -16,6 +16,15 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import sql
 
+# Import the new dynamic field detection system
+try:
+    from .update_field_generator import UpdateFieldGenerator
+    from .column_classifier import ColumnClassifier
+    from .update_logger import UpdateLogger, FieldUpdateTracker, UpdateResult
+    ENHANCED_FIELD_DETECTION = True
+except ImportError:
+    ENHANCED_FIELD_DETECTION = False
+
 
 class DirectDatabaseLoader:
     """
@@ -37,8 +46,22 @@ class DirectDatabaseLoader:
         self.max_retries = max_retries
         self.logger = logging.getLogger(__name__)
         
-        # Fields that are commonly available in the phones table
-        self.phone_fields = [
+        # Initialize enhanced field detection system
+        if ENHANCED_FIELD_DETECTION:
+            self.field_generator = UpdateFieldGenerator(database_url)
+            self.column_classifier = ColumnClassifier()
+            self.update_logger = UpdateLogger(f"{__name__}.DirectDatabaseLoader")
+            self.field_tracker = FieldUpdateTracker()
+            self.logger.info("✅ Enhanced field detection and logging system initialized")
+        else:
+            self.field_generator = None
+            self.column_classifier = None
+            self.update_logger = None
+            self.field_tracker = None
+            self.logger.warning("⚠️ Enhanced field detection not available, using fallback mode")
+        
+        # Fallback fields for basic operation (used when enhanced system is not available)
+        self.fallback_phone_fields = [
             'name', 'brand', 'model', 'price', 'url', 'img_url', 
             'ram', 'internal_storage', 'main_camera', 'front_camera',
             'scraped_at', 'pipeline_run_id', 'data_source', 
@@ -62,6 +85,11 @@ class DirectDatabaseLoader:
         self.logger.info(f"🚀 Starting direct database loading for {len(processed_df)} records")
         self.logger.info(f"   Transaction ID: {transaction_id}")
         self.logger.info(f"   Pipeline Run ID: {pipeline_run_id}")
+        
+        # Start enhanced logging session if available
+        if self.update_logger:
+            session_description = f"Direct database loading: {len(processed_df)} records (Pipeline: {pipeline_run_id})"
+            self.update_logger.start_update_session(session_description)
         
         # Retry logic for database operations
         conn = None
@@ -166,6 +194,36 @@ class DirectDatabaseLoader:
                 self.logger.info(f"   Records inserted: {inserted_count}")
                 self.logger.info(f"   Records updated: {updated_count}")
                 self.logger.info(f"   Execution time: {execution_time:.2f} seconds")
+                
+                # Enhanced logging summary if available
+                if self.update_logger and self.field_tracker:
+                    try:
+                        # Create comprehensive update result
+                        field_summary = self.field_tracker.get_update_summary()
+                        
+                        update_result = UpdateResult(
+                            total_records=len(processed_df),
+                            successful_updates=inserted_count + updated_count,
+                            failed_updates=total_errors,
+                            updated_field_counts=field_summary['field_update_counts'],
+                            skipped_fields=[],  # Will be populated by schema validation
+                            error_details=[],   # Could be enhanced with detailed error tracking
+                            execution_time_seconds=execution_time,
+                            feature_engineered_updates=field_summary['category_stats'].get('feature_engineered', 0),
+                            basic_field_updates=field_summary['category_stats'].get('basic_fields', 0),
+                            metadata_updates=field_summary['category_stats'].get('metadata', 0)
+                        )
+                        
+                        self.update_logger.log_field_update_summary(update_result)
+                        self.update_logger.end_update_session(update_result)
+                        
+                        # Log performance metrics
+                        records_per_second = len(processed_df) / execution_time if execution_time > 0 else 0
+                        fields_per_second = field_summary['total_field_updates'] / execution_time if execution_time > 0 else 0
+                        self.update_logger.log_performance_metrics(records_per_second, fields_per_second)
+                        
+                    except Exception as e:
+                        self.logger.warning(f"⚠️ Enhanced logging summary failed: {str(e)}")
                 
                 return result
                 
@@ -305,14 +363,30 @@ class DirectDatabaseLoader:
         }
     
     def _insert_new_records_with_error_tracking(self, cursor, new_records: pd.DataFrame) -> Tuple[int, int]:
-        """Insert new records with error tracking."""
+        """Insert new records with comprehensive field detection and error tracking."""
         if len(new_records) == 0:
             return 0, 0
         
-        self.logger.info(f"📝 Inserting {len(new_records)} new records...")
+        self.logger.info(f"📝 Inserting {len(new_records)} new records with enhanced field detection...")
         
         inserted_count = 0
         error_count = 0
+        field_insert_stats = {}
+        
+        # Generate insertable fields using enhanced system if available
+        if self.field_generator:
+            try:
+                update_strategy = self.field_generator.generate_update_strategy(new_records, cursor, 'phones')
+                insertable_columns = update_strategy['final_updatable_columns']
+                
+                self.logger.info(f"📊 Enhanced Insert Strategy:")
+                self.logger.info(f"   Total insertable columns: {len(insertable_columns)}")
+                
+            except Exception as e:
+                self.logger.warning(f"⚠️ Enhanced field detection failed for inserts, using fallback: {str(e)}")
+                insertable_columns = self.fallback_phone_fields
+        else:
+            insertable_columns = self.fallback_phone_fields
         
         # Process in batches
         for i in range(0, len(new_records), self.batch_size):
@@ -324,22 +398,45 @@ class DirectDatabaseLoader:
             
             for _, row in batch.iterrows():
                 try:
-                    # Prepare insert data
+                    # Prepare insert data using dynamic field detection
                     insert_fields = []
                     insert_values = []
                     placeholders = []
                     
-                    # Add available fields
-                    for field in self.phone_fields:
+                    # Use enhanced field detection if available
+                    if self.field_generator:
+                        try:
+                            record_insertable_fields = self.field_generator.generate_updatable_fields(
+                                new_records, row, cursor, 'phones'
+                            )
+                        except Exception as e:
+                            self.logger.debug(f"Field generation failed for insert record, using fallback: {str(e)}")
+                            record_insertable_fields = insertable_columns
+                    else:
+                        record_insertable_fields = insertable_columns
+                    
+                    # Add available fields with data
+                    for field in record_insertable_fields:
                         if field in row and pd.notna(row[field]):
                             insert_fields.append(field)
                             insert_values.append(row[field])
                             placeholders.append('%s')
+                            
+                            # Track field insert statistics
+                            if field not in field_insert_stats:
+                                field_insert_stats[field] = 0
+                            field_insert_stats[field] += 1
                     
-                    # Add timestamp fields
-                    insert_fields.extend(['created_at', 'updated_at'])
-                    insert_values.extend([datetime.now(), datetime.now()])
-                    placeholders.extend(['%s', '%s'])
+                    # Add timestamp fields if not already included
+                    if 'created_at' not in insert_fields:
+                        insert_fields.append('created_at')
+                        insert_values.append(datetime.now())
+                        placeholders.append('%s')
+                    
+                    if 'updated_at' not in insert_fields:
+                        insert_fields.append('updated_at')
+                        insert_values.append(datetime.now())
+                        placeholders.append('%s')
                     
                     if insert_fields:
                         insert_query = f"""
@@ -355,18 +452,53 @@ class DirectDatabaseLoader:
                     error_count += 1
                     continue
         
+        # Log comprehensive insert statistics
         self.logger.info(f"   ✅ Successfully inserted {inserted_count} records ({error_count} errors)")
+        
+        if field_insert_stats:
+            # Log top inserted fields
+            sorted_fields = sorted(field_insert_stats.items(), key=lambda x: x[1], reverse=True)
+            self.logger.info(f"   📊 Field Insert Statistics (top 10):")
+            for field, count in sorted_fields[:10]:
+                percentage = (count / inserted_count * 100) if inserted_count > 0 else 0
+                self.logger.info(f"      {field}: {count} inserts ({percentage:.1f}%)")
+            
+            if len(sorted_fields) > 10:
+                self.logger.info(f"      ... and {len(sorted_fields) - 10} more fields")
+        
         return inserted_count, error_count
     
     def _update_existing_records_with_error_tracking(self, cursor, update_records: pd.DataFrame) -> Tuple[int, int]:
-        """Update existing records with error tracking."""
+        """Update existing records with comprehensive field detection and error tracking."""
         if len(update_records) == 0:
             return 0, 0
         
-        self.logger.info(f"🔄 Updating {len(update_records)} existing records...")
+        self.logger.info(f"🔄 Updating {len(update_records)} existing records with enhanced field detection...")
         
         updated_count = 0
         error_count = 0
+        field_update_stats = {}
+        
+        # Generate update strategy if enhanced system is available
+        if self.field_generator:
+            try:
+                update_strategy = self.field_generator.generate_update_strategy(update_records, cursor, 'phones')
+                updatable_columns = update_strategy['final_updatable_columns']
+                
+                self.logger.info(f"📊 Enhanced Update Strategy:")
+                self.logger.info(f"   Total updatable columns: {len(updatable_columns)}")
+                self.logger.info(f"   Feature-engineered: {update_strategy['statistics']['feature_engineered_percentage']:.1f}%")
+                self.logger.info(f"   Basic fields: {update_strategy['statistics']['basic_fields_percentage']:.1f}%")
+                
+                # Log recommendations
+                for recommendation in update_strategy['recommendations']:
+                    self.logger.info(f"   {recommendation}")
+                    
+            except Exception as e:
+                self.logger.warning(f"⚠️ Enhanced field detection failed, using fallback: {str(e)}")
+                updatable_columns = self.fallback_phone_fields
+        else:
+            updatable_columns = self.fallback_phone_fields
         
         # Process in batches
         for i in range(0, len(update_records), self.batch_size):
@@ -390,31 +522,37 @@ class DirectDatabaseLoader:
                         error_count += 1
                         continue
                     
-                    # Prepare update data
+                    # Prepare update data using dynamic field detection
                     update_fields = []
                     update_values = []
                     
-                    # Update key fields that might have changed
-                    updateable_fields = ['price', 'brand', 'model', 'ram', 'internal_storage', 
-                                       'main_camera', 'front_camera', 'img_url', 'data_quality_score']
+                    # Use enhanced field detection if available
+                    if self.field_generator:
+                        try:
+                            record_updatable_fields = self.field_generator.generate_updatable_fields(
+                                update_records, row, cursor, 'phones'
+                            )
+                        except Exception as e:
+                            self.logger.debug(f"Field generation failed for record, using fallback: {str(e)}")
+                            record_updatable_fields = updatable_columns
+                    else:
+                        record_updatable_fields = updatable_columns
                     
-                    for field in updateable_fields:
+                    # Build update statement with all available fields
+                    for field in record_updatable_fields:
                         if field in row and pd.notna(row[field]):
                             update_fields.append(f"{field} = %s")
                             update_values.append(row[field])
+                            
+                            # Track field update statistics
+                            if field not in field_update_stats:
+                                field_update_stats[field] = 0
+                            field_update_stats[field] += 1
                     
-                    # Always update pipeline metadata (this is correct for production)
-                    # The issue was that we tested with production data
-                    update_fields.extend([
-                        'pipeline_run_id = %s',
-                        'scraped_at = %s', 
-                        'updated_at = %s'
-                    ])
-                    update_values.extend([
-                        row.get('pipeline_run_id'),
-                        row.get('scraped_at', datetime.now()),
-                        datetime.now()
-                    ])
+                    # Always update timestamp metadata
+                    if 'updated_at' not in update_fields:
+                        update_fields.append('updated_at = %s')
+                        update_values.append(datetime.now())
                     
                     if update_fields:
                         update_query = f"""
@@ -432,5 +570,18 @@ class DirectDatabaseLoader:
                     error_count += 1
                     continue
         
+        # Log comprehensive update statistics
         self.logger.info(f"   ✅ Successfully updated {updated_count} records ({error_count} errors)")
+        
+        if field_update_stats:
+            # Log top updated fields
+            sorted_fields = sorted(field_update_stats.items(), key=lambda x: x[1], reverse=True)
+            self.logger.info(f"   📊 Field Update Statistics (top 10):")
+            for field, count in sorted_fields[:10]:
+                percentage = (count / updated_count * 100) if updated_count > 0 else 0
+                self.logger.info(f"      {field}: {count} updates ({percentage:.1f}%)")
+            
+            if len(sorted_fields) > 10:
+                self.logger.info(f"      ... and {len(sorted_fields) - 10} more fields")
+        
         return updated_count, error_count
