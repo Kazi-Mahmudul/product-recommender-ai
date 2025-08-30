@@ -37,7 +37,7 @@ class ProcessorRankingScraper:
     Scraper for processor rankings from NanoReview
     """
     
-    def __init__(self, requests_per_minute: int = 20):
+    def __init__(self, requests_per_minute: int = 0):  # 0 = no rate limit
         self.requests_per_minute = requests_per_minute
         self.request_times = []
         self.logger = setup_logging()
@@ -76,25 +76,27 @@ class ProcessorRankingScraper:
             return False
     
     def _rate_limit(self):
-        """Apply rate limiting to avoid being blocked"""
-        now = time.time()
+        """Apply minimal delay to avoid being blocked"""
+        # Only apply rate limiting if explicitly set
+        if self.requests_per_minute > 0:
+            now = time.time()
+            
+            # Remove requests older than 1 minute
+            self.request_times = [t for t in self.request_times if now - t < 60]
+            
+            # If we've made too many requests, wait
+            if len(self.request_times) >= self.requests_per_minute:
+                sleep_time = 60 - (now - self.request_times[0])
+                if sleep_time > 0:
+                    self.logger.info(f"⏳ Rate limiting: waiting {sleep_time:.1f} seconds...")
+                    time.sleep(sleep_time)
+            
+            # Record this request
+            self.request_times.append(now)
         
-        # Remove requests older than 1 minute
-        self.request_times = [t for t in self.request_times if now - t < 60]
-        
-        # If we've made too many requests, wait
-        if len(self.request_times) >= self.requests_per_minute:
-            sleep_time = 60 - (now - self.request_times[0])
-            if sleep_time > 0:
-                self.logger.info(f"⏳ Rate limiting: waiting {sleep_time:.1f} seconds...")
-                time.sleep(sleep_time)
-        
-        # Add random delay to appear more human-like
-        delay = random.uniform(2, 5)
+        # Minimal delay to appear human-like (optimized for speed)
+        delay = random.uniform(0.2, 0.5)  # Further reduced to 0.2-0.5 seconds
         time.sleep(delay)
-        
-        # Record this request
-        self.request_times.append(now)
     
     def _extract_company(self, processor_name: str) -> str:
         """Extract company name from processor name"""
@@ -158,8 +160,8 @@ class ProcessorRankingScraper:
             
             self.driver.get(url)
             
-            # Wait for the page to load and check if it's valid
-            wait = WebDriverWait(self.driver, 20)
+            # Wait for the page to load (optimized timeout)
+            wait = WebDriverWait(self.driver, 5)
             
             # Check if we're redirected or if page doesn't exist
             current_url = self.driver.current_url
@@ -187,15 +189,15 @@ class ProcessorRankingScraper:
             except:
                 pass
             
-            # Wait for the table to load
+            # Wait for the table to load (reduced timeout for faster detection)
             try:
                 table = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "table-list")))
             except:
                 self.logger.info(f"   No table found on page {page_number} - page likely doesn't exist")
                 return []
             
-            # Small delay to ensure content is fully loaded
-            time.sleep(1)
+            # Minimal delay to ensure content is loaded (reduced from 1 second)
+            time.sleep(0.2)
             
             # Extract table rows
             rows = table.find_elements(By.TAG_NAME, "tr")
@@ -271,7 +273,8 @@ class ProcessorRankingScraper:
         """
         self.logger.info(f"🚀 Starting processor rankings scraping")
         self.logger.info(f"   Max pages: {max_pages or 'ALL'}")
-        self.logger.info(f"   Rate limit: {self.requests_per_minute} requests/minute")
+        rate_limit_msg = f"{self.requests_per_minute} requests/minute" if self.requests_per_minute > 0 else "NO RATE LIMIT (fast mode)"
+        self.logger.info(f"   Rate limit: {rate_limit_msg}")
         
         all_processors = []
         page = 1
@@ -449,8 +452,8 @@ def main():
                 logger.info(f"   Cached processors: {len(df)}")
                 return
         
-        # Create scraper and run
-        scraper = ProcessorRankingScraper(requests_per_minute=20)
+        # Create scraper and run (no rate limit for faster scraping)
+        scraper = ProcessorRankingScraper(requests_per_minute=0)
         df = scraper.scrape_all_pages(max_pages=args.max_pages)
         
         if not df.empty:

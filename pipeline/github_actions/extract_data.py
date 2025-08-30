@@ -173,7 +173,8 @@ def scrape_processor_rankings(pipeline_run_id: str, force_update: bool = False, 
             try:
                 from pipeline.scrapers.processor_scraper import ProcessorRankingScraper
                 
-                scraper = ProcessorRankingScraper()
+                # Use optimized scraper with no rate limiting for faster processing
+                scraper = ProcessorRankingScraper(requests_per_minute=0)
                 start_time = time.time()
                 
                 # Limit pages in test mode
