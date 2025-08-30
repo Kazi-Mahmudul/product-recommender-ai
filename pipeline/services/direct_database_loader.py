@@ -466,9 +466,9 @@ class DirectDatabaseLoader:
                     else:
                         record_insertable_fields = insertable_columns
                     
-                    # Add available fields with data
+                    # Add available fields with data (excluding timestamp fields that we'll add manually)
                     for field in record_insertable_fields:
-                        if field in row and pd.notna(row[field]):
+                        if field in row and pd.notna(row[field]) and field not in ['created_at', 'updated_at']:
                             insert_fields.append(field)
                             insert_values.append(row[field])
                             placeholders.append('%s')
@@ -478,16 +478,10 @@ class DirectDatabaseLoader:
                                 field_insert_stats[field] = 0
                             field_insert_stats[field] += 1
                     
-                    # Add timestamp fields if not already included
-                    if 'created_at' not in insert_fields:
-                        insert_fields.append('created_at')
-                        insert_values.append(datetime.now())
-                        placeholders.append('%s')
-                    
-                    if 'updated_at' not in insert_fields:
-                        insert_fields.append('updated_at')
-                        insert_values.append(datetime.now())
-                        placeholders.append('%s')
+                    # Always add timestamp fields (ensure they're only added once)
+                    insert_fields.extend(['created_at', 'updated_at'])
+                    insert_values.extend([datetime.now(), datetime.now()])
+                    placeholders.extend(['%s', '%s'])
                     
                     if insert_fields:
                         insert_query = f"""
@@ -594,7 +588,7 @@ class DirectDatabaseLoader:
                     
                     # Build update statement with all available fields
                     for field in record_updatable_fields:
-                        if field in row and pd.notna(row[field]):
+                        if field in row and pd.notna(row[field]) and field != 'updated_at':  # Skip updated_at from dynamic list
                             update_fields.append(f"{field} = %s")
                             update_values.append(row[field])
                             
@@ -603,10 +597,9 @@ class DirectDatabaseLoader:
                                 field_update_stats[field] = 0
                             field_update_stats[field] += 1
                     
-                    # Always update timestamp metadata
-                    if 'updated_at' not in update_fields:
-                        update_fields.append('updated_at = %s')
-                        update_values.append(datetime.now())
+                    # Always update timestamp metadata (ensure it's only added once)
+                    update_fields.append('updated_at = %s')
+                    update_values.append(datetime.now())
                     
                     if update_fields:
                         update_query = f"""
