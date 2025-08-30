@@ -61,11 +61,11 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
           `${API_BASE}/api/v1/phones/`
         );
         const items = res.data.items || [];
+        // Loosen the filter criteria to show more trending phones
         const filtered = items.filter(
           (phone: Phone) =>
             phone.is_popular_brand === true &&
-            phone.is_new_release === true &&
-            (phone.age_in_months ?? Infinity) <= 1 &&
+            (phone.is_new_release === true || (phone.age_in_months ?? Infinity) <= 3) &&
             phone.is_upcoming === false
         );
         filtered.sort(

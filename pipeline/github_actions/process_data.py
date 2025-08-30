@@ -445,21 +445,23 @@ def engineer_features(df, processor_df):
     
     # Price cleanup & categories
     if "price" in processed_df:
+        # Clean price column by removing currency symbols, leading dots, and commas but preserving digits and text
         processed_df["price"] = (
             processed_df["price"]
             .astype(str)
-            .str.replace('?.', '', regex=False)
-            .str.replace('৳.', '', regex=False)
-            .str.replace('৳', '', regex=False)
-            .str.replace('à§³.', '', regex=False)
-            .str.replace('à§³', '', regex=False)
+            .str.replace('৳', '', regex=False)    # Remove Taka symbol
+            .str.replace('à§³', '', regex=False)  # Remove encoded Taka symbol
+            .str.replace('?', '', regex=False)    # Remove question marks
+            .str.replace(',', '', regex=False)    # Remove commas
+            .str.replace(r'^\.', '', regex=True)  # Remove leading dots (the main issue!)
             .str.strip()
         )
+        
+        # Extract numeric price value
         processed_df["price_original"] = (
             processed_df["price"]
             .astype(str)
-            .str.replace(",", "", regex=False)
-            .str.extract(r'(\d+(?:\.\d+)?)')[0]
+            .str.extract(r'(\d+(?:\.\d+)?)')[0]  # Extract first number found
             .astype(float)
         )
         processed_df["price_category"] = pd.cut(

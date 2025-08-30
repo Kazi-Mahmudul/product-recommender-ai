@@ -58,7 +58,8 @@ const UpcomingPhones: React.FC<UpcomingPhonesProps> = ({ darkMode }) => {
           (a: Phone, b: Phone) =>
             (b.overall_device_score ?? 0) - (a.overall_device_score ?? 0)
         );
-        setPhones(filtered.slice(0, 8));
+        // Increase the number of upcoming phones to show
+        setPhones(filtered.slice(0, 12));
       } catch (err) {
         setPhones([]);
       } finally {
