@@ -123,12 +123,32 @@ class DataCleaner:
         return df
     
     def _clean_camera_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean camera-related data"""
-        # Extract camera megapixels
+        """Clean camera-related data and generate camera features"""
+        # Extract camera megapixels (legacy columns)
         camera_cols = ['main_camera', 'front_camera', 'primary_camera_resolution', 'selfie_camera_resolution']
         for col in camera_cols:
             if col in df.columns:
                 df[f'{col}_mp'] = df[col].apply(self._extract_camera_mp)
+        
+        # Generate the 4 specific camera features
+        if 'main_camera' in df.columns:
+            df['primary_camera_mp'] = df['main_camera'].apply(self._extract_primary_camera_mp)
+        
+        if 'front_camera' in df.columns:
+            df['selfie_camera_mp'] = df['front_camera'].apply(self._extract_selfie_camera_mp)
+        
+        if 'camera_setup' in df.columns:
+            df['camera_count'] = df['camera_setup'].apply(self._get_camera_count)
+        
+        # Calculate camera score if we have the required data
+        if all(col in df.columns for col in ['primary_camera_mp', 'selfie_camera_mp', 'camera_count']):
+            df['camera_score'] = df.apply(
+                lambda row: self._calculate_camera_score(
+                    row['primary_camera_mp'], 
+                    row['selfie_camera_mp'], 
+                    row['camera_count']
+                ), axis=1
+            )
         
         return df
     
@@ -207,6 +227,85 @@ class DataCleaner:
                 return float(mp_match.group(1))
 
         return None
+    
+    def _extract_primary_camera_mp(self, main_camera):
+        """Extract primary camera MP from main_camera string"""
+        if pd.isna(main_camera) or not main_camera:
+            return None
+        
+        main_camera_str = str(main_camera).strip()
+        
+        # For formats like "50+8+2MP" or "48MP"
+        if '+' in main_camera_str:
+            # Get the first camera (primary)
+            first_camera = main_camera_str.split('+')[0]
+            mp_match = re.search(r'(\d+)', first_camera)
+            if mp_match:
+                return int(mp_match.group(1))
+        else:
+            # Single camera like "48MP"
+            mp_match = re.search(r'(\d+)', main_camera_str)
+            if mp_match:
+                return int(mp_match.group(1))
+        
+        return None
+    
+    def _extract_selfie_camera_mp(self, front_camera):
+        """Extract selfie camera MP from front_camera string"""
+        if pd.isna(front_camera) or not front_camera:
+            return None
+        
+        front_camera_str = str(front_camera).strip()
+        
+        # Extract MP value like "8MP" -> 8
+        mp_match = re.search(r'(\d+)', front_camera_str)
+        if mp_match:
+            return int(mp_match.group(1))
+        
+        return None
+    
+    def _get_camera_count(self, camera_setup):
+        """Get camera count from camera_setup"""
+        if pd.isna(camera_setup) or not camera_setup:
+            return 1  # Default to single camera
+        
+        setup_str = str(camera_setup).lower().strip()
+        
+        if 'single' in setup_str:
+            return 1
+        elif 'dual' in setup_str:
+            return 2
+        elif 'triple' in setup_str:
+            return 3
+        elif 'quad' in setup_str:
+            return 4
+        elif 'penta' in setup_str or 'five' in setup_str:
+            return 5
+        else:
+            # Try to extract number from strings like "4 Cameras"
+            num_match = re.search(r'(\d+)', setup_str)
+            if num_match:
+                return int(num_match.group(1))
+        
+        return 1  # Default to single camera
+    
+    def _calculate_camera_score(self, primary_mp, selfie_mp, camera_count):
+        """Calculate camera score based on specifications"""
+        if pd.isna(primary_mp):
+            primary_mp = 0
+        if pd.isna(selfie_mp):
+            selfie_mp = 0
+        if pd.isna(camera_count):
+            camera_count = 1
+        
+        # Camera scoring algorithm
+        # Primary camera: 60% weight, Selfie camera: 25% weight, Camera count: 15% weight
+        primary_score = min(primary_mp / 108.0 * 60, 60)  # Max 60 points for primary
+        selfie_score = min(selfie_mp / 40.0 * 25, 25)     # Max 25 points for selfie
+        count_score = min((camera_count - 1) * 5, 15)      # Max 15 points for count
+        
+        total_score = primary_score + selfie_score + count_score
+        return round(total_score, 2)
     
     def _extract_wattage(self, value):
         """Extract wattage from charging specification"""
