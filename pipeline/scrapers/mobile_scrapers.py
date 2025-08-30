@@ -223,23 +223,30 @@ def extract_key_specs(soup):
             return key_specs
             
         for info in info_elements:
-            # Get the label text
-            label_elem = info.select_one('.text span:first-child')
-            if not label_elem:
+            # Get the text container
+            text_container = info.select_one('.text')
+            if not text_container:
                 continue
-                
-            label = label_elem.get_text(strip=True)
             
-            # Get the value text
-            value_elem = info.select_one('.text span.foswald')
-            if not value_elem:
+            # Get all span elements in the text container
+            spans = text_container.select('span')
+            if len(spans) < 2:
                 continue
                 
-            value = value_elem.get_text(strip=True)
+            # First span is the label, second span (with foswald class) is the value
+            label = spans[0].get_text(strip=True)
+            value = spans[1].get_text(strip=True) if len(spans) > 1 else None
+            
+            if not label or not value:
+                continue
             
             # Map to standardized keys
-            if 'Main Camera' in label:
+            logger.debug(f"Key spec found - Label: '{label}', Value: '{value}'")
+            
+            # Handle main camera variations
+            if any(term in label.lower() for term in ['main camera', 'rear camera', 'primary camera', 'back camera']):
                 key_specs['main_camera'] = value
+                logger.debug(f"✅ Main camera extracted: {value}")
                 
                 # Also try to extract primary camera resolution if it's in the format "48MP" or "48+48+48MP"
                 if 'MP' in value:
@@ -263,8 +270,10 @@ def extract_key_specs(soup):
                         # Single camera
                         key_specs['camera_setup'] = 'Single'
                         
-            elif 'Front Camera' in label:
+            # Handle front camera variations
+            elif any(term in label.lower() for term in ['front camera', 'selfie camera', 'secondary camera']):
                 key_specs['front_camera'] = value
+                logger.debug(f"✅ Front camera extracted: {value}")
                 
                 # Also set selfie_camera_resolution if it's in the format "24MP"
                 if 'MP' in value:

@@ -105,20 +105,20 @@ class DataCleaner:
         """Clean display-related data"""
         # Clean screen size
         if 'screen_size_inches' in df.columns:
-            df['screen_size_numeric'] = df['screen_size_inches'].str.extract('(\\d+\\.?\\d*)').astype(float)
+            df['screen_size_numeric'] = df['screen_size_inches'].str.extract('(\d+\.?\d*)').astype(float)
         
         # Clean resolution
         if 'display_resolution' in df.columns:
-            df['resolution_width'] = df['display_resolution'].str.extract('(\\d+)x').astype(float)
-            df['resolution_height'] = df['display_resolution'].str.extract('x(\\d+)').astype(float)
+            df['resolution_width'] = df['display_resolution'].str.extract('(\d+)x').astype(float)
+            df['resolution_height'] = df['display_resolution'].str.extract('x(\d+)').astype(float)
         
         # Clean PPI
         if 'pixel_density_ppi' in df.columns:
-            df['ppi_numeric'] = df['pixel_density_ppi'].str.extract('(\\d+)').astype(float)
+            df['ppi_numeric'] = df['pixel_density_ppi'].str.extract('(\d+)').astype(float)
         
         # Clean refresh rate
         if 'refresh_rate_hz' in df.columns:
-            df['refresh_rate_numeric'] = df['refresh_rate_hz'].str.extract('(\\d+)').astype(float)
+            df['refresh_rate_numeric'] = df['refresh_rate_hz'].str.extract('(\d+)').astype(float)
         
         return df
     
@@ -136,7 +136,7 @@ class DataCleaner:
         """Clean battery-related data"""
         # Clean battery capacity
         if 'capacity' in df.columns:
-            df['battery_capacity_numeric'] = df['capacity'].str.extract('(\\d+)').astype(float)
+            df['battery_capacity_numeric'] = df['capacity'].str.extract('(\d+)').astype(float)
         
         # Clean charging wattage
         if 'quick_charging' in df.columns:
@@ -171,7 +171,7 @@ class DataCleaner:
         if pd.isna(value):
             return None
         value = str(value).lower()
-        numbers = re.findall(r'\\d+', value)
+        numbers = re.findall(r'\d+', value)
         if numbers:
             num = float(numbers[0])
             if 'gb' in value:
@@ -194,15 +194,15 @@ class DataCleaner:
         # For formats like "48+8+2MP" or "48MP"
         if '+' in value_str:
             first_camera = value_str.split('+')[0]
-            mp_match = re.search(r'(\\d+\\.?\\d*)', first_camera)
+            mp_match = re.search(r'(\d+\.?\d*)', first_camera)
             if mp_match:
                 return float(mp_match.group(1))
         else:
-            mp_match = re.search(r'(\\d+\\.?\\d*)\\s*MP', value_str, re.IGNORECASE)
+            mp_match = re.search(r'(\d+\.?\d*)\s*MP', value_str, re.IGNORECASE)
             if mp_match:
                 return float(mp_match.group(1))
             
-            mp_match = re.search(r'(\\d+\\.?\\d*)', value_str)
+            mp_match = re.search(r'(\d+\.?\d*)', value_str)
             if mp_match:
                 return float(mp_match.group(1))
 
@@ -217,7 +217,7 @@ class DataCleaner:
         if not value_str:
             return None
         
-        wattage_match = re.search(r'(\\d+\\.?\\d*)\\s*W', value_str, re.IGNORECASE)
+        wattage_match = re.search(r'(\d+\.?\d*)\s*W', value_str, re.IGNORECASE)
         if wattage_match:
             return float(wattage_match.group(1))
         
