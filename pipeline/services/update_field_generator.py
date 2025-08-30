@@ -9,8 +9,13 @@ replacing hardcoded field lists with dynamic detection based on DataFrame conten
 import logging
 from typing import Dict, List, Tuple, Any
 import pandas as pd
-from .column_classifier import ColumnClassifier
-from .database_schema_inspector import SchemaCompatibilityValidator
+try:
+    from .column_classifier import ColumnClassifier
+    from .database_schema_inspector import SchemaCompatibilityValidator
+except ImportError:
+    # Fallback to absolute imports
+    from pipeline.services.column_classifier import ColumnClassifier
+    from pipeline.services.database_schema_inspector import SchemaCompatibilityValidator
 
 
 class UpdateFieldGenerator:

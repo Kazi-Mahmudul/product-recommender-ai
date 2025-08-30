@@ -22,8 +22,18 @@ try:
     from .column_classifier import ColumnClassifier
     from .update_logger import UpdateLogger, FieldUpdateTracker, UpdateResult
     ENHANCED_FIELD_DETECTION = True
-except ImportError:
-    ENHANCED_FIELD_DETECTION = False
+except ImportError as e:
+    # Try absolute imports as fallback
+    try:
+        from pipeline.services.update_field_generator import UpdateFieldGenerator
+        from pipeline.services.column_classifier import ColumnClassifier
+        from pipeline.services.update_logger import UpdateLogger, FieldUpdateTracker, UpdateResult
+        ENHANCED_FIELD_DETECTION = True
+    except ImportError as e2:
+        ENHANCED_FIELD_DETECTION = False
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Enhanced field detection not available: {e}, {e2}")
 
 
 class DirectDatabaseLoader:
@@ -60,12 +70,32 @@ class DirectDatabaseLoader:
             self.field_tracker = None
             self.logger.warning("⚠️ Enhanced field detection not available, using fallback mode")
         
-        # Fallback fields for basic operation (used when enhanced system is not available)
+        # Comprehensive fallback fields (includes feature-engineered columns)
         self.fallback_phone_fields = [
+            # Basic phone fields
             'name', 'brand', 'model', 'price', 'url', 'img_url', 
-            'ram', 'internal_storage', 'main_camera', 'front_camera',
+            'ram', 'internal_storage', 'storage', 'internal',
+            'main_camera', 'front_camera', 'primary_camera_resolution', 'selfie_camera_resolution',
+            'display_resolution', 'screen_size_inches', 'pixel_density_ppi', 'refresh_rate_hz',
+            'capacity', 'battery_capacity', 'quick_charging', 'wireless_charging', 'charging',
+            'processor', 'chipset', 'network', 'technology', 'wlan', 'wifi', 'bluetooth', 'nfc',
+            'fingerprint', 'finger_sensor_type', 'biometrics', 'security',
+            'release_date', 'status', 'camera_setup', 'company',
+            
+            # Feature-engineered columns (the ones that were missing!)
+            'performance_score', 'display_score', 'battery_score', 'camera_score',
+            'connectivity_score', 'security_score', 'overall_device_score',
+            'storage_gb', 'ram_gb', 'price_original', 'price_per_gb', 'price_per_gb_ram',
+            'screen_size_numeric', 'resolution_width', 'resolution_height', 
+            'ppi_numeric', 'refresh_rate_numeric', 'battery_capacity_numeric',
+            'primary_camera_mp', 'selfie_camera_mp', 'camera_count',
+            'charging_wattage', 'has_fast_charging', 'has_wireless_charging',
+            'is_popular_brand', 'is_new_release', 'is_upcoming', 'age_in_months',
+            'price_category', 'processor_rank', 'slug', 'release_date_clean',
+            
+            # Metadata fields
             'scraped_at', 'pipeline_run_id', 'data_source', 
-            'data_quality_score', 'is_pipeline_managed'
+            'data_quality_score', 'is_pipeline_managed', 'last_price_check'
         ]
     
     def load_processed_dataframe(self, processed_df: pd.DataFrame, pipeline_run_id: str) -> Dict[str, Any]:
@@ -242,6 +272,26 @@ class DirectDatabaseLoader:
             self.logger.error(f"❌ Database connection failed: {str(e)}")
             return self._create_error_result(e, transaction_id, len(processed_df), time.time() - start_time, False)
     
+    def _get_all_available_columns(self, df: pd.DataFrame) -> List[str]:
+        """
+        Get all available columns from DataFrame, excluding system fields.
+        This is used as ultimate fallback when enhanced detection fails.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            List of all updatable column names
+        """
+        # Exclude system fields that should never be updated
+        excluded_fields = {'id'}
+        
+        # Get all columns except excluded ones
+        available_columns = [col for col in df.columns if col not in excluded_fields]
+        
+        self.logger.info(f"🔄 Fallback: Using all available columns ({len(available_columns)} fields)")
+        return available_columns
+    
     def _add_pipeline_metadata(self, df: pd.DataFrame, pipeline_run_id: str) -> pd.DataFrame:
         """Add pipeline metadata to the DataFrame."""
         df = df.copy()
@@ -383,10 +433,11 @@ class DirectDatabaseLoader:
                 self.logger.info(f"   Total insertable columns: {len(insertable_columns)}")
                 
             except Exception as e:
-                self.logger.warning(f"⚠️ Enhanced field detection failed for inserts, using fallback: {str(e)}")
-                insertable_columns = self.fallback_phone_fields
+                self.logger.warning(f"⚠️ Enhanced field detection failed for inserts, using comprehensive fallback: {str(e)}")
+                insertable_columns = self._get_all_available_columns(new_records)
         else:
-            insertable_columns = self.fallback_phone_fields
+            self.logger.warning("⚠️ Enhanced system not available for inserts, using comprehensive fallback")
+            insertable_columns = self._get_all_available_columns(new_records)
         
         # Process in batches
         for i in range(0, len(new_records), self.batch_size):
@@ -495,10 +546,13 @@ class DirectDatabaseLoader:
                     self.logger.info(f"   {recommendation}")
                     
             except Exception as e:
-                self.logger.warning(f"⚠️ Enhanced field detection failed, using fallback: {str(e)}")
-                updatable_columns = self.fallback_phone_fields
+                self.logger.warning(f"⚠️ Enhanced field detection failed, using comprehensive fallback: {str(e)}")
+                # Use comprehensive fallback that includes feature columns
+                updatable_columns = self._get_all_available_columns(update_records)
         else:
-            updatable_columns = self.fallback_phone_fields
+            self.logger.warning("⚠️ Enhanced system not available, using comprehensive fallback")
+            # Use comprehensive fallback that includes all available columns
+            updatable_columns = self._get_all_available_columns(update_records)
         
         # Process in batches
         for i in range(0, len(update_records), self.batch_size):
