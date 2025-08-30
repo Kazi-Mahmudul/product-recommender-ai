@@ -168,7 +168,7 @@ class ProcessorRankingsCache:
     Specialized cache manager for processor rankings with fallback mechanisms
     """
     
-    def __init__(self, cache_file: str = 'data_cleaning/processor_rankings.csv'):
+    def __init__(self, cache_file: str = 'pipeline/cache/processor_rankings.csv'):
         self.cache_file = cache_file
         self.logger = setup_scraper_logging(f"{__name__}.ProcessorRankingsCache")
     

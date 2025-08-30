@@ -24,8 +24,8 @@ var/
 .coverage
 htmlcov/
 
-# Data files
-data/
+# Cache files
+pipeline/cache/*.csv
 .csv
 
 # Alembic

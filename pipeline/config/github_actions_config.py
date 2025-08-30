@@ -68,8 +68,8 @@ class PipelineConfig:
     def get_output_paths(self) -> Dict[str, str]:
         """Get output file paths (processed_data removed - now using direct database loading)"""
         return {
-            'processor_rankings': 'data_cleaning/processor_rankings.csv',
-            'scraped_data': 'data/scraped_phones.csv',
+            'processor_rankings': 'pipeline/cache/processor_rankings.csv',
+            'scraped_data': 'pipeline/cache/scraped_phones.csv',
             'logs': 'logs/pipeline.log'
         }
 

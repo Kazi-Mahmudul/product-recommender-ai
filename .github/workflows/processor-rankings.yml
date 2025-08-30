@@ -62,15 +62,15 @@ jobs:
           python pipeline/scrapers/processor_scraper.py \
             --max-pages "${{ github.event.inputs.max_pages || '' }}" \
             --force-update "${{ github.event.inputs.force_update || 'false' }}" \
-            --output-file "data_cleaning/processor_rankings.csv"
+            --output-file "pipeline/cache/processor_rankings.csv"
 
       - name: Commit updated rankings
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          if [ -n "$(git status --porcelain data_cleaning/processor_rankings.csv)" ]; then
-            git add data_cleaning/processor_rankings.csv
+          if [ -n "$(git status --porcelain pipeline/cache/processor_rankings.csv)" ]; then
+            git add pipeline/cache/processor_rankings.csv
             git commit -m "Update processor rankings - $(date +%Y-%m-%d)"
             git push
             echo "✅ Processor rankings updated and committed"
@@ -87,8 +87,8 @@ jobs:
           echo "**Max Pages:** ${{ github.event.inputs.max_pages || 'all' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ -f "data_cleaning/processor_rankings.csv" ]; then
-            LINES=$(wc -l < data_cleaning/processor_rankings.csv)
+          if [ -f "pipeline/cache/processor_rankings.csv" ]; then
+            LINES=$(wc -l < pipeline/cache/processor_rankings.csv)
             echo "**Processors Found:** $((LINES - 1))" >> $GITHUB_STEP_SUMMARY
             echo "✅ **Status:** SUCCESS" >> $GITHUB_STEP_SUMMARY
           else

@@ -356,25 +356,37 @@ def get_product_links(page=1):
                 if product_links:  # If we found products with this selector, stop trying others
                     break
         
-        # Method 3: Check for pagination indicators to confirm we're at the end
+        # Method 3: Enhanced end-of-catalog detection
         if not product_links:
-            # Look for pagination elements that might indicate we're past the last page
-            pagination_elements = soup.select('.pagination, .page-numbers, .next, .prev')
+            page_text = soup.get_text().lower()
             
-            # Check if page shows "No products found" or similar messages
+            # Check for explicit "no products" messages
             no_products_indicators = [
                 'no products found',
                 'no items found', 
                 'no results',
                 'page not found',
-                '404'
+                '404',
+                'no mobile phones found',
+                'sorry, no products',
+                'end of results'
             ]
             
-            page_text = soup.get_text().lower()
             for indicator in no_products_indicators:
                 if indicator in page_text:
-                    logger.debug(f"Page {page} contains '{indicator}' - likely reached end")
+                    logger.debug(f"Page {page}: End-of-catalog indicator found: '{indicator}'")
                     return []
+            
+            # Check pagination to see if we're beyond the last page
+            pagination_elements = soup.select('.pagination, .page-numbers, .pager')
+            if pagination_elements:
+                # Look for disabled "next" buttons or current page indicators
+                next_disabled = soup.select('.pagination .next.disabled, .pagination .next[disabled]')
+                if next_disabled:
+                    logger.debug(f"Page {page}: Pagination indicates end of catalog (next button disabled)")
+                    return []
+            
+            logger.debug(f"Page {page}: No products found, but no clear end-of-catalog indicators")
         
         # Remove duplicates while preserving order
         unique_links = list(dict.fromkeys(product_links))
@@ -657,14 +669,19 @@ class MobileDokanScraper:
         logger.info(f"   Batch Size: {batch_size}")
         logger.info(f"   Check Updates: {check_updates}")
         
-        # Collect all product links from ALL pages
+        # Collect all product links with dynamic page detection
         all_product_links = []
         page = 1
         consecutive_empty_pages = 0
         consecutive_low_pages = 0
-        max_consecutive_empty = 5
-        max_consecutive_low = 10  # Stop if we get 10 consecutive pages with ≤2 products
+        
+        # Dynamic page detection thresholds
+        max_consecutive_empty = 3  # Stop after 3 consecutive empty pages
+        max_consecutive_low = 5   # Stop after 5 consecutive pages with ≤3 products
+        min_products_threshold = 3  # Pages with ≤3 products are considered "low"
+        
         total_pages_scraped = 0
+        total_pages_checked = 0
         expected_products_per_page = 20  # MobileDokan typically has 20 products per page
         
         while True:
@@ -672,55 +689,86 @@ class MobileDokanScraper:
                 logger.info(f"Reached maximum page limit of {max_pages}")
                 break
                 
-            logger.info(f"Scraping page {page}...")
+            logger.info(f"📄 Checking page {page}...")
+            total_pages_checked += 1
             links = get_product_links(page)
             
+            # Handle empty pages
             if not links:
                 consecutive_empty_pages += 1
                 consecutive_low_pages += 1
-                logger.info(f"  - No products found on page {page}. Consecutive empty pages: {consecutive_empty_pages}/{max_consecutive_empty}")
+                logger.info(f"  📭 No products found on page {page}. Consecutive empty: {consecutive_empty_pages}/{max_consecutive_empty}")
                 
                 if consecutive_empty_pages >= max_consecutive_empty:
-                    logger.info(f"🏁 REACHED END OF CATALOG: Found {consecutive_empty_pages} consecutive empty pages.")
-                    logger.info(f"   Total pages with products: {total_pages_scraped}")
-                    logger.info(f"   Last page with products: {page - consecutive_empty_pages}")
+                    logger.info(f"🏁 END OF CATALOG DETECTED: {consecutive_empty_pages} consecutive empty pages")
+                    logger.info(f"   📊 Final stats: {total_pages_scraped} pages with products, {total_pages_checked} total pages checked")
+                    logger.info(f"   📱 Total products found: {len(all_product_links)}")
                     break
                     
-                logger.info(f"   Continuing to check page {page + 1}...")
+                logger.info(f"   ⏭️ Continuing to page {page + 1}...")
                 page += 1
-                time.sleep(2)
+                time.sleep(1)
                 continue
             
-            # Check for very low product count (likely end of catalog)
-            if len(links) <= 2:
+            # Handle pages with very few products (likely end of catalog)
+            if len(links) <= min_products_threshold:
                 consecutive_low_pages += 1
-                logger.info(f"  ⚠️ Found only {len(links)} products on page {page}. Consecutive low pages: {consecutive_low_pages}/{max_consecutive_low}")
+                logger.info(f"  ⚠️ Only {len(links)} products on page {page}. Consecutive low: {consecutive_low_pages}/{max_consecutive_low}")
                 
                 if consecutive_low_pages >= max_consecutive_low:
-                    logger.info(f"🏁 REACHED END OF CATALOG: Found {consecutive_low_pages} consecutive pages with ≤2 products.")
-                    logger.info(f"   This suggests we've reached the end of the product catalog.")
-                    logger.info(f"   Total pages with products: {total_pages_scraped}")
+                    logger.info(f"🏁 END OF CATALOG DETECTED: {consecutive_low_pages} consecutive pages with ≤{min_products_threshold} products")
+                    logger.info(f"   📊 Final stats: {total_pages_scraped} pages with products, {total_pages_checked} total pages checked")
+                    logger.info(f"   📱 Total products found: {len(all_product_links)}")
+                    
+                    # Add the current page's products before stopping
+                    all_product_links.extend(links)
+                    total_pages_scraped += 1
                     break
             else:
-                consecutive_low_pages = 0  # Reset if we find a normal page
+                # Reset counters for normal pages
+                consecutive_low_pages = 0
+                consecutive_empty_pages = 0
+                
+                # Process normal pages with products
+                all_product_links.extend(links)
+                total_pages_scraped += 1
             
-            consecutive_empty_pages = 0
-            all_product_links.extend(links)
-            total_pages_scraped += 1
-            logger.info(f"  ✅ Found {len(links)} product links on page {page} (Total pages with products: {total_pages_scraped})")
+            # Dynamic progress reporting
+            if len(links) >= expected_products_per_page * 0.8:  # 80% of expected
+                status_icon = "✅"
+                status = "FULL"
+            elif len(links) >= expected_products_per_page * 0.5:  # 50% of expected
+                status_icon = "📊"
+                status = "PARTIAL"
+            else:
+                status_icon = "⚠️"
+                status = "LOW"
             
-            if total_pages_scraped % 25 == 0:
-                logger.info(f"📊 PROGRESS UPDATE: Scraped {total_pages_scraped} pages, found {len(all_product_links)} total products")
+            logger.info(f"  {status_icon} Page {page}: {len(links)} products ({status}) | Total: {len(all_product_links)} products from {total_pages_scraped} pages")
+            
+            # Progress updates every 25 pages or when we detect potential end
+            if total_pages_scraped % 25 == 0 or len(links) <= min_products_threshold * 2:
+                avg_products = len(all_product_links) / total_pages_scraped if total_pages_scraped > 0 else 0
+                logger.info(f"📊 PROGRESS: {total_pages_scraped} pages processed | {len(all_product_links)} total products | Avg: {avg_products:.1f} products/page")
             
             page += 1
-            time.sleep(1)
+            time.sleep(0.5)  # Balanced rate limiting
         
         # Remove duplicates
         unique_links = list(dict.fromkeys(all_product_links))
         
-        logger.info(f"🎯 DISCOVERY COMPLETE!")
-        logger.info(f"   � Total p ages checked: {page - 1}")
+        # Calculate final statistics
+        avg_products_per_page = len(unique_links) / total_pages_scraped if total_pages_scraped > 0 else 0
+        detection_method = "Empty pages" if consecutive_empty_pages >= max_consecutive_empty else "Low product count"
+        
+        logger.info(f"🎯 DYNAMIC PAGE DISCOVERY COMPLETED!")
+        logger.info(f"   📄 Total pages checked: {total_pages_checked}")
         logger.info(f"   ✅ Pages with products: {total_pages_scraped}")
+        logger.info(f"   🔗 Total product links: {len(all_product_links)}")
+        logger.info(f"   🔗 Unique products: {len(unique_links)}")
+        logger.info(f"   📊 Average products/page: {avg_products_per_page:.1f}")
+        logger.info(f"   🎯 Detection method: {detection_method}")
+        logger.info(f"   ⚡ Efficiency: Automatically detected catalog end!")
         logger.info(f"   📱 Total product links found: {len(all_product_links)}")
         logger.info(f"   🔗 Unique product links: {len(unique_links)}")
         logger.info(f"   📊 Average products per page: {len(unique_links) / total_pages_scraped if total_pages_scraped > 0 else 0:.1f}")
@@ -802,16 +850,51 @@ class MobileDokanScraper:
             
             logger.info(f"  ✅ Batch {batch_start//batch_size + 1} completed: {result['processed']} processed, {result['inserted']} inserted, {result['updated']} updated")
         
+        # Calculate efficiency metrics
+        total_phones_found = len(unique_links)
+        phones_processed = len(new_urls) + len(existing_urls_to_check)
+        phones_skipped = total_phones_found - phones_processed
+        efficiency_percentage = (phones_skipped / total_phones_found * 100) if total_phones_found > 0 else 0
+        
+        # Enhanced logging with efficiency metrics
+        logger.info(f"📊 SMART UPDATE SYSTEM RESULTS:")
+        logger.info(f"   📱 Total phones found: {total_phones_found}")
+        logger.info(f"   🆕 New phones processed: {len(new_urls)}")
+        logger.info(f"   🔄 Existing phones checked: {len(existing_urls_to_check)}")
+        logger.info(f"   ⏭️ Phones skipped (current): {phones_skipped}")
+        logger.info(f"   ⚡ Efficiency: {efficiency_percentage:.1f}% time saved")
+        logger.info(f"   ✅ Products inserted: {total_inserted}")
+        logger.info(f"   🔄 Products updated: {total_updated}")
+        
+        if efficiency_percentage > 80:
+            logger.info(f"   🚀 HIGH EFFICIENCY RUN - Most phones were already current!")
+        elif efficiency_percentage > 50:
+            logger.info(f"   ⚡ MODERATE EFFICIENCY RUN - Good time savings achieved!")
+        else:
+            logger.info(f"   🔄 FULL UPDATE RUN - Many phones needed updates!")
+
         final_result = {
             'status': 'success',
             'pipeline_run_id': pipeline_run_id,
             'enhanced_pipeline_used': PIPELINE_AVAILABLE,
+            
+            # Dynamic page detection results
+            'pages_checked': total_pages_checked,
+            'pages_with_products': total_pages_scraped,
+            'detection_method': detection_method,
+            'avg_products_per_page': round(avg_products_per_page, 1),
+            
+            # Product processing results
             'total_links_found': len(unique_links),
             'new_links_processed': len(new_urls),
             'existing_links_checked': len(existing_urls_to_check),
+            'phones_skipped': phones_skipped,
+            'efficiency_percentage': round(efficiency_percentage, 1),
             'products_processed': total_processed,
             'products_inserted': total_inserted,
             'products_updated': total_updated,
+            
+            # Error tracking
             'errors': total_errors,
             'error_count': len(total_errors),
             'batch_size': batch_size,
@@ -819,12 +902,15 @@ class MobileDokanScraper:
         }
         
         logger.info(f"🎉 SCRAPING COMPLETED!")
-        logger.info(f"   Pipeline Run ID: {pipeline_run_id}")
-        logger.info(f"   Enhanced Pipeline: {'✅ USED' if PIPELINE_AVAILABLE else '❌ FALLBACK USED'}")
-        logger.info(f"   Products processed: {total_processed}")
-        logger.info(f"   Products inserted: {total_inserted}")
-        logger.info(f"   Products updated: {total_updated}")
-        logger.info(f"   Errors: {len(total_errors)}")
+        logger.info(f"   📋 Pipeline Run ID: {pipeline_run_id}")
+        logger.info(f"   🔧 Enhanced Pipeline: {'✅ USED' if PIPELINE_AVAILABLE else '❌ FALLBACK USED'}")
+        logger.info(f"   📄 Pages checked: {total_pages_checked} (found {total_pages_scraped} with products)")
+        logger.info(f"   🎯 Detection method: {detection_method}")
+        logger.info(f"   📱 Products processed: {total_processed}")
+        logger.info(f"   ➕ Products inserted: {total_inserted}")
+        logger.info(f"   🔄 Products updated: {total_updated}")
+        logger.info(f"   ❌ Errors: {len(total_errors)}")
+        logger.info(f"   ⚡ Dynamic page detection: ✅ ENABLED (no hardcoded limits!)")
         
         return final_result
     

@@ -257,7 +257,12 @@ def main():
         try:
             max_pages = int(args.max_pages)
         except ValueError:
-            print(f"Warning: Invalid max_pages value '{args.max_pages}', using default (all pages)")
+            print(f"Warning: Invalid max_pages value '{args.max_pages}', using default")
+    
+    # For scheduled runs, we'll check all pages but use smart update detection
+    # This ensures we don't miss updates on any page while being efficient
+    if max_pages is None:
+        logger.info("   No max_pages specified - will check all pages with smart update detection")
     
     skip_processor = args.skip_processor_rankings.lower() == 'true'
     test_mode = args.test_mode.lower() == 'true'

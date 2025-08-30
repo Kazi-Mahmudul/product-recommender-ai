@@ -13,7 +13,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def load_processors_from_csv(csv_file='data_cleaning/processor_rankings.csv'):
+def load_processors_from_csv(csv_file='pipeline/cache/processor_rankings.csv'):
     """Load processor data from CSV file."""
     if not os.path.exists(csv_file):
         logger.error(f"CSV file not found: {csv_file}")
@@ -47,7 +47,7 @@ def load_processors_from_csv(csv_file='data_cleaning/processor_rankings.csv'):
         logger.error(f"Error loading CSV file: {e}")
         return None
 
-def populate_processor_rankings(csv_file='data_cleaning/processor_rankings.csv'):
+def populate_processor_rankings(csv_file='pipeline/cache/processor_rankings.csv'):
     """Populate processor rankings with data from CSV file."""
     database_url = os.getenv('DATABASE_URL')
     

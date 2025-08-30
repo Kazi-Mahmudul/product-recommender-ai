@@ -417,7 +417,7 @@ def main():
     """Main function for standalone execution"""
     parser = argparse.ArgumentParser(description='Processor Rankings Scraper')
     parser.add_argument('--max-pages', type=int, help='Maximum pages to scrape')
-    parser.add_argument('--output-file', default='data_cleaning/processor_rankings.csv', help='Output CSV file')
+    parser.add_argument('--output-file', default='pipeline/cache/processor_rankings.csv', help='Output CSV file')
     parser.add_argument('--force-update', type=str, default='false', help='Force update even if cache is fresh')
     parser.add_argument('--save-to-db', type=str, default='true', help='Save to database (requires DATABASE_URL)')
     parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARN', 'ERROR'], help='Logging level')

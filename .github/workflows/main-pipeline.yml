@@ -7,9 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       max_pages:
-        description: 'Maximum pages to scrape (leave empty for all pages)'
+        description: 'Maximum pages to scrape (leave empty to check all pages with smart updates)'
         required: false
         type: string
+        default: ''
       skip_processor_rankings:
         description: 'Skip processor rankings update'
         required: false
@@ -84,6 +85,7 @@ jobs:
   extract_data:
     runs-on: ubuntu-latest
     needs: setup
+    timeout-minutes: 120  # 2 hour timeout for extraction
     outputs:
       scraping_result: ${{ steps.extract.outputs.scraping_result }}
       processor_result: ${{ steps.extract.outputs.processor_result }}

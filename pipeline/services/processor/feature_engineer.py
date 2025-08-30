@@ -11,12 +11,14 @@ import sys
 import os
 from typing import Optional, Tuple
 
-# Add data_cleaning to path to use existing functions
-data_cleaning_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data_cleaning')
-if data_cleaning_path not in sys.path:
-    sys.path.insert(0, data_cleaning_path)
+# Note: This service is deprecated - feature engineering is now embedded in process_data.py
+# This file is kept for backward compatibility but should not be used in production
 
-from clean_transform_pipeline import engineer_features
+def engineer_features(df, processor_df=None):
+    """Deprecated: Use the embedded feature engineering in process_data.py instead"""
+    import warnings
+    warnings.warn("This feature_engineer service is deprecated. Use embedded logic in process_data.py", DeprecationWarning)
+    return df
 
 
 class FeatureEngineer:
