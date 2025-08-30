@@ -123,7 +123,7 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
 
 def scrape_processor_rankings(pipeline_run_id: str, force_update: bool = False, test_mode: bool = False) -> Dict[str, Any]:
     """
-    Scrape processor rankings data
+    Scrape processor rankings data using cache-first strategy (20-day caching)
     
     Args:
         pipeline_run_id: Unique identifier for this pipeline run
@@ -136,100 +136,129 @@ def scrape_processor_rankings(pipeline_run_id: str, force_update: bool = False, 
     logger = setup_logging()
     
     try:
-        logger.info(f"🔧 Starting processor rankings scraping (Run ID: {pipeline_run_id})")
+        logger.info(f"🔧 Starting processor rankings with cache-first strategy (Run ID: {pipeline_run_id})")
         logger.info(f"   Force update: {force_update}")
         logger.info(f"   Test mode: {test_mode}")
+        logger.info(f"   Cache strategy: 20-day intelligent caching")
         
-        # Check if we should use cached data
-        processor_file = config.get_output_paths()['processor_rankings']
-        use_cache = False
+        start_time = time.time()
         
-        if os.path.exists(processor_file) and not force_update:
-            # Check file age (use cache if less than 7 days old)
-            file_age_days = (time.time() - os.path.getmtime(processor_file)) / (24 * 3600)
-            if file_age_days < 7:
-                use_cache = True
-                logger.info(f"   Using cached processor rankings (age: {file_age_days:.1f} days)")
-        
-        if use_cache:
-            # Use cached data
-            import pandas as pd
-            df = pd.read_csv(processor_file)
+        # Use the new cache-first data loader
+        try:
+            from pipeline.loaders.processor_loader import ProcessorDataLoader
             
-            result = {
-                'status': 'success',
-                'pipeline_run_id': pipeline_run_id,
-                'source': 'cache',
-                'processors_count': len(df),
-                'timestamp': datetime.now().isoformat(),
-                'test_mode': test_mode,
-                'cache_age_days': round(file_age_days, 1)
-            }
+            # Initialize loader with 20-day cache
+            cache_age_days = 20
+            loader = ProcessorDataLoader(max_cache_age_days=cache_age_days)
             
-            logger.info(f"✅ Using cached processor rankings: {len(df)} processors")
+            # Load data using cache-first strategy
+            response = loader.load_processor_data(force_refresh=force_update)
             
-        else:
-            # Scrape fresh data
-            try:
-                from pipeline.scrapers.processor_scraper import ProcessorRankingScraper
+            execution_time = time.time() - start_time
+            
+            if response.success:
+                df = response.data
+                cache_info = response.cache_info
                 
-                # Use optimized scraper with no rate limiting for faster processing
-                scraper = ProcessorRankingScraper(requests_per_minute=0)
-                start_time = time.time()
-                
-                # Limit pages in test mode
-                max_pages = 2 if test_mode else None
-                
-                df = scraper.scrape_all_pages(max_pages=max_pages)
-                
-                # Save to file
+                # Save to CSV file for backward compatibility
+                processor_file = config.get_output_paths()['processor_rankings']
                 os.makedirs(os.path.dirname(processor_file), exist_ok=True)
                 df.to_csv(processor_file, index=False)
                 
-                execution_time = time.time() - start_time
-                
+                # Prepare result
                 result = {
                     'status': 'success',
                     'pipeline_run_id': pipeline_run_id,
-                    'source': 'scraped',
+                    'source': cache_info.data_source,
                     'processors_count': len(df),
                     'execution_time_seconds': round(execution_time, 2),
                     'timestamp': datetime.now().isoformat(),
                     'test_mode': test_mode,
-                    'max_pages': max_pages
+                    'cache_age_days': round(cache_info.cache_age_days, 1),
+                    'cache_valid': cache_info.is_cache_valid,
+                    'fallback_used': response.fallback_used,
+                    'next_refresh_due': cache_info.next_refresh_due.isoformat() if cache_info.next_refresh_due else None
                 }
                 
-                logger.info(f"✅ Processor rankings scraped successfully!")
-                logger.info(f"   Processors found: {len(df)}")
+                # Log success details
+                logger.info(f"✅ Processor rankings loaded successfully!")
+                logger.info(f"   Source: {cache_info.data_source}")
+                logger.info(f"   Processors: {len(df)}")
+                logger.info(f"   Cache age: {cache_info.cache_age_days:.1f} days")
                 logger.info(f"   Execution time: {execution_time:.2f} seconds")
                 
-            except ImportError:
-                logger.warning("⚠️ Processor scraper not available, using fallback")
-                # Fallback: ensure we have some processor data
-                if not os.path.exists(processor_file):
-                    logger.error("❌ No processor rankings file found and scraper unavailable")
-                    raise Exception("Processor rankings unavailable")
+                if response.fallback_used:
+                    logger.warning(f"⚠️ Fallback used: {response.message}")
                 
-                # Use existing file
+                if cache_info.next_refresh_due:
+                    days_until_refresh = (cache_info.next_refresh_due - datetime.now()).total_seconds() / (24 * 3600)
+                    logger.info(f"📅 Next refresh in {days_until_refresh:.1f} days")
+                
+                return result
+                
+            else:
+                # Cache-first strategy failed completely
+                logger.error(f"❌ Cache-first strategy failed: {response.message}")
+                
+                # Try fallback to old CSV file method
+                processor_file = config.get_output_paths()['processor_rankings']
+                if os.path.exists(processor_file):
+                    logger.info("📁 Falling back to existing CSV file")
+                    import pandas as pd
+                    df = pd.read_csv(processor_file)
+                    
+                    if not df.empty:
+                        file_age_days = (time.time() - os.path.getmtime(processor_file)) / (24 * 3600)
+                        
+                        result = {
+                            'status': 'success',
+                            'pipeline_run_id': pipeline_run_id,
+                            'source': 'csv_fallback',
+                            'processors_count': len(df),
+                            'execution_time_seconds': round(execution_time, 2),
+                            'timestamp': datetime.now().isoformat(),
+                            'test_mode': test_mode,
+                            'cache_age_days': round(file_age_days, 1),
+                            'warning': 'Used CSV fallback due to cache system failure'
+                        }
+                        
+                        logger.info(f"✅ Using CSV fallback: {len(df)} processors (age: {file_age_days:.1f} days)")
+                        return result
+                
+                # Complete failure
+                raise Exception(f"All processor data loading methods failed: {response.message}")
+                
+        except ImportError as e:
+            logger.warning(f"⚠️ New cache system not available: {e}")
+            logger.info("📁 Falling back to legacy processor loading")
+            
+            # Fallback to legacy method
+            processor_file = config.get_output_paths()['processor_rankings']
+            
+            if os.path.exists(processor_file):
                 import pandas as pd
                 df = pd.read_csv(processor_file)
+                file_age_days = (time.time() - os.path.getmtime(processor_file)) / (24 * 3600)
                 
                 result = {
                     'status': 'success',
                     'pipeline_run_id': pipeline_run_id,
-                    'source': 'fallback',
+                    'source': 'legacy_cache',
                     'processors_count': len(df),
+                    'execution_time_seconds': round(time.time() - start_time, 2),
                     'timestamp': datetime.now().isoformat(),
                     'test_mode': test_mode,
-                    'warning': 'Used fallback processor data'
+                    'cache_age_days': round(file_age_days, 1),
+                    'warning': 'Used legacy cache system'
                 }
                 
-                logger.info(f"✅ Using fallback processor rankings: {len(df)} processors")
-        
-        return result
+                logger.info(f"✅ Using legacy cache: {len(df)} processors (age: {file_age_days:.1f} days)")
+                return result
+            else:
+                raise Exception("No processor data available and cache system unavailable")
         
     except Exception as e:
-        logger.error(f"❌ Processor rankings scraping failed: {str(e)}")
+        logger.error(f"❌ Processor rankings loading failed: {str(e)}")
         import traceback
         logger.error(f"   Error details: {traceback.format_exc()}")
         
@@ -239,7 +268,8 @@ def scrape_processor_rankings(pipeline_run_id: str, force_update: bool = False, 
             'error': str(e),
             'timestamp': datetime.now().isoformat(),
             'test_mode': test_mode,
-            'processors_count': 0
+            'processors_count': 0,
+            'execution_time_seconds': round(time.time() - start_time, 2)
         }
 
 def main():

@@ -133,6 +133,98 @@ class ProcessorRankingScraper:
         
         return key
     
+    def _scrape_page_fallback(self, page_number: int) -> List[Dict]:
+        """
+        Fallback method using requests instead of Selenium
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            url = f"https://nanoreview.net/en/soc-list/rating?page={page_number}"
+            self.logger.info(f"   🔄 Trying fallback method for page {page_number}")
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find the table
+            table = soup.find('table', class_='table-list')
+            if not table:
+                self.logger.info(f"   No table found on page {page_number} (fallback)")
+                return []
+            
+            rows = table.find_all('tr')[1:]  # Skip header
+            
+            if not rows:
+                self.logger.info(f"   No data rows found on page {page_number} (fallback)")
+                return []
+            
+            processors = []
+            
+            for row in rows:
+                try:
+                    cols = row.find_all('td')
+                    
+                    if len(cols) >= 8:
+                        # Extract data from columns
+                        rank_text = cols[0].get_text(strip=True).split('\n')[0]
+                        processor_text = cols[1].get_text(strip=True).split('\n')[0]
+                        rating_text = cols[2].get_text(strip=True)
+                        antutu_text = cols[3].get_text(strip=True).split('\n')[0]
+                        geekbench_text = cols[4].get_text(strip=True)
+                        cores_text = cols[5].get_text(strip=True)
+                        clock_text = cols[6].get_text(strip=True)
+                        gpu_text = cols[7].get_text(strip=True)
+                        
+                        # Clean and convert data
+                        try:
+                            rank = int(rank_text) if rank_text.isdigit() else None
+                        except ValueError:
+                            rank = None
+                        
+                        try:
+                            antutu = int(antutu_text.replace(",", "")) if antutu_text.replace(",", "").isdigit() else None
+                        except ValueError:
+                            antutu = None
+                        
+                        # Create processor record
+                        processor = {
+                            'rank': rank,
+                            'processor': processor_text,
+                            'rating': rating_text,
+                            'antutu10': antutu,
+                            'geekbench6': geekbench_text,
+                            'cores': cores_text,
+                            'clock': clock_text,
+                            'gpu': gpu_text,
+                            'company': self._extract_company(processor_text),
+                            'processor_key': self._create_processor_key(processor_text)
+                        }
+                        
+                        processors.append(processor)
+                        
+                except Exception as e:
+                    self.logger.warning(f"   Error processing row (fallback): {str(e)}")
+                    continue
+            
+            self.logger.info(f"   ✅ Fallback extracted {len(processors)} processors from page {page_number}")
+            return processors
+            
+        except Exception as e:
+            self.logger.error(f"   ❌ Fallback method failed for page {page_number}: {str(e)}")
+            return []
+    
     def scrape_page(self, page_number: int) -> List[Dict]:
         """
         Scrape a single page of processor rankings
@@ -158,7 +250,21 @@ class ProcessorRankingScraper:
             url = f"https://nanoreview.net/en/soc-list/rating?page={page_number}"
             self.logger.info(f"🔍 Scraping page {page_number}: {url}")
             
-            self.driver.get(url)
+            # Set page load timeout to prevent hanging
+            self.driver.set_page_load_timeout(10)
+            
+            try:
+                self.driver.get(url)
+            except Exception as e:
+                self.logger.warning(f"   Page load timeout or error for page {page_number}: {str(e)}")
+                
+                # Check if it's a blocking/403 error
+                if "403" in str(e) or "forbidden" in str(e).lower():
+                    self.logger.error("❌ Website is blocking requests (403 Forbidden)")
+                    return []
+                
+                # Try fallback method for other errors
+                return self._scrape_page_fallback(page_number)
             
             # Wait for the page to load (optimized timeout)
             wait = WebDriverWait(self.driver, 5)
@@ -261,7 +367,7 @@ class ProcessorRankingScraper:
             self.logger.error(f"❌ Error scraping page {page_number}: {str(e)}")
             return []
     
-    def scrape_all_pages(self, max_pages: Optional[int] = None) -> pd.DataFrame:
+    def scrape_all_pages(self, max_pages: Optional[int] = None, timeout_minutes: int = 5) -> pd.DataFrame:
         """
         Scrape all pages of processor rankings
         
@@ -275,21 +381,35 @@ class ProcessorRankingScraper:
         self.logger.info(f"   Max pages: {max_pages or 'ALL'}")
         rate_limit_msg = f"{self.requests_per_minute} requests/minute" if self.requests_per_minute > 0 else "NO RATE LIMIT (fast mode)"
         self.logger.info(f"   Rate limit: {rate_limit_msg}")
+        self.logger.info(f"   Timeout: {timeout_minutes} minutes")
         
         all_processors = []
         page = 1
         consecutive_empty_pages = 0
         max_consecutive_empty = 2  # Reduced from 3 to 2 for faster detection
+        start_time = time.time()
         
         try:
             while True:
+                # Check timeout
+                elapsed_minutes = (time.time() - start_time) / 60
+                if elapsed_minutes > timeout_minutes:
+                    self.logger.warning(f"⏰ Scraping timeout reached ({timeout_minutes} minutes)")
+                    self.logger.info(f"   Collected {len(all_processors)} processors before timeout")
+                    break
+                
                 # Check page limit
                 if max_pages and page > max_pages:
                     self.logger.info(f"🏁 Reached maximum page limit: {max_pages}")
                     break
                 
-                # Scrape page
-                processors = self.scrape_page(page)
+                # Scrape page with individual timeout
+                try:
+                    processors = self.scrape_page(page)
+                except Exception as e:
+                    self.logger.error(f"❌ Failed to scrape page {page}: {str(e)}")
+                    # Try fallback method
+                    processors = self._scrape_page_fallback(page)
                 
                 if not processors:
                     consecutive_empty_pages += 1
@@ -417,13 +537,14 @@ def save_to_database(df: pd.DataFrame, logger: logging.Logger) -> bool:
         return False
 
 def main():
-    """Main function for standalone execution"""
-    parser = argparse.ArgumentParser(description='Processor Rankings Scraper')
+    """Main function for standalone execution with caching strategy"""
+    parser = argparse.ArgumentParser(description='Processor Rankings Scraper with Smart Caching')
     parser.add_argument('--max-pages', type=int, help='Maximum pages to scrape')
     parser.add_argument('--output-file', default='pipeline/cache/processor_rankings.csv', help='Output CSV file')
     parser.add_argument('--force-update', type=str, default='false', help='Force update even if cache is fresh')
     parser.add_argument('--save-to-db', type=str, default='true', help='Save to database (requires DATABASE_URL)')
     parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARN', 'ERROR'], help='Logging level')
+    parser.add_argument('--cache-max-age', type=int, default=20, help='Maximum cache age in days')
     
     args = parser.parse_args()
     
@@ -434,29 +555,22 @@ def main():
     force_update = args.force_update.lower() == 'true'
     save_to_db = args.save_to_db.lower() == 'true'
     
-    logger.info(f"🔧 Processor Rankings Scraper")
-    logger.info(f"   Max pages: {args.max_pages or 'ALL'}")
-    logger.info(f"   Output file: {args.output_file}")
+    logger.info(f"🔧 Processor Rankings Scraper (Cache-First Strategy)")
+    logger.info(f"   Cache max age: {args.cache_max_age} days")
     logger.info(f"   Force update: {force_update}")
+    logger.info(f"   Output file: {args.output_file}")
     logger.info(f"   Save to database: {save_to_db}")
     
     try:
-        # Check if we should use cached data
-        if os.path.exists(args.output_file) and not force_update:
-            # Check file age
-            file_age_days = (time.time() - os.path.getmtime(args.output_file)) / (24 * 3600)
+        # Use the new cache-first data loader
+        from pipeline.loaders.processor_loader import ProcessorDataLoader
+        
+        loader = ProcessorDataLoader(max_cache_age_days=args.cache_max_age)
+        response = loader.load_processor_data(force_refresh=force_update)
+        
+        if response.success:
+            df = response.data
             
-            if file_age_days < 7:  # Use cache if less than 7 days old
-                logger.info(f"✅ Using cached data (age: {file_age_days:.1f} days)")
-                df = pd.read_csv(args.output_file)
-                logger.info(f"   Cached processors: {len(df)}")
-                return
-        
-        # Create scraper and run (no rate limit for faster scraping)
-        scraper = ProcessorRankingScraper(requests_per_minute=0)
-        df = scraper.scrape_all_pages(max_pages=args.max_pages)
-        
-        if not df.empty:
             # Ensure output directory exists
             os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
             
@@ -464,29 +578,32 @@ def main():
             df.to_csv(args.output_file, index=False)
             logger.info(f"💾 Saved {len(df)} processors to {args.output_file}")
             
-            # Save to database if requested
-            if save_to_db:
-                db_success = save_to_database(df, logger)
-                if db_success:
-                    logger.info("✅ Successfully saved to database")
-                else:
-                    logger.warning("⚠️ Failed to save to database (CSV file still available)")
-            else:
-                logger.info("ℹ️ Database save disabled")
+            # Log cache information
+            cache_info = response.cache_info
+            logger.info(f"📊 Data Info:")
+            logger.info(f"   Source: {cache_info.data_source}")
+            logger.info(f"   Age: {cache_info.cache_age_days:.1f} days")
+            logger.info(f"   Processors: {cache_info.total_processors}")
+            if response.fallback_used:
+                logger.warning(f"⚠️ Fallback used: {response.message}")
             
             # Show sample data
             logger.info("📊 Sample data:")
             for i, row in df.head(3).iterrows():
                 logger.info(f"   {row['rank']}. {row['processor']} ({row['company']}) - {row['rating']}")
+            
+            # Schedule next refresh
+            loader.schedule_next_refresh()
+            
         else:
-            logger.error("❌ No data scraped")
+            logger.error(f"❌ Failed to load processor data: {response.message}")
             sys.exit(1)
             
     except KeyboardInterrupt:
-        logger.info("⏹️ Scraping interrupted by user")
+        logger.info("⏹️ Operation interrupted by user")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"❌ Scraping failed: {str(e)}")
+        logger.error(f"❌ Operation failed: {str(e)}")
         import traceback
         logger.error(f"   Error details: {traceback.format_exc()}")
         sys.exit(1)
