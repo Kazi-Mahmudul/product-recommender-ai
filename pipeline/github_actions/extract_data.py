@@ -282,6 +282,9 @@ def main():
     
     args = parser.parse_args()
     
+    # Setup logging first
+    logger = setup_logging()
+    
     # Parse arguments
     max_pages = None
     if args.max_pages and args.max_pages.strip():
@@ -297,8 +300,6 @@ def main():
     
     skip_processor = args.skip_processor_rankings.lower() == 'true'
     test_mode = args.test_mode.lower() == 'true'
-    
-    logger = setup_logging()
     logger.info(f"🚀 Starting data extraction orchestrator")
     logger.info(f"   Pipeline Run ID: {args.pipeline_run_id}")
     logger.info(f"   Max pages: {max_pages or 'ALL'}")

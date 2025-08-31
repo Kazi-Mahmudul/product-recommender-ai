@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import UniversalResponseHandler from "../components/UniversalResponseHandler";
+import IntelligentResponseHandler from "../components/IntelligentResponseHandler";
 import {
   ChatContextManager,
   ChatContext,
 } from "../services/chatContextManager";
+import {
+  IntelligentContextManager,
+  ConversationContext
+} from "../services/intelligentContextManager";
 import { QueryEnhancer } from "../services/queryEnhancer";
 import { ErrorHandler } from "../services/errorHandler";
-import { AIResponseEnhancer } from "../services/aiResponseEnhancer";
+
+import { ErrorRecoveryService } from "../services/errorRecoveryService";
+import { ResponseCacheService } from "../services/responseCacheService";
+import { PerformanceOptimizer } from "../services/performanceOptimizer";
+import { SmartChatInitializer } from "../utils/smartChatInitializer";
 import { useMobileResponsive } from "../hooks/useMobileResponsive";
 import { useFeatureFlags } from "../utils/featureFlags";
 
@@ -37,19 +45,13 @@ if (API_BASE_URL.startsWith('http://')) {
   API_BASE_URL = API_BASE_URL.replace('http://', 'https://');
 }
 
-let GEMINI_API_URL = process.env.REACT_APP_GEMINI_API || 'http://localhost:3000';
-if (GEMINI_API_URL.startsWith('http://')) {
-  GEMINI_API_URL = GEMINI_API_URL.replace('http://', 'https://');
-}
-
-// Comparison-related functions moved to EnhancedComparison component
-
 const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const location = useLocation();
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string>("");
   const [showWelcome, setShowWelcome] = useState(true);
   const [chatContext, setChatContext] = useState<ChatContext>(() => {
     try {
@@ -58,15 +60,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       return ErrorHandler.handleContextError(err as Error);
     }
   });
+  
+  const [intelligentContext, setIntelligentContext] = useState<ConversationContext>(() => {
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    return IntelligentContextManager.createInitialContext(sessionId);
+  });
   const [retryCount, setRetryCount] = useState(0);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   useMobileResponsive();
   const featureFlags = useFeatureFlags();
 
-  // Create a stable callback for context updates to prevent infinite re-renders
-  const handleContextUpdate = useCallback((newContext: ChatContext) => {
-    setChatContext(newContext);
-  }, []);
+
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -99,34 +103,72 @@ How can I help you today?`,
     }
   }, [chatHistory.length, showWelcome]);
 
+  // Debounced input handler for better performance
+  const debouncedInputHandler = useCallback(
+    PerformanceOptimizer.debounce((value: string) => {
+      setMessage(value);
+    }, 150),
+    []
+  );
+
   const handleSendMessage = useCallback(
     async (initialMessage?: string) => {
       const messageToSend = initialMessage || message;
       if (!messageToSend.trim()) return;
 
-      // Enhance query with phone context if available
+      // Enhance query with intelligent context management
       let enhancedMessage = messageToSend;
-      if (featureFlags.contextManagement && chatContext) {
+      let contextRelevance = null;
+      
+      if (featureFlags.contextManagement) {
         try {
-          const recentPhoneContext = ChatContextManager.getRecentPhoneContext(
-            chatContext,
-            600000
-          ); // 10 minutes
-          const enhancementResult = QueryEnhancer.enhanceQuery(
+          // Use intelligent context analysis
+          contextRelevance = IntelligentContextManager.analyzeContextRelevance(
             messageToSend,
-            recentPhoneContext
+            intelligentContext
           );
 
-          if (enhancementResult.contextUsed) {
-            enhancedMessage = enhancementResult.enhancedQuery;
-            console.log(
-              "Query enhanced:",
-              QueryEnhancer.getEnhancementSummary(enhancementResult)
+          if (contextRelevance.is_relevant) {
+            enhancedMessage = IntelligentContextManager.buildContextualQuery(
+              messageToSend,
+              intelligentContext,
+              contextRelevance
             );
+            console.log("Query enhanced with intelligent context:", {
+              relevance_score: contextRelevance.relevance_score,
+              context_type: contextRelevance.context_type,
+              relevant_phones: contextRelevance.relevant_phones.length
+            });
+          }
+
+          // Detect topic shifts
+          const topicShift = IntelligentContextManager.detectTopicShift(
+            messageToSend,
+            intelligentContext
+          );
+
+          if (topicShift.shift_detected) {
+            console.log("Topic shift detected:", topicShift);
           }
         } catch (error) {
-          console.warn("Failed to enhance query with context:", error);
-          // Continue with original message if enhancement fails
+          console.warn("Failed to enhance query with intelligent context:", error);
+          // Fallback to basic context enhancement
+          try {
+            const recentPhoneContext = ChatContextManager.getRecentPhoneContext(
+              chatContext,
+              600000
+            );
+            const enhancementResult = QueryEnhancer.enhanceQuery(
+              messageToSend,
+              recentPhoneContext
+            );
+
+            if (enhancementResult.contextUsed) {
+              enhancedMessage = enhancementResult.enhancedQuery;
+            }
+          } catch (fallbackError) {
+            console.warn("Fallback context enhancement also failed:", fallbackError);
+          }
         }
       }
 
@@ -134,6 +176,7 @@ How can I help you today?`,
       setIsLoading(true);
       setError(null);
       setShowWelcome(false);
+      setProcessingStatus("Analyzing your query...");
 
       const newChatHistory = [
         ...chatHistory.filter((msg) => msg.user || msg.bot),
@@ -149,245 +192,216 @@ How can I help you today?`,
       };
 
       try {
-        // 1. Send to Gemini intent parser (use enhanced message)
-        const geminiRes = await fetch(`${GEMINI_API_URL}/parse-query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: enhancedMessage }),
+        // Use performance optimizer for parallel processing
+        const optimizedResult = await PerformanceOptimizer.optimizeQueryProcessing(
+          enhancedMessage,
+          intelligentContext,
+          async () => {
+            // Check cache first
+            setProcessingStatus("Checking for cached response...");
+            const cachedResponse = await ResponseCacheService.getCachedResponse(
+              enhancedMessage,
+              intelligentContext
+            );
+
+            if (cachedResponse) {
+              console.log("Using cached response");
+              return cachedResponse;
+            }
+
+            setProcessingStatus("Getting intelligent response...");
+            
+            // Make API call to backend
+            const backendRes = await fetch(
+              `${API_BASE_URL}/api/v1/natural-language/query`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  query: enhancedMessage,
+                  conversation_history: chatHistory.slice(-5).map(msg => ({
+                    user: msg.user,
+                    bot: typeof msg.bot === 'string' ? msg.bot : JSON.stringify(msg.bot)
+                  })),
+                  session_id: intelligentContext.session_metadata.session_id,
+                  context: {
+                    recent_topics: intelligentContext.recent_topics,
+                    mentioned_phones: intelligentContext.mentioned_phones.slice(0, 5),
+                    user_preferences: intelligentContext.user_preferences
+                  }
+                }),
+              }
+            );
+
+            if (!backendRes.ok) {
+              const err = await backendRes.json();
+              throw new Error(err.detail || "Failed to process query");
+            }
+
+            const responseData = await backendRes.json();
+            setProcessingStatus("Processing response...");
+
+            // Cache the response for future use (don't await to avoid blocking)
+            ResponseCacheService.cacheResponse(
+              enhancedMessage,
+              responseData,
+              intelligentContext
+            ).catch(error => console.warn("Failed to cache response:", error));
+
+            return responseData;
+          }
+        );
+
+        const { response: responseData, contextAnalysis, processingTime } = optimizedResult;
+        console.log(`Query processed in ${processingTime.toFixed(2)}ms with context analysis:`, contextAnalysis);
+
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          
+          // Set the response data directly - IntelligentResponseHandler will parse it
+          updated[updated.length - 1].bot = responseData;
+
+          // Update intelligent context if enabled
+          if (featureFlags.contextManagement) {
+            try {
+              // Detect topic shift for context update
+              const topicShift = IntelligentContextManager.detectTopicShift(
+                messageToSend,
+                intelligentContext
+              );
+
+              // Update intelligent context
+              const updatedIntelligentContext = IntelligentContextManager.updateConversationState(
+                intelligentContext,
+                messageToSend,
+                responseData,
+                topicShift.shift_detected ? topicShift : undefined
+              );
+
+              setIntelligentContext(updatedIntelligentContext);
+
+              // Also update legacy context for backward compatibility
+              messageForContext.bot = responseData;
+              const updatedLegacyContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedLegacyContext);
+            } catch (contextError) {
+              console.warn("Failed to update intelligent context:", contextError);
+              
+              // Fallback to legacy context update
+              messageForContext.bot = responseData;
+              const updatedContext = ChatContextManager.updateWithMessage(
+                chatContext,
+                messageForContext
+              );
+              setChatContext(updatedContext);
+            }
+          }
+          
+          return updated;
         });
 
-        if (!geminiRes.ok) {
-          const err = await geminiRes.json();
-          throw new Error(err.detail || "Failed to parse query");
-        }
-
-        const result = await geminiRes.json();
-
-        if (result.type === "recommendation") {
-          const phonesRes = await fetch(
-            `${API_BASE_URL}/api/v1/natural-language/query`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: enhancedMessage }),
-            }
-          );
-
-          if (!phonesRes.ok) {
-            const err = await phonesRes.json();
-            throw new Error(err.detail || "Failed to fetch phones");
-          }
-
-          const phoneData = await phonesRes.json();
-
-          setChatHistory((prev) => {
-            const updated = [...prev];
-            if (Array.isArray(phoneData)) {
-              // Recommendation response with phone data
-              updated[updated.length - 1].bot =
-                "Based on your query, here are some recommendations:";
-              // Extract phone objects from the recommendation response
-              const phones = phoneData.map((item) => item.phone || item);
-              updated[updated.length - 1].phones = phones;
-
-              // Update context with the complete message if enabled
-              if (featureFlags.contextManagement) {
-                messageForContext.bot = updated[updated.length - 1].bot;
-                messageForContext.phones = phones;
-                const updatedContext = ChatContextManager.updateWithMessage(
-                  chatContext,
-                  messageForContext
-                );
-                setChatContext(updatedContext);
-              }
-            } else if (phoneData.type === "qa" || phoneData.type === "chat") {
-              // QA or chat response
-              updated[updated.length - 1].bot = phoneData.data;
-
-              // Update context if enabled
-              if (featureFlags.contextManagement) {
-                messageForContext.bot = phoneData.data;
-                const updatedContext = ChatContextManager.updateWithMessage(
-                  chatContext,
-                  messageForContext
-                );
-                setChatContext(updatedContext);
-              }
-            } else if (phoneData.type === "comparison") {
-              // Comparison response
-              updated[updated.length - 1].bot = phoneData;
-
-              // Update context
-              messageForContext.bot = phoneData;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            } else if (phoneData.type === "concise_specs") {
-              // Handle concise specifications response
-              updated[updated.length - 1].bot = phoneData;
-
-              // Update context
-              messageForContext.bot = phoneData;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            } else {
-              // Fallback for other response types
-              updated[updated.length - 1].bot =
-                typeof phoneData === "string"
-                  ? phoneData
-                  : JSON.stringify(phoneData);
-
-              // Update context
-              messageForContext.bot = updated[updated.length - 1].bot;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            }
-            return updated;
-          });
-        } else {
-          // For non-recommendation queries, call the backend directly
-          const phonesRes = await fetch(
-            `${API_BASE_URL}/api/v1/natural-language/query`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: enhancedMessage }),
-            }
-          );
-
-          if (!phonesRes.ok) {
-            const err = await phonesRes.json();
-            throw new Error(err.detail || "Failed to process query");
-          }
-
-          const responseData = await phonesRes.json();
-
-          setChatHistory((prev) => {
-            const updated = [...prev];
-            // Handle different response types
-            if (responseData.type === "qa" || responseData.type === "chat") {
-              updated[updated.length - 1].bot = responseData.data;
-
-              // Update context
-              messageForContext.bot = responseData.data;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            } else if (responseData.type === "comparison") {
-              updated[updated.length - 1].bot = responseData;
-
-              // Update context
-              messageForContext.bot = responseData;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            } else if (responseData.type === "concise_specs") {
-              // Handle concise specifications response
-              updated[updated.length - 1].bot = responseData;
-
-              // Update context
-              messageForContext.bot = responseData;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            } else {
-              // Fallback for other response types
-              updated[updated.length - 1].bot =
-                typeof responseData === "string"
-                  ? responseData
-                  : JSON.stringify(responseData);
-
-              // Update context
-              messageForContext.bot = updated[updated.length - 1].bot;
-              const updatedContext = ChatContextManager.updateWithMessage(
-                chatContext,
-                messageForContext
-              );
-              setChatContext(updatedContext);
-            }
-            return updated;
-          });
-        }
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
 
-        // Use enhanced error handling if enabled
-        if (featureFlags.errorRecovery) {
-          const errorRecovery = ErrorHandler.handleError(error, chatContext);
+        // Use comprehensive error recovery
+        const errorContext = {
+          errorType: error.constructor.name,
+          originalQuery: messageToSend,
+          conversationContext: intelligentContext,
+          attemptCount: retryCount,
+          timestamp: new Date()
+        };
 
-          if (errorRecovery.retryAction && retryCount < 3) {
-            // Attempt retry
-            setRetryCount((prev) => prev + 1);
+        const recoveryStrategy = ErrorRecoveryService.analyzeError(error, errorContext);
+        
+        // Log error for monitoring
+        ErrorRecoveryService.logError(error, errorContext, recoveryStrategy);
+
+        // Attempt recovery if possible
+        if (recoveryStrategy.canRecover && retryCount < 3) {
+          setRetryCount((prev) => prev + 1);
+          
+          if (recoveryStrategy.recoveryType === 'retry' && recoveryStrategy.retryAction) {
             try {
-              await errorRecovery.retryAction();
-              // Retry the original request (use original message for retry to avoid double enhancement)
+              setProcessingStatus("Retrying with different approach...");
+              await recoveryStrategy.retryAction();
+              // Retry the original request
               handleSendMessage(messageToSend);
               return;
             } catch (retryError) {
-              // If retry fails, continue with error handling
+              console.warn("Retry failed:", retryError);
+              // Continue to fallback handling
+            }
+          } else if (recoveryStrategy.recoveryType === 'fallback' && recoveryStrategy.fallbackAction) {
+            try {
+              setProcessingStatus("Using fallback approach...");
+              const fallbackResponse = await recoveryStrategy.fallbackAction();
+              
+              setChatHistory((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1].bot = fallbackResponse;
+                return updated;
+              });
+              
+              setRetryCount(0);
+              return;
+            } catch (fallbackError) {
+              console.warn("Fallback failed:", fallbackError);
+              // Continue to error display
             }
           }
-
-          // Reset retry count on successful error handling
-          setRetryCount(0);
         }
 
-        // Generate enhanced error message if AI enhancements are enabled
-        const enhancedError = featureFlags.aiResponseEnhancements
-          ? AIResponseEnhancer.generateContextualErrorMessage(
-              error.message,
-              chatContext
-            )
-          : {
-              message: `Sorry, something went wrong: ${error.message}`,
-              suggestions: [],
-            };
+        // Reset retry count
+        setRetryCount(0);
 
-        setError(enhancedError.message);
+        // Display error message with recovery suggestions
+        const errorResponse = {
+          response_type: 'text',
+          content: {
+            text: recoveryStrategy.userMessage,
+            suggestions: recoveryStrategy.suggestions
+          },
+          formatting_hints: {
+            text_style: 'error',
+            show_suggestions: true
+          },
+          metadata: {
+            error: true,
+            recovery_type: recoveryStrategy.recoveryType
+          }
+        };
+
+        setError(recoveryStrategy.userMessage);
         setChatHistory((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1].bot = enhancedError.message;
+          updated[updated.length - 1].bot = JSON.stringify(errorResponse);
 
-          // Add error suggestions if available
-          if (
-            enhancedError.suggestions &&
-            enhancedError.suggestions.length > 0
-          ) {
-            updated[updated.length - 1].bot +=
-              `\n\nHere are some things you can try:\n${enhancedError.suggestions.map((s) => `• ${s}`).join("\n")}`;
-          }
-
-          // Update context even for error messages if context management is enabled
+          // Update context even for error messages
           if (featureFlags.contextManagement) {
-            messageForContext.bot = updated[updated.length - 1].bot;
-            const updatedContext = ChatContextManager.updateWithMessage(
-              chatContext,
-              messageForContext
-            );
-            setChatContext(updatedContext);
+            try {
+              const updatedIntelligentContext = IntelligentContextManager.updateConversationState(
+                intelligentContext,
+                messageToSend,
+                errorResponse
+              );
+              setIntelligentContext(updatedIntelligentContext);
+            } catch (contextError) {
+              console.warn("Failed to update context after error:", contextError);
+            }
           }
 
           return updated;
         });
       } finally {
         setIsLoading(false);
+        setProcessingStatus("");
       }
     },
-    [message, chatHistory, chatContext, featureFlags.aiResponseEnhancements, featureFlags.contextManagement, featureFlags.errorRecovery, retryCount]
+    [message, featureFlags.contextManagement, chatHistory, intelligentContext, chatContext, retryCount]
   );
 
   useEffect(() => {
@@ -396,15 +410,72 @@ How can I help you today?`,
     }
   }, [handleSendMessage, location.state]);
 
+  // Smart Chat System initialization on mount
+  useEffect(() => {
+    const initializeSmartChatSystem = async () => {
+      try {
+        console.log('🚀 Initializing Smart Chat Integration System...');
+        
+        const initResult = await SmartChatInitializer.initialize({
+          enableValidation: process.env.NODE_ENV === 'development',
+          enablePerformanceMonitoring: true,
+          enableCaching: true,
+          enableErrorRecovery: true,
+          cacheConfig: {
+            maxEntries: 50,
+            maxAge: 20 * 60 * 1000,
+            similarityThreshold: 0.8
+          },
+          performanceConfig: {
+            enableParallelProcessing: true,
+            enableRequestDebouncing: true,
+            maxConcurrentRequests: 2
+          }
+        });
+
+        if (initResult.success) {
+          console.log('✅ Smart Chat Integration System initialized successfully');
+          
+          // Log system status
+          const systemStatus = SmartChatInitializer.getSystemStatus();
+          console.log('📊 System Status:', systemStatus);
+          
+          // Show recommendations if any
+          const recommendations = SmartChatInitializer.getInitializationRecommendations();
+          if (recommendations.length > 0) {
+            console.log('💡 Recommendations:', recommendations);
+          }
+        } else {
+          console.error('❌ Smart Chat Integration System initialization failed');
+          console.error('Errors:', initResult.errors);
+          console.warn('Warnings:', initResult.warnings);
+        }
+
+        // Show validation report in development
+        if (process.env.NODE_ENV === 'development' && initResult.validationReport) {
+          console.log('🔍 Validation Report:', initResult.validationReport);
+        }
+
+      } catch (error) {
+        console.error('💥 Critical error during Smart Chat System initialization:', error);
+      }
+    };
+
+    initializeSmartChatSystem();
+
+    // Cleanup on unmount
+    return () => {
+      SmartChatInitializer.cleanup();
+    };
+  }, []);
+
   const handleSuggestionClick = (query: string) => {
     setShowWelcome(false);
     handleSendMessage(query);
   };
 
   return (
-    <div
-      className={`my-8 flex items-center justify-center min-h-screen`}
-    >
+    <div className="my-8 flex items-center justify-center min-h-screen">
       <div
         className={`w-full max-w-3xl mx-auto my-8 rounded-2xl shadow-xl ${darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"} border flex flex-col`}
       >
@@ -451,14 +522,14 @@ How can I help you today?`,
                   </div>
                 )}
 
-                {/* Handle all response types with UniversalResponseHandler */}
+                {/* Handle all response types with IntelligentResponseHandler */}
                 <div className="flex justify-start">
-                  <UniversalResponseHandler
+                  <IntelligentResponseHandler
                     response={chat.bot}
                     darkMode={darkMode}
                     originalQuery={chat.user || ""}
-                    chatContext={chatContext}
-                    onContextUpdate={handleContextUpdate}
+                    chatContext={intelligentContext}
+                    onContextUpdate={(newContext) => setIntelligentContext(newContext)}
                     onSuggestionClick={
                       featureFlags.enhancedSuggestions
                         ? (suggestion) => {
@@ -500,6 +571,20 @@ How can I help you today?`,
                   />
                 </div>
 
+                {/* Processing Status */}
+                {isLoading && processingStatus && (
+                  <div className="flex justify-start mt-2">
+                    <div className={`rounded-lg px-3 py-2 text-xs ${
+                      darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-brand"></div>
+                        <span>{processingStatus}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Welcome Suggestions */}
                 {index === 0 && showWelcome && (
                   <div className="flex flex-wrap gap-2 mt-4 justify-center">
@@ -535,7 +620,14 @@ How can I help you today?`,
               <input
                 type="text"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  // Use debounced handler for better performance
+                  if (e.target.value.length > 50) {
+                    debouncedInputHandler(e.target.value);
+                  } else {
+                    setMessage(e.target.value);
+                  }
+                }}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                 className={`flex-1 bg-transparent text-base focus:outline-none placeholder-gray-400 ${
                   darkMode ? "text-white" : "text-gray-900"
@@ -587,7 +679,7 @@ How can I help you today?`,
                 )}
               </button>
             </div>
-                        {error && (
+            {error && (
               <p className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
                 {error}
               </p>

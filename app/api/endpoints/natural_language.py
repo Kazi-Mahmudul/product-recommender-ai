@@ -21,6 +21,12 @@ from app.services.error_handler import (
     handle_contextual_error, create_error_response, PhoneResolutionError,
     ExternalServiceError, ValidationError
 )
+from app.services.ai_service_client import (
+    ai_service_client, AIServiceRequest, AIServiceResponse, AIServiceError
+)
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -43,6 +49,21 @@ class ExplicitContextualQueryRequest(BaseModel):
 
 class PhoneResolutionRequest(BaseModel):
     phone_names: List[str]
+
+class IntelligentQueryRequest(BaseModel):
+    """Enhanced request model for intelligent query processing"""
+    query: str
+    conversation_history: Optional[List[Dict[str, str]]] = None
+    session_id: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+
+class IntelligentQueryResponse(BaseModel):
+    """Enhanced response model for intelligent query processing"""
+    response_type: str
+    content: Dict[str, Any]
+    formatting_hints: Optional[Dict[str, Any]] = None
+    context_updates: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 # This endpoint was moved to the main health check endpoint
 # @router.get("/health")
@@ -528,457 +549,527 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
         "focus_area": focus_area
     }
 
-@router.post("/query")
-async def process_natural_language_query(
-    request: ContextualQueryRequest,
+async def process_intelligent_query(
+    request: IntelligentQueryRequest,
+    db: Session
+) -> IntelligentQueryResponse:
+    """
+    Main intelligent query processing function that leverages the AI service
+    for truly smart, contextual responses to any user query.
+    """
+    try:
+        # Prepare AI service request
+        ai_request = AIServiceRequest(
+            query=request.query,
+            context=request.context,
+            session_id=request.session_id,
+            conversation_history=request.conversation_history
+        )
+        
+        # Enhance query with context if beneficial
+        enhanced_query = ai_service_client.enhance_query_with_context(
+            request.query,
+            request.conversation_history
+        )
+        ai_request.query = enhanced_query
+        
+        # Call the intelligent AI service
+        ai_response = await ai_service_client.call_ai_service(ai_request)
+        
+        # Parse and format the AI response
+        formatted_response = await parse_ai_response(ai_response, db)
+        
+        return formatted_response
+        
+    except AIServiceError as e:
+        # Handle AI service errors gracefully
+        return create_fallback_response(request.query, str(e))
+    except Exception as e:
+        # Handle unexpected errors
+        logger.error(f"Unexpected error in intelligent query processing: {str(e)}")
+        return create_fallback_response(request.query, "An unexpected error occurred")
+
+async def parse_ai_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
+    """
+    Intelligently parse any AI service response and format it for optimal frontend consumption.
+    """
+    response_type = ai_response.type
+    
+    if response_type == "recommendation":
+        return await handle_recommendation_response(ai_response, db)
+    elif response_type == "qa":
+        return handle_qa_response(ai_response)
+    elif response_type == "comparison":
+        return await handle_comparison_response(ai_response, db)
+    elif response_type == "chat":
+        return handle_chat_response(ai_response)
+    elif response_type == "drill_down":
+        return await handle_drill_down_response(ai_response, db)
+    else:
+        # Handle unknown response types intelligently
+        return handle_unknown_response(ai_response)
+
+async def handle_recommendation_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
+    """Handle recommendation responses from the AI service"""
+    filters = ai_response.filters or {}
+    
+    # Get phone recommendations based on AI-determined filters
+    phones = phone_crud.get_phones_by_filters(db, filters, limit=10)
+    
+    # Format phones for frontend display
+    formatted_phones = []
+    for phone in phones:
+        phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
+        formatted_phones.append({
+            "id": phone_dict.get("id"),
+            "name": phone_dict.get("name"),
+            "brand": phone_dict.get("brand"),
+            "price": phone_dict.get("price_original"),
+            "image": phone_dict.get("img_url"),
+            "key_specs": {
+                "ram": f"{phone_dict.get('ram_gb', 'N/A')}GB",
+                "storage": f"{phone_dict.get('storage_gb', 'N/A')}GB",
+                "camera": f"{phone_dict.get('primary_camera_mp', 'N/A')}MP",
+                "battery": f"{phone_dict.get('battery_capacity_numeric', 'N/A')}mAh"
+            },
+            "scores": {
+                "overall": phone_dict.get("overall_device_score", 0),
+                "camera": phone_dict.get("camera_score", 0),
+                "battery": phone_dict.get("battery_score", 0),
+                "performance": phone_dict.get("performance_score", 0)
+            }
+        })
+    
+    # Create intelligent response text
+    response_text = ai_response.reasoning or "Here are some great phone recommendations based on your requirements:"
+    
+    return IntelligentQueryResponse(
+        response_type="recommendations",
+        content={
+            "text": response_text,
+            "phones": formatted_phones,
+            "filters_applied": filters
+        },
+        formatting_hints={
+            "display_as": "cards",
+            "show_comparison": len(formatted_phones) > 1,
+            "highlight_specs": True
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence,
+            "phone_count": len(formatted_phones)
+        }
+    )
+
+def handle_qa_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
+    """Handle Q&A responses from the AI service"""
+    response_text = ai_response.data or ai_response.content or "I'm here to help with your smartphone questions!"
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": response_text,
+            "suggestions": ai_response.suggestions or []
+        },
+        formatting_hints={
+            "text_style": "conversational",
+            "show_suggestions": bool(ai_response.suggestions)
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence
+        }
+    )
+
+async def handle_comparison_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
+    """Handle comparison responses from the AI service"""
+    phone_names = ai_response.data if isinstance(ai_response.data, list) else []
+    
+    if not phone_names:
+        return IntelligentQueryResponse(
+            response_type="text",
+            content={"text": "I couldn't identify specific phones to compare. Could you please mention the phone names?"},
+            formatting_hints={"text_style": "error"}
+        )
+    
+    # Generate comparison using existing logic but with AI context
+    comparison_data = generate_comparison_response(db, "", phone_names=phone_names)
+    
+    if isinstance(comparison_data, dict) and comparison_data.get("error"):
+        return IntelligentQueryResponse(
+            response_type="text",
+            content={"text": comparison_data["error"]},
+            formatting_hints={"text_style": "error"}
+        )
+    
+    return IntelligentQueryResponse(
+        response_type="comparison",
+        content=comparison_data,
+        formatting_hints={
+            "display_as": "comparison_chart",
+            "show_summary": True
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence
+        }
+    )
+
+def handle_chat_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
+    """Handle general chat responses from the AI service"""
+    response_text = ai_response.data or ai_response.content or "I'm here to help you with smartphone questions!"
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": response_text,
+            "suggestions": ai_response.suggestions or []
+        },
+        formatting_hints={
+            "text_style": "conversational",
+            "show_suggestions": bool(ai_response.suggestions)
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence
+        }
+    )
+
+async def handle_drill_down_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
+    """Handle drill-down responses from the AI service"""
+    command = ai_response.command or "detail_focus"
+    target = ai_response.target or "specifications"
+    
+    # Generate appropriate drill-down content based on command
+    if command == "full_specs":
+        content_text = "Here are the detailed specifications you requested:"
+    elif command == "chart_view":
+        content_text = "Here's a detailed comparison chart:"
+    else:
+        content_text = f"Here are more details about {target}:"
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": ai_response.data or content_text,
+            "drill_down_options": [
+                {
+                    "label": "Full Specifications",
+                    "command": "full_specs",
+                    "target": "all_specs"
+                },
+                {
+                    "label": "Comparison Chart",
+                    "command": "chart_view",
+                    "target": "comparison"
+                }
+            ]
+        },
+        formatting_hints={
+            "text_style": "detailed",
+            "show_drill_down": True
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence
+        }
+    )
+
+def handle_unknown_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
+    """Handle unknown response types intelligently"""
+    # Try to extract meaningful content from unknown response
+    content_text = "I'm here to help with your smartphone questions!"
+    
+    if ai_response.data:
+        if isinstance(ai_response.data, str):
+            content_text = ai_response.data
+        else:
+            content_text = str(ai_response.data)
+    elif ai_response.content:
+        if isinstance(ai_response.content, str):
+            content_text = ai_response.content
+        else:
+            content_text = str(ai_response.content)
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": content_text,
+            "suggestions": ai_response.suggestions or [
+                "Ask me about phone recommendations",
+                "Compare different smartphones",
+                "Get phone specifications"
+            ]
+        },
+        formatting_hints={
+            "text_style": "conversational",
+            "show_suggestions": True
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence or 0.5,
+            "original_type": ai_response.type
+        }
+    )
+
+def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
+    """Create a fallback response when AI service is unavailable"""
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": f"I'm having trouble processing your request right now. {error_message}",
+            "suggestions": [
+                "Try asking about phone recommendations",
+                "Ask for phone comparisons",
+                "Request specific phone information"
+            ]
+        },
+        formatting_hints={
+            "text_style": "error",
+            "show_suggestions": True
+        },
+        metadata={
+            "fallback": True,
+            "error": error_message
+        }
+    )
+
+@router.post("/intelligent-query")
+async def intelligent_query_endpoint(
+    request: IntelligentQueryRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Enhanced natural language query processing with contextual awareness
+    Enhanced intelligent query processing endpoint that leverages the AI service
+    for truly smart, contextual responses to any user query.
+    """
+    try:
+        response = await process_intelligent_query(request, db)
+        return response.dict()
+    except Exception as e:
+        logger.error(f"Error in intelligent query endpoint: {str(e)}")
+        fallback_response = create_fallback_response(request.query, str(e))
+        return fallback_response.dict()
+
+# Update the main query endpoint to use intelligent processing
+@router.post("/query")
+async def enhanced_natural_language_query(
+    request: IntelligentQueryRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Enhanced natural language query endpoint that uses intelligent AI service integration.
+    This replaces the old limited processing with smart, contextual responses.
+    """
+    try:
+        # Use the intelligent query processing
+        response = await process_intelligent_query(request, db)
+        
+        # Convert to the expected format for backward compatibility
+        if response.response_type == "recommendations":
+            # Return phone recommendations in the expected format
+            phones = response.content.get("phones", [])
+            return [{"phone": phone} for phone in phones]
+        elif response.response_type == "comparison":
+            # Return comparison data directly
+            return response.content
+        elif response.response_type == "text":
+            # Return text responses
+            return {
+                "type": "qa",
+                "data": response.content.get("text", ""),
+                "suggestions": response.content.get("suggestions", [])
+            }
+        else:
+            # Return the full intelligent response
+            return response.dict()
+            
+    except Exception as e:
+        logger.error(f"Error in enhanced natural language query: {str(e)}")
+        # Fallback to basic error response
+        return {
+            "type": "qa",
+            "data": f"I'm having trouble processing your request: {str(e)}",
+            "suggestions": ["Try rephrasing your question", "Ask about phone recommendations"]
+        }
+
+async def handle_drill_down_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
+    """Handle drill-down responses from the AI service"""
+    command = ai_response.command or "detail_focus"
+    target = ai_response.target or "specifications"
+    
+    # Generate appropriate drill-down content based on command
+    if command == "full_specs":
+        content_text = "Here are the detailed specifications you requested:"
+    elif command == "chart_view":
+        content_text = "Here's a detailed comparison chart:"
+    else:
+        content_text = f"Here are more details about {target}:"
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": ai_response.data or content_text,
+            "drill_down_options": [
+                {
+                    "label": "Full Specifications",
+                    "command": "full_specs",
+                    "target": "all_specs"
+                },
+                {
+                    "label": "Comparison Chart",
+                    "command": "chart_view",
+                    "target": "comparison"
+                }
+            ]
+        },
+        formatting_hints={
+            "text_style": "detailed",
+            "show_drill_down": True
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence
+        }
+    )
+
+def handle_unknown_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
+    """Handle unknown response types intelligently"""
+    # Try to extract meaningful content from unknown response
+    content_text = "I'm here to help with your smartphone questions!"
+    
+    if ai_response.data:
+        if isinstance(ai_response.data, str):
+            content_text = ai_response.data
+        else:
+            content_text = str(ai_response.data)
+    elif ai_response.content:
+        if isinstance(ai_response.content, str):
+            content_text = ai_response.content
+        else:
+            content_text = str(ai_response.content)
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": content_text,
+            "suggestions": ai_response.suggestions or [
+                "Ask me about phone recommendations",
+                "Compare different smartphones",
+                "Get phone specifications"
+            ]
+        },
+        formatting_hints={
+            "text_style": "conversational",
+            "show_suggestions": True
+        },
+        metadata={
+            "ai_confidence": ai_response.confidence or 0.5,
+            "original_type": ai_response.type
+        }
+    )
+
+def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
+    """Create a fallback response when AI service is unavailable"""
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": f"I'm having trouble processing your request right now. {error_message}",
+            "suggestions": [
+                "Try asking about phone recommendations",
+                "Ask for phone comparisons",
+                "Request specific phone information"
+            ]
+        },
+        formatting_hints={
+            "text_style": "error",
+            "show_suggestions": True
+        },
+        metadata={
+            "fallback": True,
+            "error": error_message
+        }
+    )
+
+@router.post("/intelligent-query")
+async def intelligent_query_endpoint(
+    request: IntelligentQueryRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Enhanced intelligent query processing endpoint that leverages the AI service
+    for truly smart, contextual responses to any user query.
+    """
+    try:
+        response = await process_intelligent_query(request, db)
+        return response.dict()
+    except Exception as e:
+        logger.error(f"Error in intelligent query endpoint: {str(e)}")
+        fallback_response = create_fallback_response(request.query, str(e))
+        return fallback_response.dict()
+
+# Update the main query endpoint to use intelligent processing
+@router.post("/query")
+async def enhanced_natural_language_query(
+    request: IntelligentQueryRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Enhanced natural language query endpoint that uses intelligent AI service integration.
+    This replaces the old limited processing with smart, contextual responses.
+    """
+    try:
+        # Use the intelligent query processing
+        response = await process_intelligent_query(request, db)
+        
+        # Convert to the expected format for backward compatibility
+        if response.response_type == "recommendations":
+            # Return phone recommendations in the expected format
+            phones = response.content.get("phones", [])
+            return [{"phone": phone} for phone in phones]
+        elif response.response_type == "comparison":
+            # Return comparison data directly
+            return response.content
+        elif response.response_type == "text":
+            # Return text responses
+            return {
+                "type": "qa",
+                "data": response.content.get("text", ""),
+                "suggestions": response.content.get("suggestions", [])
+            }
+        else:
+            # Return the full intelligent response
+            return response.dict()
+            
+    except Exception as e:
+        logger.error(f"Error in enhanced natural language query: {str(e)}")
+        # Fallback to basic error response
+        return {
+            "type": "qa",
+            "data": f"I'm having trouble processing your request: {str(e)}",
+            "suggestions": ["Try rephrasing your question", "Ask about phone recommendations"]
+        }
+
+async def process_legacy_query(request: ContextualQueryRequest, db: Session):
+    """
+    Legacy query processing as fallback when intelligent processing fails
     """
     query = request.query
-    session_id = request.session_id or str(uuid.uuid4())
-    context_str = request.context
+    
     try:
-        print(f"Processing query: {query}")
-        print(f"Gemini service URL: {settings.GEMINI_SERVICE_URL}")
-        
-        # Call Gemini service to parse the query
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    f"{settings.GEMINI_SERVICE_URL}/parse-query",
-                    json={"query": query}
-                )
-                print(f"Gemini response status: {response.status_code}")
-                
-                if response.status_code != 200:
-                    error_text = await response.text()
-                    print(f"Gemini service error: {error_text}")
-                    return JSONResponse(content={"error": f"I'm having trouble processing your query right now. Please try again in a moment. (Error: {response.status_code})"}, status_code=500)
-                
-                result = response.json()
-                print(f"Gemini response: {result}")
-                
-                # Handle different response formats
-                if result.get("type") == "recommendation":
-                    filters = result.get("filters", {})
-                    print(f"Processing recommendation with filters: {filters}")
-                    
-                    # Check if this is a contextual query and enhance filters
-                    contextual_intent = contextual_processor.process_contextual_query(db, query)
-                    if contextual_intent.get("is_contextual"):
-                        print(f"[CONTEXTUAL] Detected contextual query: {contextual_intent.get('type')}")
-                        contextual_filters = contextual_processor.generate_contextual_filters(contextual_intent)
-                        print(f"[CONTEXTUAL] Generated contextual filters: {contextual_filters}")
-                        
-                        # Merge contextual filters with Gemini filters
-                        filters.update(contextual_filters)
-                        
-                        # Add contextual information to response
-                        filters["_contextual_info"] = {
-                            "is_contextual": True,
-                            "intent_type": contextual_intent.get("type"),
-                            "reference_phones": [rp["reference"]["full_name"] for rp in contextual_intent.get("resolved_phones", []) if rp["found"]],
-                            "relationship": contextual_intent.get("relationship"),
-                            "focus_area": contextual_intent.get("focus_area")
-                        }
-                    
-                    # --- FALLBACK: Extract price constraints from query if missing ---
-                    if not filters.get("max_price"):
-                        match = re.search(r"(?:under|below|less than|up to|maximum|<=|<)\s*([0-9,]+)", query, re.IGNORECASE)
-                        if match:
-                            price = float(match.group(1).replace(",", ""))
-                            filters["max_price"] = price
-                            print(f"[Fallback] Extracted max_price from query: {price}")
-                    if not filters.get("min_price"):
-                        match = re.search(r"(?:over|above|more than|at least|minimum|>=|>)\s*([0-9,]+)", query, re.IGNORECASE)
-                        if match:
-                            price = float(match.group(1).replace(",", ""))
-                            filters["min_price"] = price
-                            print(f"[Fallback] Extracted min_price from query: {price}")
-                    print(f"[DEBUG] Final filters for recommendation: {filters}")
-                    
-                    # Proceed with recommendation processing here instead of after the if/elif blocks
-                elif result.get("type") == "qa":
-                    print("Processing QA query")
-                    return JSONResponse(content={"type": "qa", "data": generate_qa_response(db, query)})
-                elif result.get("type") == "comparison":
-                    print("Processing comparison query")
-                    # Use Gemini's data if it's a list of phone names, else fallback to query
-                    phone_names = []
-                    if isinstance(result.get("data"), list):
-                        phone_names = result["data"]
-                    else:
-                        phone_names = None  # fallback to extract from query in generate_comparison_response
-                    comparison = generate_comparison_response(db, query, phone_names=phone_names)
-                    if isinstance(comparison, dict) and comparison.get("error"):
-                        return JSONResponse(content=comparison, status_code=400)
-                    return JSONResponse(content=comparison)
-                elif result.get("type") == "drill_down":
-                    print("Processing drill-down query")
-                    from app.services.drill_down_handler import DrillDownHandler
-                    
-                    command = result.get("command")
-                    target = result.get("target")
-                    
-                    # Extract phone names from the query itself for drill-down commands
-                    phone_names = extract_phone_names_from_query(query)
-                    
-                    # If no phone names found in query, try to get from context if provided
-                    if not phone_names and context_str:
-                        try:
-                            context_data = json.loads(context_str) if context_str else {}
-                            if context_data.get("current_phones"):
-                                phone_names = [phone.get("name") for phone in context_data["current_phones"]]
-                        except json.JSONDecodeError:
-                            print("Invalid context JSON for drill-down")
-                    
-                    drill_down_response = DrillDownHandler.process_drill_down_command(
-                        db=db,
-                        command=command,
-                        target=target,
-                        phone_names=phone_names,
-                        context={"current_phones": [{"name": name} for name in phone_names]} if phone_names else None
-                    )
-                    
-                    return JSONResponse(content=drill_down_response)
-                elif result.get("type") == "chat":
-                    print("Processing chat query")
-                    return JSONResponse(content={"type": "chat", "data": result.get("data", "I'm here to help you with smartphone questions!")})
-                else:
-                    print(f"Unknown response type: {result.get('type')}")
-                    filters = result.get("filters", {})
-                    if not filters:
-                        return JSONResponse(content={"error": "I'm here to help you with smartphone questions! What would you like to know?"}, status_code=400)
-            except httpx.ConnectError as e:
-                print(f"Connection error to Gemini service: {e}")
-                return JSONResponse(content={"error": "I'm having trouble connecting to my AI service right now. Please try again in a moment."}, status_code=500)
-            except httpx.TimeoutException as e:
-                print(f"Timeout error to Gemini service: {e}")
-                return JSONResponse(content={"error": "The AI service is taking too long to respond. Please try again in a moment."}, status_code=500)
-            except Exception as e:
-                print(f"Unexpected error calling Gemini service: {e}")
-                return JSONResponse(content={"error": "I'm experiencing some technical difficulties. Please try again in a moment."}, status_code=500)
-
-        # If user requests full specification, return all columns for the matched phone
-        if filters.get("full_spec") and filters.get("name"):
-            from app.models.phone import Phone as PhoneModel
-            import logging
-            logging.warning(f"Full spec query: filters={filters}")
-            phone = db.query(PhoneModel).filter(PhoneModel.name.ilike(f"%{filters['name']}%"))
-            results = phone.all()
-            logging.warning(f"Full spec DB results count: {len(results)}")
-            if not results:
-                # Try matching by model as fallback
-                if hasattr(PhoneModel, 'model'):
-                    phone = db.query(PhoneModel).filter(PhoneModel.model.ilike(f"%{filters['name']}%"))
-                    results = phone.all()
-                    logging.warning(f"Full spec fallback by model results count: {len(results)}")
-            return JSONResponse(content=[phone_crud.phone_to_dict(r) for r in results])
-
-        try:
-            # Use the parsed filters to get recommendations
-            recommendations = phone_crud.get_smart_recommendations(
-                db=db,
-                min_display_score=filters.get("min_display_score"),
-                max_display_score=filters.get("max_display_score"),
-                min_camera_score=filters.get("min_camera_score"),
-                max_camera_score=filters.get("max_camera_score"),
-                min_battery_score=filters.get("min_battery_score"),
-                max_battery_score=filters.get("max_battery_score"),
-                min_performance_score=filters.get("min_performance_score"),
-                max_performance_score=filters.get("max_performance_score"),
-                min_security_score=filters.get("min_security_score"),
-                max_security_score=filters.get("max_security_score"),
-                min_connectivity_score=filters.get("min_connectivity_score"),
-                max_connectivity_score=filters.get("max_connectivity_score"),
-                min_overall_device_score=filters.get("min_overall_device_score"),
-                max_overall_device_score=filters.get("max_overall_device_score"),
-                min_ram_gb=filters.get("min_ram_gb"),
-                max_ram_gb=filters.get("max_ram_gb"),
-                min_storage_gb=filters.get("min_storage_gb"),
-                max_storage_gb=filters.get("max_storage_gb"),
-                min_price=filters.get("min_price"),
-                max_price=filters.get("max_price"),
-                brand=filters.get("brand"),
-                min_refresh_rate_numeric=filters.get("min_refresh_rate_numeric"),
-                max_refresh_rate_numeric=filters.get("max_refresh_rate_numeric"),
-                min_screen_size_numeric=filters.get("min_screen_size_numeric"),
-                max_screen_size_numeric=filters.get("max_screen_size_numeric"),
-                min_battery_capacity_numeric=filters.get("min_battery_capacity_numeric"),
-                max_battery_capacity_numeric=filters.get("max_battery_capacity_numeric"),
-                min_primary_camera_mp=filters.get("min_primary_camera_mp"),
-                max_primary_camera_mp=filters.get("max_primary_camera_mp"),
-                min_selfie_camera_mp=filters.get("min_selfie_camera_mp"),
-                max_selfie_camera_mp=filters.get("max_selfie_camera_mp"),
-                min_camera_count=filters.get("min_camera_count"),
-                max_camera_count=filters.get("max_camera_count"),
-                has_fast_charging=filters.get("has_fast_charging"),
-                has_wireless_charging=filters.get("has_wireless_charging"),
-                is_popular_brand=filters.get("is_popular_brand"),
-                is_new_release=filters.get("is_new_release"),
-                is_upcoming=filters.get("is_upcoming"),
-                display_type=filters.get("display_type"),
-                camera_setup=filters.get("camera_setup"),
-                battery_type=filters.get("battery_type"),
-                chipset=filters.get("chipset"),
-                operating_system=filters.get("operating_system"),
-                price_category=filters.get("price_category"),
-                min_ppi_numeric=filters.get("min_ppi_numeric"),
-                max_ppi_numeric=filters.get("max_ppi_numeric"),
-                limit=filters.get("limit")
-            )
-            print(f"[DEBUG] Recommendations found: {len(recommendations)}")
-
-            # Format recommendations properly
-            formatted_recommendations = []
-            for phone_data in recommendations:
-                formatted_recommendations.append({
-                    "phone": phone_data,
-                    "score": phone_data.get("overall_device_score", 0),
-                    "match_reason": f"Matches your search criteria"
-                })
-            
-            print(f"[DEBUG] Formatted recommendations: {len(formatted_recommendations)}")
-            
-            # Filter out invalid recommendations (no id or id <= 0)
-            valid_recommendations = [rec for rec in formatted_recommendations if rec["phone"] and isinstance(rec["phone"].get("id"), int) and rec["phone"]["id"] > 0]
-            skipped = len(formatted_recommendations) - len(valid_recommendations)
-            if skipped > 0:
-                print(f"Filtered out {skipped} invalid recommendations before returning response.")
-
-            # If no recommendations found, return a helpful message
-            if not valid_recommendations:
-                return JSONResponse(content={"type": "chat", "data": "I couldn't find any phones matching your criteria. Try adjusting your search parameters."})
-                
-            # If limit is not specified in the query but we have results, return top 3 by default for better UX
-            if filters.get("limit") is None and valid_recommendations:
-                return JSONResponse(content=valid_recommendations[:3])
-            return JSONResponse(content=valid_recommendations)
-        except Exception as e:
-            print(f"Database error: {e}")
-            return JSONResponse(content={"error": "I'm having trouble accessing the phone database right now. Please try again in a moment."}, status_code=500)
-
-    except httpx.HTTPError as e:
-        print(f"HTTP error: {e}")
-        return JSONResponse(content={"error": "I'm having trouble processing your query right now. Please try again in a moment."}, status_code=500)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        return JSONResponse(content={"error": "I'm experiencing some technical difficulties. Please try again in a moment."}, status_code=500)
-
-@router.post("/contextual-query")
-async def process_contextual_query(
-    request: ExplicitContextualQueryRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Process contextual natural language query with explicit phone references
-    """
-    try:
-        query = request.query
-        referenced_phones = request.referenced_phones or []
-        context_type = request.context_type
-        session_id = request.session_id or str(uuid.uuid4())
-        
-        print(f"Processing contextual query: {query}")
-        print(f"Referenced phones: {referenced_phones}")
-        print(f"Context type: {context_type}")
-        
-        # Initialize contextual processor with session
-        processor = ContextualQueryProcessor(session_id=session_id)
-        
-        # Process the contextual query using enhanced processing
-        result = processor.process_contextual_query_enhanced(db, query, session_id)
-        
-        # Add contextual metadata
-        result["contextual_query"] = True
-        result["referenced_phones"] = referenced_phones
-        result["context_type"] = context_type
-        result["original_query"] = query
-        result["session_id"] = session_id
-        
-        return JSONResponse(content=result)
-        
-    except Exception as e:
-        print(f"Error processing contextual query: {e}")
-        return JSONResponse(
-            content={"error": "I'm having trouble processing your contextual query. Please try rephrasing."},
-            status_code=500
-        )
-
-@router.get("/parse-intent")
-async def parse_query_intent(
-    query: str = Query(..., description="Query to parse for intent"),
-    context: Optional[str] = Query(None, description="Optional context information")
-):
-    """
-    Parse query intent and extract contextual information
-    """
-    try:
-        print(f"Parsing intent for query: {query}")
-        
-        # Initialize processor
-        processor = ContextualQueryProcessor()
-        
-        # Parse context if provided
-        context_data = None
-        if context:
-            try:
-                context_data = json.loads(context)
-            except json.JSONDecodeError:
-                print(f"Invalid context JSON: {context}")
-        
-        # Extract phone references (mock db for intent parsing)
-        mock_db = None
-        resolved_phones = []
-        
-        # For intent parsing, we'll use a simplified approach
-        phone_refs = processor.extract_phone_references(query)
-        
-        # Classify intent using enhanced method
-        intent = processor.classify_query_intent_enhanced(query, resolved_phones, context_data)
-        
-        return JSONResponse(content={
-            "intent_type": intent.query_type,
-            "confidence": intent.confidence,
-            "relationship": intent.relationship,
-            "focus_area": intent.focus_area,
-            "phone_references": phone_refs,
-            "context_metadata": intent.context_metadata,
-            "original_query": intent.original_query,
-            "processed_query": intent.processed_query
-        })
-        
-    except Exception as e:
-        print(f"Error parsing query intent: {e}")
-        return JSONResponse(
-            content={"error": "I'm having trouble parsing your query intent."},
-            status_code=500
-        )
-
-@router.post("/resolve-phones")
-async def resolve_phone_names(
-    request: PhoneResolutionRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Resolve phone names to database objects
-    """
-    try:
-        phone_names = request.phone_names
-        print(f"Resolving phone names: {phone_names}")
-        
-        # Use phone name resolver
-        resolved_phones = phone_name_resolver.resolve_phone_names(phone_names, db)
-        
-        # Format response
-        results = []
-        for resolved_phone in resolved_phones:
-            results.append({
-                "original_reference": resolved_phone.original_reference,
-                "matched_phone": resolved_phone.matched_phone,
-                "confidence_score": resolved_phone.confidence_score,
-                "match_type": resolved_phone.match_type,
-                "alternative_matches": resolved_phone.alternative_matches
-            })
-        
-        # Add suggestions for failed resolutions
-        failed_names = []
-        for name in phone_names:
-            if not any(r["original_reference"] == name for r in results):
-                failed_names.append(name)
-        
-        suggestions = {}
-        for failed_name in failed_names:
-            suggestions[failed_name] = phone_name_resolver.suggest_similar_phones(failed_name, db)
-        
-        return JSONResponse(content={
-            "resolved_phones": results,
-            "failed_resolutions": failed_names,
-            "suggestions": suggestions,
-            "total_requested": len(phone_names),
-            "total_resolved": len(results)
-        })
-        
-    except Exception as e:
-        print(f"Error resolving phone names: {e}")
-        return JSONResponse(
-            content={"error": "I'm having trouble resolving the phone names."},
-            status_code=500
-        )
-
-@router.get("/context/{session_id}")
-async def get_conversation_context(
-    session_id: str,
-    summary_only: bool = Query(False, description="Return only context summary")
-):
-    """
-    Retrieve conversation context for a session
-    """
-    try:
-        print(f"Retrieving context for session: {session_id}")
-        
-        if summary_only:
-            # Return context summary
-            summary = context_manager.get_context_summary(session_id)
-            return JSONResponse(content=summary)
+        # Simple fallback processing
+        if "recommend" in query.lower() or "suggest" in query.lower():
+            # Basic recommendation fallback
+            phones = phone_crud.get_phones_by_filters(db, {}, limit=5)
+            return JSONResponse(content=[{"phone": phone_crud.phone_to_dict(phone)} for phone in phones])
+        elif "compare" in query.lower():
+            # Basic comparison fallback
+            comparison_data = generate_comparison_response(db, query)
+            return JSONResponse(content=comparison_data)
         else:
-            # Return full context
-            context = context_manager.get_context(session_id)
-            if context:
-                return JSONResponse(content=context.to_dict())
-            else:
-                return JSONResponse(content={"exists": False, "session_id": session_id})
-        
+            # Basic Q&A fallback
+            return JSONResponse(content={
+                "type": "qa",
+                "data": "I'm here to help with smartphone questions! Try asking about phone recommendations or comparisons."
+            })
     except Exception as e:
-        print(f"Error retrieving context: {e}")
-        return JSONResponse(
-            content={"error": "I'm having trouble retrieving the conversation context."},
-            status_code=500
-        )
-
-@router.delete("/context/{session_id}")
-async def delete_conversation_context(session_id: str):
-    """
-    Delete conversation context for a session
-    """
-    try:
-        print(f"Deleting context for session: {session_id}")
-        
-        context_manager.delete_context(session_id)
-        
+        logger.error(f"Error in legacy query processing: {str(e)}")
         return JSONResponse(content={
-            "message": f"Context deleted for session {session_id}",
-            "session_id": session_id
-        })
-        
-    except Exception as e:
-        print(f"Error deleting context: {e}")
-        return JSONResponse(
-            content={"error": "I'm having trouble deleting the conversation context."},
-            status_code=500
-        )
-
-@router.post("/context/cleanup")
-async def cleanup_expired_contexts():
-    """
-    Clean up expired conversation contexts
-    """
-    try:
-        print("Cleaning up expired contexts")
-        
-        cleaned_count = context_manager.cleanup_expired_contexts()
-        
-        return JSONResponse(content={
-            "message": f"Cleaned up {cleaned_count} expired contexts",
-            "cleaned_count": cleaned_count
-        })
-        
-    except Exception as e:
-        print(f"Error cleaning up contexts: {e}")
-        return JSONResponse(
-            content={"error": "I'm having trouble cleaning up expired contexts."},
-            status_code=500
-        )
+            "type": "qa",
+            "data": "I'm having trouble processing your request. Please try again."
+        }, status_code=500)
     

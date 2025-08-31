@@ -1,0 +1,588 @@
+import React, { useState, useEffect } from 'react';
+import { ConversationContext } from '../services/intelligentContextManager';
+
+interface IntelligentResponse {
+  response_type: string;
+  content: {
+    text?: string;
+    phones?: any[];
+    filters_applied?: any;
+    suggestions?: string[];
+    drill_down_options?: DrillDownOption[];
+    [key: string]: any;
+  };
+  formatting_hints?: {
+    display_as?: string;
+    text_style?: string;
+    show_suggestions?: boolean;
+    show_comparison?: boolean;
+    highlight_specs?: boolean;
+    show_drill_down?: boolean;
+  };
+  metadata?: {
+    ai_confidence?: number;
+    phone_count?: number;
+    fallback?: boolean;
+    [key: string]: any;
+  };
+}
+
+interface DrillDownOption {
+  label: string;
+  command: string;
+  target: string;
+  contextualQuery?: string;
+}
+
+interface Suggestion {
+  query: string;
+  contextualQuery?: string;
+}
+
+interface IntelligentResponseHandlerProps {
+  response: IntelligentResponse | string | any;
+  darkMode: boolean;
+  originalQuery: string;
+  chatContext?: ConversationContext;
+  onContextUpdate?: (context: ConversationContext) => void;
+  onSuggestionClick?: (suggestion: Suggestion) => void;
+  onDrillDownClick?: (option: DrillDownOption) => void;
+  isLoading?: boolean;
+}
+
+const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
+  response,
+  darkMode,
+  originalQuery,
+  chatContext,
+  onContextUpdate,
+  onSuggestionClick,
+  onDrillDownClick,
+  isLoading = false
+}) => {
+  const [parsedResponse, setParsedResponse] = useState<IntelligentResponse | null>(null);
+
+  useEffect(() => {
+    // Parse the response into a standardized format
+    if (typeof response === 'string') {
+      setParsedResponse({
+        response_type: 'text',
+        content: { text: response },
+        formatting_hints: { text_style: 'conversational' }
+      });
+    } else if (response && typeof response === 'object') {
+      // Check if it's already in the intelligent response format
+      if (response.response_type && response.content) {
+        setParsedResponse(response as IntelligentResponse);
+      } else {
+        // Convert legacy response formats
+        setParsedResponse(convertLegacyResponse(response));
+      }
+    } else {
+      setParsedResponse(null);
+    }
+  }, [response]);
+
+  const convertLegacyResponse = (legacyResponse: any): IntelligentResponse => {
+    // Handle comparison responses
+    if (legacyResponse.type === 'comparison' && legacyResponse.phones) {
+      return {
+        response_type: 'comparison',
+        content: legacyResponse,
+        formatting_hints: {
+          display_as: 'comparison_chart',
+          show_comparison: true
+        }
+      };
+    }
+
+    // Handle recommendation responses (array of phones)
+    if (Array.isArray(legacyResponse)) {
+      return {
+        response_type: 'recommendations',
+        content: {
+          text: 'Here are some great phone recommendations:',
+          phones: legacyResponse.map(item => item.phone || item)
+        },
+        formatting_hints: {
+          display_as: 'cards',
+          show_comparison: legacyResponse.length > 1
+        }
+      };
+    }
+
+    // Handle Q&A responses
+    if (legacyResponse.type === 'qa' || legacyResponse.type === 'chat') {
+      return {
+        response_type: 'text',
+        content: {
+          text: legacyResponse.data || legacyResponse.content || '',
+          suggestions: legacyResponse.suggestions || []
+        },
+        formatting_hints: {
+          text_style: 'conversational',
+          show_suggestions: Boolean(legacyResponse.suggestions?.length)
+        }
+      };
+    }
+
+    // Fallback for unknown formats
+    return {
+      response_type: 'text',
+      content: {
+        text: typeof legacyResponse === 'string' ? legacyResponse : JSON.stringify(legacyResponse)
+      },
+      formatting_hints: { text_style: 'conversational' }
+    };
+  };
+
+  if (isLoading) {
+    return <LoadingIndicator darkMode={darkMode} />;
+  }
+
+  if (!parsedResponse) {
+    return <ErrorDisplay darkMode={darkMode} message="Unable to process response" />;
+  }
+
+  switch (parsedResponse.response_type) {
+    case 'text':
+      return (
+        <TextResponse
+          content={parsedResponse.content}
+          formatting={parsedResponse.formatting_hints}
+          darkMode={darkMode}
+          onSuggestionClick={onSuggestionClick}
+        />
+      );
+
+    case 'recommendations':
+      return (
+        <RecommendationResponse
+          content={parsedResponse.content}
+          formatting={parsedResponse.formatting_hints}
+          darkMode={darkMode}
+          metadata={parsedResponse.metadata}
+        />
+      );
+
+    case 'comparison':
+      return (
+        <ComparisonResponse
+          content={parsedResponse.content}
+          formatting={parsedResponse.formatting_hints}
+          darkMode={darkMode}
+          onDrillDownClick={onDrillDownClick}
+        />
+      );
+
+    default:
+      return (
+        <TextResponse
+          content={parsedResponse.content}
+          formatting={parsedResponse.formatting_hints}
+          darkMode={darkMode}
+          onSuggestionClick={onSuggestionClick}
+        />
+      );
+  }
+};
+
+// Loading indicator component
+const LoadingIndicator: React.FC<{ darkMode: boolean }> = ({ darkMode }) => (
+  <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
+    darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+  }`}>
+    <div className="flex items-center space-x-3">
+      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand"></div>
+      <span className="text-sm">Thinking...</span>
+    </div>
+  </div>
+);
+
+// Error display component
+const ErrorDisplay: React.FC<{ darkMode: boolean; message: string }> = ({ darkMode, message }) => (
+  <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
+    darkMode ? 'bg-red-900/20 text-red-200' : 'bg-red-50 text-red-800'
+  }`}>
+    <p className="text-sm">{message}</p>
+  </div>
+);
+
+// Text response component with rich formatting
+const TextResponse: React.FC<{
+  content: any;
+  formatting?: any;
+  darkMode: boolean;
+  onSuggestionClick?: (suggestion: Suggestion) => void;
+}> = ({ content, formatting, darkMode, onSuggestionClick }) => {
+  const textStyle = formatting?.text_style || 'conversational';
+  const showSuggestions = formatting?.show_suggestions && content.suggestions?.length > 0;
+  
+  // Extract actionable items from text
+  const extractActionableItems = (text: string) => {
+    const actionablePatterns = [
+      /compare\s+([^.!?]+)/gi,
+      /check\s+out\s+([^.!?]+)/gi,
+      /consider\s+([^.!?]+)/gi,
+      /look\s+at\s+([^.!?]+)/gi,
+      /try\s+([^.!?]+)/gi
+    ];
+    
+    const items: string[] = [];
+    actionablePatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        items.push(...matches);
+      }
+    });
+    
+    return items.slice(0, 3); // Limit to 3 actionable items
+  };
+  
+  const actionableItems = content.text ? extractActionableItems(content.text) : [];
+
+  const formatText = (text: string) => {
+    if (!text) return '';
+
+    // Advanced text formatting with markdown support
+    let formattedText = text
+      // Bold text
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      // Italic text
+      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+      // Inline code
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-brand hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+      // Phone names (make them stand out)
+      .replace(/\b(iPhone|Samsung Galaxy|Xiaomi|OnePlus|Google Pixel|Huawei|Oppo|Vivo)\s+[A-Za-z0-9\s]+/g, '<span class="font-medium text-brand">$&</span>')
+      // Prices in BDT
+      .replace(/৳[\d,]+/g, '<span class="font-semibold text-green-600 dark:text-green-400">$&</span>')
+      // Technical specs (RAM, storage, etc.)
+      .replace(/\b(\d+GB|\d+MP|\d+mAh|\d+Hz|\d+inch|\d+\.?\d*")\b/g, '<span class="font-medium text-blue-600 dark:text-blue-400">$&</span>');
+
+    // Process lines for lists and special formatting
+    const lines = formattedText.split('\n');
+    const processedLines: string[] = [];
+    let inList = false;
+    let listItems: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Handle bullet points
+      if (line.startsWith('• ') || line.startsWith('- ') || line.match(/^\d+\.\s/)) {
+        if (!inList) {
+          inList = true;
+          listItems = [];
+        }
+        const listContent = line.replace(/^[•-]\s|^\d+\.\s/, '');
+        listItems.push(`<li class="mb-1">${listContent}</li>`);
+      } else {
+        // End of list
+        if (inList) {
+          const listType = lines[i - 1]?.match(/^\d+\./) ? 'ol' : 'ul';
+          const listClass = listType === 'ol' 
+            ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
+            : 'list-disc list-inside space-y-1 my-2 ml-4';
+          processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
+          inList = false;
+          listItems = [];
+        }
+        
+        // Handle headers
+        if (line.startsWith('# ')) {
+          processedLines.push(`<h1 class="text-xl font-bold mt-4 mb-2">${line.substring(2)}</h1>`);
+        } else if (line.startsWith('## ')) {
+          processedLines.push(`<h2 class="text-lg font-semibold mt-3 mb-2">${line.substring(3)}</h2>`);
+        } else if (line.startsWith('### ')) {
+          processedLines.push(`<h3 class="text-base font-medium mt-2 mb-1">${line.substring(4)}</h3>`);
+        } else if (line === '') {
+          processedLines.push('<br />');
+        } else {
+          // Regular paragraph
+          processedLines.push(`<p class="mb-2">${line}</p>`);
+        }
+      }
+    }
+
+    // Handle remaining list items
+    if (inList && listItems.length > 0) {
+      const lastLine = lines[lines.length - 1];
+      const listType = lastLine?.match(/^\d+\./) ? 'ol' : 'ul';
+      const listClass = listType === 'ol' 
+        ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
+        : 'list-disc list-inside space-y-1 my-2 ml-4';
+      processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
+    }
+
+    return processedLines.join('');
+  };
+
+  return (
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-2xl w-full shadow-md ${
+      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+    }`}>
+      <div 
+        className={`text-sm sm:text-base leading-relaxed break-words ${
+          textStyle === 'error' ? 'text-red-500' : ''
+        } ${textStyle === 'detailed' ? 'text-xs sm:text-sm' : ''}`}
+        dangerouslySetInnerHTML={{ __html: formatText(content.text || '') }}
+      />
+      
+      {/* Actionable Items */}
+      {actionableItems.length > 0 && (
+        <div className={`mt-3 p-3 rounded-lg border-l-4 border-brand ${
+          darkMode ? 'bg-gray-800/50' : 'bg-blue-50'
+        }`}>
+          <h4 className="text-sm font-medium mb-2 text-brand">Quick Actions:</h4>
+          <div className="space-y-1">
+            {actionableItems.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => onSuggestionClick?.({ query: item.replace(/^(compare|check out|consider|look at|try)\s+/i, '') })}
+                className={`block text-left text-xs p-2 rounded transition ${
+                  darkMode
+                    ? 'hover:bg-gray-700 text-gray-300'
+                    : 'hover:bg-blue-100 text-gray-700'
+                }`}
+              >
+                💡 {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {showSuggestions && (
+        <div className="mt-4">
+          <h4 className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">Suggestions:</h4>
+          <div className="flex flex-wrap gap-2">
+            {content.suggestions.map((suggestion: string, index: number) => (
+              <button
+                key={index}
+                onClick={() => onSuggestionClick?.({ query: suggestion })}
+                className={`px-3 py-1 rounded-full text-xs border transition ${
+                  darkMode
+                    ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                }`}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Recommendation response component with cards
+const RecommendationResponse: React.FC<{
+  content: any;
+  formatting?: any;
+  darkMode: boolean;
+  metadata?: any;
+}> = ({ content, formatting, darkMode, metadata }) => {
+  const phones = content.phones || [];
+  const displayText = content.text || 'Here are some recommendations:';
+
+  return (
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${
+      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+    }`}>
+      <p className="text-sm sm:text-base leading-relaxed mb-4">{displayText}</p>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+        {phones.map((phone: any, index: number) => (
+          <PhoneCard
+            key={phone.id || index}
+            phone={phone}
+            darkMode={darkMode}
+            showSpecs={formatting?.highlight_specs}
+          />
+        ))}
+      </div>
+
+      {metadata?.phone_count && (
+        <p className="text-xs text-gray-500 mt-3 text-center sm:text-left">
+          Showing {phones.length} of {metadata.phone_count} results
+        </p>
+      )}
+    </div>
+  );
+};
+
+// Phone card component
+const PhoneCard: React.FC<{
+  phone: any;
+  darkMode: boolean;
+  showSpecs?: boolean;
+}> = ({ phone, darkMode, showSpecs = true }) => (
+  <div className={`rounded-lg p-3 sm:p-4 border transition-all duration-200 hover:scale-105 hover:shadow-lg ${
+    darkMode ? 'bg-gray-800 border-gray-700 hover:border-gray-600' : 'bg-white border-gray-200 hover:border-gray-300'
+  }`}>
+    {phone.image && (
+      <div className="relative mb-3">
+        <img
+          src={phone.image}
+          alt={phone.name}
+          className="w-full h-24 sm:h-32 object-contain rounded"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      </div>
+    )}
+    
+    <h3 className="font-semibold text-xs sm:text-sm mb-2 line-clamp-2 min-h-[2.5rem]">{phone.name}</h3>
+    
+    {phone.price && (
+      <p className="text-brand font-bold text-sm sm:text-lg mb-2">
+        ৳{phone.price.toLocaleString()}
+      </p>
+    )}
+
+    {showSpecs && phone.key_specs && (
+      <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400 mb-3">
+        {phone.key_specs.ram && <p className="truncate">RAM: {phone.key_specs.ram}</p>}
+        {phone.key_specs.storage && <p className="truncate">Storage: {phone.key_specs.storage}</p>}
+        {phone.key_specs.camera && <p className="truncate">Camera: {phone.key_specs.camera}</p>}
+        {phone.key_specs.battery && <p className="truncate">Battery: {phone.key_specs.battery}</p>}
+      </div>
+    )}
+
+    {phone.scores && (
+      <div className="mt-auto pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-gray-600 dark:text-gray-400">Overall Score</span>
+          <div className="flex items-center space-x-1">
+            <span className="text-brand">★</span>
+            <span className="font-medium">{phone.scores.overall?.toFixed(1)}/10</span>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+// Comparison response component
+const ComparisonResponse: React.FC<{
+  content: any;
+  formatting?: any;
+  darkMode: boolean;
+  onDrillDownClick?: (option: DrillDownOption) => void;
+}> = ({ content, formatting, darkMode, onDrillDownClick }) => {
+  const phones = content.phones || [];
+  const features = content.features || [];
+  const summary = content.summary || '';
+
+  return (
+    <div className={`rounded-2xl px-5 py-4 max-w-4xl shadow-md ${
+      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+    }`}>
+      {summary && (
+        <p className="text-base leading-relaxed mb-4">{summary}</p>
+      )}
+
+      <div className="overflow-x-auto">
+        <ComparisonChart
+          phones={phones}
+          features={features}
+          darkMode={darkMode}
+        />
+      </div>
+
+      {formatting?.show_drill_down && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => onDrillDownClick?.({
+              label: 'Full Specifications',
+              command: 'full_specs',
+              target: 'all_specs'
+            })}
+            className={`px-3 py-1 rounded-full text-xs border transition ${
+              darkMode
+                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+            }`}
+          >
+            Full Specifications
+          </button>
+          <button
+            onClick={() => onDrillDownClick?.({
+              label: 'Detailed Analysis',
+              command: 'detail_focus',
+              target: 'analysis'
+            })}
+            className={`px-3 py-1 rounded-full text-xs border transition ${
+              darkMode
+                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+            }`}
+          >
+            Detailed Analysis
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Comparison chart component
+const ComparisonChart: React.FC<{
+  phones: any[];
+  features: any[];
+  darkMode: boolean;
+}> = ({ phones, features, darkMode }) => (
+  <div className="min-w-full">
+    <table className="w-full text-sm">
+      <thead>
+        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <th className="text-left py-2 px-3">Feature</th>
+          {phones.map((phone, index) => (
+            <th key={index} className="text-center py-2 px-3 min-w-24">
+              <div className="flex flex-col items-center">
+                <div
+                  className="w-4 h-4 rounded-full mb-1"
+                  style={{ backgroundColor: phone.color }}
+                />
+                <span className="text-xs font-medium">{phone.name}</span>
+              </div>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {features.map((feature, featureIndex) => (
+          <tr key={featureIndex} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <td className="py-2 px-3 font-medium">{feature.label}</td>
+            {feature.raw.map((value: any, phoneIndex: number) => (
+              <td key={phoneIndex} className="py-2 px-3 text-center">
+                <div className="flex flex-col items-center">
+                  <span className="text-xs mb-1">
+                    {value !== null && value !== undefined ? value : 'N/A'}
+                  </span>
+                  {feature.percent && feature.percent[phoneIndex] > 0 && (
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+                      <div
+                        className="h-1 rounded-full"
+                        style={{
+                          backgroundColor: phones[phoneIndex]?.color || '#4A90E2',
+                          width: `${feature.percent[phoneIndex]}%`
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+export default IntelligentResponseHandler;

@@ -3,7 +3,7 @@ Test fixtures and mock data for contextual query tests
 """
 from unittest.mock import Mock
 from app.models.phone import Phone
-from app.services.context_manager import UserContext
+from app.services.context_manager import ConversationContext
 
 
 class TestDataFactory:
