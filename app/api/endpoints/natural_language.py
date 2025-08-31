@@ -21,9 +21,6 @@ from app.services.error_handler import (
     handle_contextual_error, create_error_response, PhoneResolutionError,
     ExternalServiceError, ValidationError
 )
-from app.services.ai_service_client import (
-    ai_service_client, AIServiceRequest, AIServiceResponse, AIServiceError
-)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,6 +31,36 @@ router = APIRouter()
 contextual_processor = ContextualQueryProcessor()
 phone_name_resolver = PhoneNameResolver()
 context_manager = ContextManager()
+
+# Gemini AI service configuration
+GEMINI_AI_SERVICE_URL = os.getenv("GEMINI_AI_SERVICE_URL", "https://ai-service-188950165425.asia-southeast1.run.app")
+
+async def call_gemini_ai_service(query: str) -> dict:
+    """
+    Direct call to the Gemini AI service
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{GEMINI_AI_SERVICE_URL}/parse-query",
+                json={"query": query},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"Gemini AI response: {result}")
+                return result
+            else:
+                logger.error(f"Gemini AI service error: {response.status_code} - {response.text}")
+                raise Exception(f"AI service returned status {response.status_code}")
+                
+    except httpx.TimeoutException:
+        logger.error("Gemini AI service timeout")
+        raise Exception("AI service timeout")
+    except Exception as e:
+        logger.error(f"Error calling Gemini AI service: {str(e)}")
+        raise Exception(f"AI service error: {str(e)}")
 
 # Pydantic models for request/response
 class ContextualQueryRequest(BaseModel):
@@ -554,64 +581,47 @@ async def process_intelligent_query(
     db: Session
 ) -> IntelligentQueryResponse:
     """
-    Main intelligent query processing function that leverages the AI service
+    Main intelligent query processing function that directly calls the Gemini AI service
     for truly smart, contextual responses to any user query.
     """
     try:
-        # Prepare AI service request
-        ai_request = AIServiceRequest(
-            query=request.query,
-            context=request.context,
-            session_id=request.session_id,
-            conversation_history=request.conversation_history
-        )
-        
-        # Enhance query with context if beneficial
-        enhanced_query = ai_service_client.enhance_query_with_context(
-            request.query,
-            request.conversation_history
-        )
-        ai_request.query = enhanced_query
-        
-        # Call the intelligent AI service
-        ai_response = await ai_service_client.call_ai_service(ai_request)
+        # Call the Gemini AI service directly
+        ai_response = await call_gemini_ai_service(request.query)
         
         # Parse and format the AI response
-        formatted_response = await parse_ai_response(ai_response, db)
+        formatted_response = await parse_gemini_response(ai_response, db)
         
         return formatted_response
         
-    except AIServiceError as e:
-        # Handle AI service errors gracefully
-        return create_fallback_response(request.query, str(e))
     except Exception as e:
-        # Handle unexpected errors
-        logger.error(f"Unexpected error in intelligent query processing: {str(e)}")
-        return create_fallback_response(request.query, "An unexpected error occurred")
+        # Handle errors gracefully
+        logger.error(f"Error in intelligent query processing: {str(e)}")
+        return create_fallback_response(request.query, str(e))
 
-async def parse_ai_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
+async def parse_gemini_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
     """
-    Intelligently parse any AI service response and format it for optimal frontend consumption.
+    Parse Gemini AI service response and format it for optimal frontend consumption.
     """
-    response_type = ai_response.type
+    response_type = gemini_response.get("type", "chat")
     
     if response_type == "recommendation":
-        return await handle_recommendation_response(ai_response, db)
+        return await handle_gemini_recommendation_response(gemini_response, db)
     elif response_type == "qa":
-        return handle_qa_response(ai_response)
+        return handle_gemini_qa_response(gemini_response)
     elif response_type == "comparison":
-        return await handle_comparison_response(ai_response, db)
+        return await handle_gemini_comparison_response(gemini_response, db)
     elif response_type == "chat":
-        return handle_chat_response(ai_response)
+        return handle_gemini_chat_response(gemini_response)
     elif response_type == "drill_down":
-        return await handle_drill_down_response(ai_response, db)
+        return await handle_gemini_drill_down_response(gemini_response, db)
     else:
         # Handle unknown response types intelligently
-        return handle_unknown_response(ai_response)
+        return handle_gemini_unknown_response(gemini_response)
 
-async def handle_recommendation_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
-    """Handle recommendation responses from the AI service"""
-    filters = ai_response.filters or {}
+async def handle_gemini_recommendation_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
+    """Handle recommendation responses from Gemini AI service"""
+    filters = gemini_response.get("filters", {})
+    reasoning = gemini_response.get("reasoning", "Here are some great phone recommendations based on your requirements:")
     
     # Get phone recommendations based on AI-determined filters
     phones = phone_crud.get_phones_by_filters(db, filters, limit=10)
@@ -640,13 +650,10 @@ async def handle_recommendation_response(ai_response: AIServiceResponse, db: Ses
             }
         })
     
-    # Create intelligent response text
-    response_text = ai_response.reasoning or "Here are some great phone recommendations based on your requirements:"
-    
     return IntelligentQueryResponse(
         response_type="recommendations",
         content={
-            "text": response_text,
+            "text": reasoning,
             "phones": formatted_phones,
             "filters_applied": filters
         },
@@ -656,33 +663,33 @@ async def handle_recommendation_response(ai_response: AIServiceResponse, db: Ses
             "highlight_specs": True
         },
         metadata={
-            "ai_confidence": ai_response.confidence,
             "phone_count": len(formatted_phones)
         }
     )
 
-def handle_qa_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
-    """Handle Q&A responses from the AI service"""
-    response_text = ai_response.data or ai_response.content or "I'm here to help with your smartphone questions!"
+def handle_gemini_qa_response(gemini_response: dict) -> IntelligentQueryResponse:
+    """Handle Q&A responses from Gemini AI service"""
+    response_text = gemini_response.get("data") or gemini_response.get("reasoning") or "I'm here to help with your smartphone questions!"
+    suggestions = gemini_response.get("suggestions", [])
     
     return IntelligentQueryResponse(
         response_type="text",
         content={
             "text": response_text,
-            "suggestions": ai_response.suggestions or []
+            "suggestions": suggestions
         },
         formatting_hints={
             "text_style": "conversational",
-            "show_suggestions": bool(ai_response.suggestions)
+            "show_suggestions": bool(suggestions)
         },
-        metadata={
-            "ai_confidence": ai_response.confidence
-        }
+        metadata={}
     )
 
-async def handle_comparison_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
-    """Handle comparison responses from the AI service"""
-    phone_names = ai_response.data if isinstance(ai_response.data, list) else []
+async def handle_gemini_comparison_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
+    """Handle comparison responses from Gemini AI service"""
+    # Extract phone names from the response data
+    data = gemini_response.get("data", [])
+    phone_names = data if isinstance(data, list) else []
     
     if not phone_names:
         return IntelligentQueryResponse(
@@ -691,7 +698,7 @@ async def handle_comparison_response(ai_response: AIServiceResponse, db: Session
             formatting_hints={"text_style": "error"}
         )
     
-    # Generate comparison using existing logic but with AI context
+    # Generate comparison using existing logic
     comparison_data = generate_comparison_response(db, "", phone_names=phone_names)
     
     if isinstance(comparison_data, dict) and comparison_data.get("error"):
@@ -708,104 +715,28 @@ async def handle_comparison_response(ai_response: AIServiceResponse, db: Session
             "display_as": "comparison_chart",
             "show_summary": True
         },
-        metadata={
-            "ai_confidence": ai_response.confidence
-        }
+        metadata={}
     )
 
-def handle_chat_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
-    """Handle general chat responses from the AI service"""
-    response_text = ai_response.data or ai_response.content or "I'm here to help you with smartphone questions!"
+def handle_gemini_chat_response(gemini_response: dict) -> IntelligentQueryResponse:
+    """Handle general chat responses from Gemini AI service"""
+    response_text = gemini_response.get("data") or gemini_response.get("reasoning") or "I'm here to help you with smartphone questions!"
+    suggestions = gemini_response.get("suggestions", [])
     
     return IntelligentQueryResponse(
         response_type="text",
         content={
             "text": response_text,
-            "suggestions": ai_response.suggestions or []
+            "suggestions": suggestions
         },
         formatting_hints={
             "text_style": "conversational",
-            "show_suggestions": bool(ai_response.suggestions)
+            "show_suggestions": bool(suggestions)
         },
-        metadata={
-            "ai_confidence": ai_response.confidence
-        }
+        metadata={}
     )
 
-async def handle_drill_down_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
-    """Handle drill-down responses from the AI service"""
-    command = ai_response.command or "detail_focus"
-    target = ai_response.target or "specifications"
-    
-    # Generate appropriate drill-down content based on command
-    if command == "full_specs":
-        content_text = "Here are the detailed specifications you requested:"
-    elif command == "chart_view":
-        content_text = "Here's a detailed comparison chart:"
-    else:
-        content_text = f"Here are more details about {target}:"
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": ai_response.data or content_text,
-            "drill_down_options": [
-                {
-                    "label": "Full Specifications",
-                    "command": "full_specs",
-                    "target": "all_specs"
-                },
-                {
-                    "label": "Comparison Chart",
-                    "command": "chart_view",
-                    "target": "comparison"
-                }
-            ]
-        },
-        formatting_hints={
-            "text_style": "detailed",
-            "show_drill_down": True
-        },
-        metadata={
-            "ai_confidence": ai_response.confidence
-        }
-    )
 
-def handle_unknown_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
-    """Handle unknown response types intelligently"""
-    # Try to extract meaningful content from unknown response
-    content_text = "I'm here to help with your smartphone questions!"
-    
-    if ai_response.data:
-        if isinstance(ai_response.data, str):
-            content_text = ai_response.data
-        else:
-            content_text = str(ai_response.data)
-    elif ai_response.content:
-        if isinstance(ai_response.content, str):
-            content_text = ai_response.content
-        else:
-            content_text = str(ai_response.content)
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": content_text,
-            "suggestions": ai_response.suggestions or [
-                "Ask me about phone recommendations",
-                "Compare different smartphones",
-                "Get phone specifications"
-            ]
-        },
-        formatting_hints={
-            "text_style": "conversational",
-            "show_suggestions": True
-        },
-        metadata={
-            "ai_confidence": ai_response.confidence or 0.5,
-            "original_type": ai_response.type
-        }
-    )
 
 def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
     """Create a fallback response when AI service is unavailable"""
@@ -849,119 +780,71 @@ async def intelligent_query_endpoint(
 # Update the main query endpoint to use intelligent processing
 @router.post("/query")
 async def enhanced_natural_language_query(
-    request: IntelligentQueryRequest,
+    request: Union[IntelligentQueryRequest, dict],
     db: Session = Depends(get_db)
 ):
     """
-    Enhanced natural language query endpoint that uses intelligent AI service integration.
-    This replaces the old limited processing with smart, contextual responses.
+    Enhanced natural language query endpoint that directly integrates with Gemini AI service.
+    This provides smart, contextual responses to any user query.
     """
     try:
-        # Use the intelligent query processing
-        response = await process_intelligent_query(request, db)
+        # Handle both new format and legacy format
+        if isinstance(request, dict):
+            query = request.get("query", "")
+        else:
+            query = request.query
+            
+        if not query or not query.strip():
+            return {
+                "type": "qa",
+                "data": "Please ask me a question about smartphones!",
+                "suggestions": ["Recommend phones under 30k", "Compare iPhone vs Samsung", "Best camera phones"]
+            }
+        
+        logger.info(f"Processing query: {query}")
+        
+        # Call Gemini AI service directly
+        gemini_response = await call_gemini_ai_service(query)
+        logger.info(f"Gemini response received: {gemini_response}")
+        
+        # Create intelligent request object for processing
+        intelligent_request = IntelligentQueryRequest(
+            query=query,
+            session_id=getattr(request, 'session_id', None) if hasattr(request, 'session_id') else request.get('session_id') if isinstance(request, dict) else None
+        )
+        
+        # Parse the Gemini response
+        parsed_response = await parse_gemini_response(gemini_response, db)
         
         # Convert to the expected format for backward compatibility
-        if response.response_type == "recommendations":
+        if parsed_response.response_type == "recommendations":
             # Return phone recommendations in the expected format
-            phones = response.content.get("phones", [])
+            phones = parsed_response.content.get("phones", [])
             return [{"phone": phone} for phone in phones]
-        elif response.response_type == "comparison":
+        elif parsed_response.response_type == "comparison":
             # Return comparison data directly
-            return response.content
-        elif response.response_type == "text":
+            return parsed_response.content
+        elif parsed_response.response_type == "text":
             # Return text responses
             return {
                 "type": "qa",
-                "data": response.content.get("text", ""),
-                "suggestions": response.content.get("suggestions", [])
+                "data": parsed_response.content.get("text", ""),
+                "suggestions": parsed_response.content.get("suggestions", [])
             }
         else:
             # Return the full intelligent response
-            return response.dict()
+            return parsed_response.dict()
             
     except Exception as e:
         logger.error(f"Error in enhanced natural language query: {str(e)}")
         # Fallback to basic error response
         return {
             "type": "qa",
-            "data": f"I'm having trouble processing your request: {str(e)}",
-            "suggestions": ["Try rephrasing your question", "Ask about phone recommendations"]
+            "data": f"I'm having trouble processing your request right now. Please try rephrasing your question.",
+            "suggestions": ["Try asking about phone recommendations", "Ask for phone comparisons", "Request specific phone information"]
         }
 
-async def handle_drill_down_response(ai_response: AIServiceResponse, db: Session) -> IntelligentQueryResponse:
-    """Handle drill-down responses from the AI service"""
-    command = ai_response.command or "detail_focus"
-    target = ai_response.target or "specifications"
-    
-    # Generate appropriate drill-down content based on command
-    if command == "full_specs":
-        content_text = "Here are the detailed specifications you requested:"
-    elif command == "chart_view":
-        content_text = "Here's a detailed comparison chart:"
-    else:
-        content_text = f"Here are more details about {target}:"
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": ai_response.data or content_text,
-            "drill_down_options": [
-                {
-                    "label": "Full Specifications",
-                    "command": "full_specs",
-                    "target": "all_specs"
-                },
-                {
-                    "label": "Comparison Chart",
-                    "command": "chart_view",
-                    "target": "comparison"
-                }
-            ]
-        },
-        formatting_hints={
-            "text_style": "detailed",
-            "show_drill_down": True
-        },
-        metadata={
-            "ai_confidence": ai_response.confidence
-        }
-    )
 
-def handle_unknown_response(ai_response: AIServiceResponse) -> IntelligentQueryResponse:
-    """Handle unknown response types intelligently"""
-    # Try to extract meaningful content from unknown response
-    content_text = "I'm here to help with your smartphone questions!"
-    
-    if ai_response.data:
-        if isinstance(ai_response.data, str):
-            content_text = ai_response.data
-        else:
-            content_text = str(ai_response.data)
-    elif ai_response.content:
-        if isinstance(ai_response.content, str):
-            content_text = ai_response.content
-        else:
-            content_text = str(ai_response.content)
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": content_text,
-            "suggestions": ai_response.suggestions or [
-                "Ask me about phone recommendations",
-                "Compare different smartphones",
-                "Get phone specifications"
-            ]
-        },
-        formatting_hints={
-            "text_style": "conversational",
-            "show_suggestions": True
-        },
-        metadata={
-            "ai_confidence": ai_response.confidence or 0.5,
-            "original_type": ai_response.type
-        }
-    )
 
 def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
     """Create a fallback response when AI service is unavailable"""
@@ -1005,43 +888,68 @@ async def intelligent_query_endpoint(
 # Update the main query endpoint to use intelligent processing
 @router.post("/query")
 async def enhanced_natural_language_query(
-    request: IntelligentQueryRequest,
+    request: Union[IntelligentQueryRequest, dict],
     db: Session = Depends(get_db)
 ):
     """
-    Enhanced natural language query endpoint that uses intelligent AI service integration.
-    This replaces the old limited processing with smart, contextual responses.
+    Enhanced natural language query endpoint that directly integrates with Gemini AI service.
+    This provides smart, contextual responses to any user query.
     """
     try:
-        # Use the intelligent query processing
-        response = await process_intelligent_query(request, db)
+        # Handle both new format and legacy format
+        if isinstance(request, dict):
+            query = request.get("query", "")
+        else:
+            query = request.query
+            
+        if not query or not query.strip():
+            return {
+                "type": "qa",
+                "data": "Please ask me a question about smartphones!",
+                "suggestions": ["Recommend phones under 30k", "Compare iPhone vs Samsung", "Best camera phones"]
+            }
+        
+        logger.info(f"Processing query: {query}")
+        
+        # Call Gemini AI service directly
+        gemini_response = await call_gemini_ai_service(query)
+        logger.info(f"Gemini response received: {gemini_response}")
+        
+        # Create intelligent request object for processing
+        intelligent_request = IntelligentQueryRequest(
+            query=query,
+            session_id=getattr(request, 'session_id', None) if hasattr(request, 'session_id') else request.get('session_id') if isinstance(request, dict) else None
+        )
+        
+        # Parse the Gemini response
+        parsed_response = await parse_gemini_response(gemini_response, db)
         
         # Convert to the expected format for backward compatibility
-        if response.response_type == "recommendations":
+        if parsed_response.response_type == "recommendations":
             # Return phone recommendations in the expected format
-            phones = response.content.get("phones", [])
+            phones = parsed_response.content.get("phones", [])
             return [{"phone": phone} for phone in phones]
-        elif response.response_type == "comparison":
+        elif parsed_response.response_type == "comparison":
             # Return comparison data directly
-            return response.content
-        elif response.response_type == "text":
+            return parsed_response.content
+        elif parsed_response.response_type == "text":
             # Return text responses
             return {
                 "type": "qa",
-                "data": response.content.get("text", ""),
-                "suggestions": response.content.get("suggestions", [])
+                "data": parsed_response.content.get("text", ""),
+                "suggestions": parsed_response.content.get("suggestions", [])
             }
         else:
             # Return the full intelligent response
-            return response.dict()
+            return parsed_response.dict()
             
     except Exception as e:
         logger.error(f"Error in enhanced natural language query: {str(e)}")
         # Fallback to basic error response
         return {
             "type": "qa",
-            "data": f"I'm having trouble processing your request: {str(e)}",
-            "suggestions": ["Try rephrasing your question", "Ask about phone recommendations"]
+            "data": f"I'm having trouble processing your request right now. Please try rephrasing your question.",
+            "suggestions": ["Try asking about phone recommendations", "Ask for phone comparisons", "Request specific phone information"]
         }
 
 async def process_legacy_query(request: ContextualQueryRequest, db: Session):

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ConversationContext } from '../services/intelligentContextManager';
+import ChatPhoneCard from './ChatPhoneCard';
+import ChartVisualization from './ChartVisualization';
+import { Phone } from '../api/phones';
 
 interface IntelligentResponse {
   response_type: string;
@@ -49,6 +52,24 @@ interface IntelligentResponseHandlerProps {
   onDrillDownClick?: (option: DrillDownOption) => void;
   isLoading?: boolean;
 }
+
+// Helper function to format response text
+const formatResponseText = (text: string): string => {
+  if (!text || typeof text !== 'string') return '';
+  
+  try {
+    // Simple text formatting for response display
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+      .replace(/৳[\d,]+/g, '<span class="font-semibold text-green-600 dark:text-green-400">$&</span>')
+      .replace(/\b(\d+GB|\d+MP|\d+mAh|\d+Hz|\d+inch|\d+\.?\d*")\b/g, '<span class="font-medium text-blue-600 dark:text-blue-400">$&</span>')
+      .replace(/\n/g, '<br/>');
+  } catch (error) {
+    console.error('Error formatting response text:', error);
+    return text;
+  }
+};
 
 const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
   response,
@@ -216,10 +237,14 @@ const TextResponse: React.FC<{
   onSuggestionClick?: (suggestion: Suggestion) => void;
 }> = ({ content, formatting, darkMode, onSuggestionClick }) => {
   const textStyle = formatting?.text_style || 'conversational';
-  const showSuggestions = formatting?.show_suggestions && content.suggestions?.length > 0;
+  const showSuggestions = formatting?.show_suggestions && content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0;
   
   // Extract actionable items from text
   const extractActionableItems = (text: string) => {
+    if (!text || typeof text !== 'string') {
+      return [];
+    }
+    
     const actionablePatterns = [
       /compare\s+([^.!?]+)/gi,
       /check\s+out\s+([^.!?]+)/gi,
@@ -230,93 +255,102 @@ const TextResponse: React.FC<{
     
     const items: string[] = [];
     actionablePatterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        items.push(...matches);
+      try {
+        const matches = text.match(pattern);
+        if (matches) {
+          items.push(...matches.filter(match => typeof match === 'string'));
+        }
+      } catch (error) {
+        console.warn('Error matching pattern:', pattern, error);
       }
     });
     
     return items.slice(0, 3); // Limit to 3 actionable items
   };
   
-  const actionableItems = content.text ? extractActionableItems(content.text) : [];
+  const actionableItems = content?.text && typeof content.text === 'string' ? extractActionableItems(content.text) : [];
 
   const formatText = (text: string) => {
-    if (!text) return '';
+    if (!text || typeof text !== 'string') return '';
 
-    // Advanced text formatting with markdown support
-    let formattedText = text
-      // Bold text
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      // Italic text
-      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-      // Inline code
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
-      // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-brand hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
-      // Phone names (make them stand out)
-      .replace(/\b(iPhone|Samsung Galaxy|Xiaomi|OnePlus|Google Pixel|Huawei|Oppo|Vivo)\s+[A-Za-z0-9\s]+/g, '<span class="font-medium text-brand">$&</span>')
-      // Prices in BDT
-      .replace(/৳[\d,]+/g, '<span class="font-semibold text-green-600 dark:text-green-400">$&</span>')
-      // Technical specs (RAM, storage, etc.)
-      .replace(/\b(\d+GB|\d+MP|\d+mAh|\d+Hz|\d+inch|\d+\.?\d*")\b/g, '<span class="font-medium text-blue-600 dark:text-blue-400">$&</span>');
+    try {
+      // Advanced text formatting with markdown support
+      let formattedText = text
+        // Bold text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+        // Italic text
+        .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+        // Inline code
+        .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-brand hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+        // Phone names (make them stand out)
+        .replace(/\b(iPhone|Samsung Galaxy|Xiaomi|OnePlus|Google Pixel|Huawei|Oppo|Vivo)\s+[A-Za-z0-9\s]+/g, '<span class="font-medium text-brand">$&</span>')
+        // Prices in BDT
+        .replace(/৳[\d,]+/g, '<span class="font-semibold text-green-600 dark:text-green-400">$&</span>')
+        // Technical specs (RAM, storage, etc.)
+        .replace(/\b(\d+GB|\d+MP|\d+mAh|\d+Hz|\d+inch|\d+\.?\d*")\b/g, '<span class="font-medium text-blue-600 dark:text-blue-400">$&</span>');
 
-    // Process lines for lists and special formatting
-    const lines = formattedText.split('\n');
-    const processedLines: string[] = [];
-    let inList = false;
-    let listItems: string[] = [];
+      // Process lines for lists and special formatting
+      const lines = formattedText.split('\n');
+      const processedLines: string[] = [];
+      let inList = false;
+      let listItems: string[] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Handle bullet points
-      if (line.startsWith('• ') || line.startsWith('- ') || line.match(/^\d+\.\s/)) {
-        if (!inList) {
-          inList = true;
-          listItems = [];
-        }
-        const listContent = line.replace(/^[•-]\s|^\d+\.\s/, '');
-        listItems.push(`<li class="mb-1">${listContent}</li>`);
-      } else {
-        // End of list
-        if (inList) {
-          const listType = lines[i - 1]?.match(/^\d+\./) ? 'ol' : 'ul';
-          const listClass = listType === 'ol' 
-            ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
-            : 'list-disc list-inside space-y-1 my-2 ml-4';
-          processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
-          inList = false;
-          listItems = [];
-        }
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
         
-        // Handle headers
-        if (line.startsWith('# ')) {
-          processedLines.push(`<h1 class="text-xl font-bold mt-4 mb-2">${line.substring(2)}</h1>`);
-        } else if (line.startsWith('## ')) {
-          processedLines.push(`<h2 class="text-lg font-semibold mt-3 mb-2">${line.substring(3)}</h2>`);
-        } else if (line.startsWith('### ')) {
-          processedLines.push(`<h3 class="text-base font-medium mt-2 mb-1">${line.substring(4)}</h3>`);
-        } else if (line === '') {
-          processedLines.push('<br />');
+        // Handle bullet points
+        if (line.startsWith('• ') || line.startsWith('- ') || line.match(/^\d+\.\s/)) {
+          if (!inList) {
+            inList = true;
+            listItems = [];
+          }
+          const listContent = line.replace(/^[•-]\s|^\d+\.\s/, '');
+          listItems.push(`<li class="mb-1">${listContent}</li>`);
         } else {
-          // Regular paragraph
-          processedLines.push(`<p class="mb-2">${line}</p>`);
+          // End of list
+          if (inList) {
+            const listType = lines[i - 1]?.match(/^\d+\./) ? 'ol' : 'ul';
+            const listClass = listType === 'ol' 
+              ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
+              : 'list-disc list-inside space-y-1 my-2 ml-4';
+            processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
+            inList = false;
+            listItems = [];
+          }
+          
+          // Handle headers
+          if (line.startsWith('# ')) {
+            processedLines.push(`<h1 class="text-xl font-bold mt-4 mb-2">${line.substring(2)}</h1>`);
+          } else if (line.startsWith('## ')) {
+            processedLines.push(`<h2 class="text-lg font-semibold mt-3 mb-2">${line.substring(3)}</h2>`);
+          } else if (line.startsWith('### ')) {
+            processedLines.push(`<h3 class="text-base font-medium mt-2 mb-1">${line.substring(4)}</h3>`);
+          } else if (line === '') {
+            processedLines.push('<br />');
+          } else {
+            // Regular paragraph
+            processedLines.push(`<p class="mb-2">${line}</p>`);
+          }
         }
       }
-    }
 
-    // Handle remaining list items
-    if (inList && listItems.length > 0) {
-      const lastLine = lines[lines.length - 1];
-      const listType = lastLine?.match(/^\d+\./) ? 'ol' : 'ul';
-      const listClass = listType === 'ol' 
-        ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
-        : 'list-disc list-inside space-y-1 my-2 ml-4';
-      processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
-    }
+      // Handle remaining list items
+      if (inList && listItems.length > 0) {
+        const lastLine = lines[lines.length - 1];
+        const listType = lastLine?.match(/^\d+\./) ? 'ol' : 'ul';
+        const listClass = listType === 'ol' 
+          ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
+          : 'list-disc list-inside space-y-1 my-2 ml-4';
+        processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
+      }
 
-    return processedLines.join('');
+      return processedLines.join('');
+    } catch (error) {
+      console.error('Error formatting text:', error);
+      return text; // Fallback to plain text
+    }
   };
 
   return (
@@ -337,10 +371,10 @@ const TextResponse: React.FC<{
         }`}>
           <h4 className="text-sm font-medium mb-2 text-brand">Quick Actions:</h4>
           <div className="space-y-1">
-            {actionableItems.map((item, index) => (
+            {actionableItems.filter(item => typeof item === 'string' && item.trim()).map((item, index) => (
               <button
                 key={index}
-                onClick={() => onSuggestionClick?.({ query: item.replace(/^(compare|check out|consider|look at|try)\s+/i, '') })}
+                onClick={() => onSuggestionClick?.({ query: String(item).replace(/^(compare|check out|consider|look at|try)\s+/i, '') })}
                 className={`block text-left text-xs p-2 rounded transition ${
                   darkMode
                     ? 'hover:bg-gray-700 text-gray-300'
@@ -354,11 +388,13 @@ const TextResponse: React.FC<{
         </div>
       )}
       
-      {showSuggestions && (
+      {showSuggestions && content.suggestions && Array.isArray(content.suggestions) && (
         <div className="mt-4">
           <h4 className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">Suggestions:</h4>
           <div className="flex flex-wrap gap-2">
-            {content.suggestions.map((suggestion: string, index: number) => (
+            {content.suggestions
+              .filter((suggestion: any) => suggestion && typeof suggestion === 'string' && suggestion.trim())
+              .map((suggestion: string, index: number) => (
               <button
                 key={index}
                 onClick={() => onSuggestionClick?.({ query: suggestion })}
@@ -378,121 +414,277 @@ const TextResponse: React.FC<{
   );
 };
 
-// Recommendation response component with cards
+// Recommendation response component with beautiful ChatPhoneCard
 const RecommendationResponse: React.FC<{
   content: any;
   formatting?: any;
   darkMode: boolean;
   metadata?: any;
 }> = ({ content, formatting, darkMode, metadata }) => {
-  const phones = content.phones || [];
-  const displayText = content.text || 'Here are some recommendations:';
+  const phones = Array.isArray(content?.phones) ? content.phones : [];
+  const displayText = (content?.text && typeof content.text === 'string') ? content.text : 'Here are some recommendations:';
+
+  if (!content || phones.length === 0) {
+    return (
+      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${
+        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+        <p className="text-sm sm:text-base leading-relaxed">No recommendations available at the moment.</p>
+      </div>
+    );
+  }
+
+  // Check if we should show the first phone as a top result (for single or primary recommendation)
+  const showTopResult = phones.length === 1 || formatting?.show_top_result;
+  const topPhone = showTopResult ? phones[0] : null;
+  const remainingPhones = showTopResult ? phones.slice(1) : phones;
 
   return (
-    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${
       darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
     }`}>
-      <p className="text-sm sm:text-base leading-relaxed mb-4">{displayText}</p>
+      <div 
+        className="text-sm sm:text-base leading-relaxed mb-4 break-words"
+        dangerouslySetInnerHTML={{ __html: formatResponseText(displayText) }}
+      />
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-        {phones.map((phone: any, index: number) => (
-          <PhoneCard
-            key={phone.id || index}
-            phone={phone}
-            darkMode={darkMode}
-            showSpecs={formatting?.highlight_specs}
-          />
-        ))}
-      </div>
+      {/* Top Result (if applicable) */}
+      {topPhone && (
+        <div className="mb-6">
+          <h3 className={`text-lg font-semibold mb-3 ${
+            darkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            🏆 Top Recommendation
+          </h3>
+          <div className="flex justify-center">
+            <ChatPhoneCard
+              phone={topPhone as Phone}
+              darkMode={darkMode}
+              isTopResult={true}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Other Recommendations */}
+      {remainingPhones.length > 0 && (
+        <div>
+          {topPhone && (
+            <h3 className={`text-base font-medium mb-3 ${
+              darkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              Other Great Options
+            </h3>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {remainingPhones
+              .filter((phone: any) => phone && typeof phone === 'object')
+              .map((phone: any, index: number) => (
+                <ChatPhoneCard
+                  key={phone.id || phone.name || index}
+                  phone={phone as Phone}
+                  darkMode={darkMode}
+                  isTopResult={false}
+                />
+              ))
+            }
+          </div>
+        </div>
+      )}
 
       {metadata?.phone_count && (
-        <p className="text-xs text-gray-500 mt-3 text-center sm:text-left">
+        <p className="text-xs text-gray-500 mt-4 text-center sm:text-left">
           Showing {phones.length} of {metadata.phone_count} results
         </p>
+      )}
+      
+      {/* AI Confidence Indicator */}
+      {metadata?.ai_confidence && (
+        <div className={`mt-3 text-xs flex items-center gap-2 ${
+          darkMode ? 'text-gray-400' : 'text-gray-600'
+        }`}>
+          <span>🤖 AI Confidence:</span>
+          <div className={`flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 max-w-24`}>
+            <div 
+              className="bg-brand h-1.5 rounded-full transition-all duration-300"
+              style={{ width: `${Math.min(metadata.ai_confidence * 100, 100)}%` }}
+            />
+          </div>
+          <span>{Math.round(metadata.ai_confidence * 100)}%</span>
+        </div>
       )}
     </div>
   );
 };
 
-// Phone card component
-const PhoneCard: React.FC<{
-  phone: any;
+// Simple comparison table component (fallback for basic comparisons)
+const SimpleComparisonTable: React.FC<{
+  phones: any[];
+  features: any[];
   darkMode: boolean;
-  showSpecs?: boolean;
-}> = ({ phone, darkMode, showSpecs = true }) => (
-  <div className={`rounded-lg p-3 sm:p-4 border transition-all duration-200 hover:scale-105 hover:shadow-lg ${
-    darkMode ? 'bg-gray-800 border-gray-700 hover:border-gray-600' : 'bg-white border-gray-200 hover:border-gray-300'
-  }`}>
-    {phone.image && (
-      <div className="relative mb-3">
-        <img
-          src={phone.image}
-          alt={phone.name}
-          className="w-full h-24 sm:h-32 object-contain rounded"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      </div>
-    )}
-    
-    <h3 className="font-semibold text-xs sm:text-sm mb-2 line-clamp-2 min-h-[2.5rem]">{phone.name}</h3>
-    
-    {phone.price && (
-      <p className="text-brand font-bold text-sm sm:text-lg mb-2">
-        ৳{phone.price.toLocaleString()}
-      </p>
-    )}
-
-    {showSpecs && phone.key_specs && (
-      <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400 mb-3">
-        {phone.key_specs.ram && <p className="truncate">RAM: {phone.key_specs.ram}</p>}
-        {phone.key_specs.storage && <p className="truncate">Storage: {phone.key_specs.storage}</p>}
-        {phone.key_specs.camera && <p className="truncate">Camera: {phone.key_specs.camera}</p>}
-        {phone.key_specs.battery && <p className="truncate">Battery: {phone.key_specs.battery}</p>}
-      </div>
-    )}
-
-    {phone.scores && (
-      <div className="mt-auto pt-2 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-gray-600 dark:text-gray-400">Overall Score</span>
-          <div className="flex items-center space-x-1">
-            <span className="text-brand">★</span>
-            <span className="font-medium">{phone.scores.overall?.toFixed(1)}/10</span>
-          </div>
-        </div>
-      </div>
-    )}
+}> = ({ phones, features, darkMode }) => (
+  <div className="min-w-full">
+    <table className="w-full text-sm">
+      <thead>
+        <tr className={`border-b ${
+          darkMode ? 'border-gray-700' : 'border-gray-200'
+        }`}>
+          <th className="text-left py-3 px-3 font-semibold">Feature</th>
+          {phones.map((phone, index) => (
+            <th key={index} className="text-center py-3 px-3 min-w-32">
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-medium mb-1">{phone.name}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{phone.brand}</span>
+              </div>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {features.map((feature, featureIndex) => (
+          <tr key={featureIndex} className={`border-b ${
+            darkMode ? 'border-gray-700/50' : 'border-gray-200/50'
+          }`}>
+            <td className="py-3 px-3 font-medium">{feature.label}</td>
+            {feature.raw?.map((value: any, phoneIndex: number) => (
+              <td key={phoneIndex} className="py-3 px-3 text-center">
+                <span className="text-sm">
+                  {value !== null && value !== undefined ? value : 'N/A'}
+                </span>
+              </td>
+            )) || phones.map((_, phoneIndex) => (
+              <td key={phoneIndex} className="py-3 px-3 text-center">
+                <span className="text-sm text-gray-400">N/A</span>
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 );
-
-// Comparison response component
 const ComparisonResponse: React.FC<{
   content: any;
   formatting?: any;
   darkMode: boolean;
   onDrillDownClick?: (option: DrillDownOption) => void;
 }> = ({ content, formatting, darkMode, onDrillDownClick }) => {
+  const [viewMode, setViewMode] = useState<'simple' | 'chart'>('simple');
   const phones = content.phones || [];
   const features = content.features || [];
   const summary = content.summary || '';
+  const showChartVisualization = formatting?.display_as === 'comparison_chart' || viewMode === 'chart';
 
+  // If we have enough phones and should show advanced visualization
+  if (showChartVisualization && phones.length >= 2) {
+    return (
+      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-7xl w-full shadow-md ${
+        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+        {summary && (
+          <div 
+            className="text-sm sm:text-base leading-relaxed mb-4 break-words"
+            dangerouslySetInnerHTML={{ __html: formatResponseText(summary) }}
+          />
+        )}
+        
+        <ChartVisualization
+          phones={phones as Phone[]}
+          darkMode={darkMode}
+          onBackToSimple={() => setViewMode('simple')}
+        />
+        
+        {formatting?.show_drill_down && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => onDrillDownClick?.({
+                label: 'Full Specifications',
+                command: 'full_specs',
+                target: 'all_specs'
+              })}
+              className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
+                darkMode
+                  ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+              }`}
+            >
+              📋 Full Specifications
+            </button>
+            <button
+              onClick={() => onDrillDownClick?.({
+                label: 'Detailed Analysis',
+                command: 'detail_focus',
+                target: 'analysis'
+              })}
+              className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
+                darkMode
+                  ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+              }`}
+            >
+              🔍 Detailed Analysis
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Simple comparison view with option to switch to chart
   return (
-    <div className={`rounded-2xl px-5 py-4 max-w-4xl shadow-md ${
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${
       darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
     }`}>
       {summary && (
-        <p className="text-base leading-relaxed mb-4">{summary}</p>
-      )}
-
-      <div className="overflow-x-auto">
-        <ComparisonChart
-          phones={phones}
-          features={features}
-          darkMode={darkMode}
+        <div 
+          className="text-sm sm:text-base leading-relaxed mb-4 break-words"
+          dangerouslySetInnerHTML={{ __html: formatResponseText(summary) }}
         />
-      </div>
+      )}
+      
+      {/* Quick comparison cards */}
+      {phones.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          {phones
+            .filter((phone: any) => phone && typeof phone === 'object')
+            .map((phone: any, index: number) => (
+              <ChatPhoneCard
+                key={phone.id || phone.name || index}
+                phone={phone as Phone}
+                darkMode={darkMode}
+                isTopResult={false}
+              />
+            ))
+          }
+        </div>
+      )}
+      
+      {/* Switch to chart view button */}
+      {phones.length >= 2 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setViewMode('chart')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+              darkMode
+                ? 'bg-brand hover:bg-brand-darkGreen text-white'
+                : 'bg-brand hover:bg-brand-darkGreen text-white'
+            }`}
+          >
+            📊 Interactive Chart View
+          </button>
+        </div>
+      )}
+      
+      {/* Simple comparison table (if features provided) */}
+      {features.length > 0 && (
+        <div className="overflow-x-auto">
+          <SimpleComparisonTable
+            phones={phones}
+            features={features}
+            darkMode={darkMode}
+          />
+        </div>
+      )}
 
       {formatting?.show_drill_down && (
         <div className="mt-4 flex flex-wrap gap-2">
@@ -502,13 +694,13 @@ const ComparisonResponse: React.FC<{
               command: 'full_specs',
               target: 'all_specs'
             })}
-            className={`px-3 py-1 rounded-full text-xs border transition ${
+            className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
               darkMode
                 ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
                 : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
             }`}
           >
-            Full Specifications
+            📋 Full Specifications
           </button>
           <button
             onClick={() => onDrillDownClick?.({
@@ -516,73 +708,18 @@ const ComparisonResponse: React.FC<{
               command: 'detail_focus',
               target: 'analysis'
             })}
-            className={`px-3 py-1 rounded-full text-xs border transition ${
+            className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
               darkMode
                 ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
                 : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
             }`}
           >
-            Detailed Analysis
+            🔍 Detailed Analysis
           </button>
         </div>
       )}
     </div>
   );
 };
-
-// Comparison chart component
-const ComparisonChart: React.FC<{
-  phones: any[];
-  features: any[];
-  darkMode: boolean;
-}> = ({ phones, features, darkMode }) => (
-  <div className="min-w-full">
-    <table className="w-full text-sm">
-      <thead>
-        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <th className="text-left py-2 px-3">Feature</th>
-          {phones.map((phone, index) => (
-            <th key={index} className="text-center py-2 px-3 min-w-24">
-              <div className="flex flex-col items-center">
-                <div
-                  className="w-4 h-4 rounded-full mb-1"
-                  style={{ backgroundColor: phone.color }}
-                />
-                <span className="text-xs font-medium">{phone.name}</span>
-              </div>
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {features.map((feature, featureIndex) => (
-          <tr key={featureIndex} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            <td className="py-2 px-3 font-medium">{feature.label}</td>
-            {feature.raw.map((value: any, phoneIndex: number) => (
-              <td key={phoneIndex} className="py-2 px-3 text-center">
-                <div className="flex flex-col items-center">
-                  <span className="text-xs mb-1">
-                    {value !== null && value !== undefined ? value : 'N/A'}
-                  </span>
-                  {feature.percent && feature.percent[phoneIndex] > 0 && (
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-                      <div
-                        className="h-1 rounded-full"
-                        style={{
-                          backgroundColor: phones[phoneIndex]?.color || '#4A90E2',
-                          width: `${feature.percent[phoneIndex]}%`
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
 
 export default IntelligentResponseHandler;

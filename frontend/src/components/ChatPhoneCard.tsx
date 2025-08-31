@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, Star, Battery, Camera, Zap } from "lucide-react";
-import { getThemeClasses } from "../utils/colorUtils";
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
 import { useComparison } from "../context/ComparisonContext";
 import { Phone } from "../api/phones";
