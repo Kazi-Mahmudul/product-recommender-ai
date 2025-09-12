@@ -3,6 +3,9 @@
  * Connects frontend directly to the Gemini AI service without FastAPI middleware
  */
 
+import { apiConfig } from './apiConfig';
+import { httpClient } from './httpClient';
+
 export interface GeminiResponse {
   type: 'recommendation' | 'qa' | 'comparison' | 'chat' | 'drill_down';
   data?: any;
@@ -46,19 +49,11 @@ class DirectGeminiService {
     try {
       console.log(`🚀 Sending query to Gemini AI: "${query}"`);
       
-      const response = await fetch(`${this.geminiServiceUrl}/parse-query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Gemini service error: ${response.status}`);
-      }
-
-      const geminiResponse: GeminiResponse = await response.json();
+      const geminiResponse: GeminiResponse = await httpClient.post(
+        apiConfig.getGeminiParseQueryURL(),
+        { query }
+      );
+      
       console.log(`✅ Gemini response received:`, geminiResponse);
 
       // Format the response for frontend consumption
@@ -66,7 +61,8 @@ class DirectGeminiService {
       
     } catch (error) {
       console.error('❌ Error calling Gemini service:', error);
-      return this.createErrorResponse(error instanceof Error ? error.message : 'Unknown error');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return this.createErrorResponse(errorMessage);
     }
   }
 
@@ -74,7 +70,7 @@ class DirectGeminiService {
    * Format Gemini response for frontend consumption
    */
   private formatGeminiResponse(geminiResponse: GeminiResponse): FormattedResponse {
-    const { type, data, reasoning, filters, suggestions } = geminiResponse;
+    const { type } = geminiResponse;
 
     switch (type) {
       case 'recommendation':
@@ -271,9 +267,6 @@ class DirectGeminiService {
    */
   async fetchPhoneRecommendations(filters: any): Promise<any[]> {
     try {
-      // Use environment variable for backend API base URL
-      const API_BASE_URL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
-      
       // Build query parameters for the correct /api/phones/ endpoint
       const queryParams = new URLSearchParams();
       
@@ -300,24 +293,16 @@ class DirectGeminiService {
       // Add sorting for better results
       queryParams.append('sort', 'overall_device_score');
       
-      // Call the correct backend endpoint using GET with query parameters
-      const response = await fetch(`${API_BASE_URL}/api/phones/?${queryParams.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // The backend returns { items: [...], total: number }
-        return data.items || [];
-      } else {
-        console.warn('Failed to fetch phone data from /api/phones/, response status:', response.status);
-        return [];
-      }
+      // Use the HTTP client with proper error handling
+      const url = `${apiConfig.getPhonesListURL()}?${queryParams.toString()}`;
+      const data: any = await httpClient.get(url);
+      
+      // The backend returns { items: [...], total: number }
+      return data.items || [];
+      
     } catch (error) {
       console.warn('Error fetching phone data from /api/phones/:', error);
+      // Return empty array on error to allow graceful degradation
       return [];
     }
   }
