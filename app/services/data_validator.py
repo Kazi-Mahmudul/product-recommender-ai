@@ -268,13 +268,28 @@ class DataValidator:
         
         validated_filters = {}
         
-        # Numeric filters
+        # Numeric filters with range support
         numeric_filters = {
             'price_original': (0, 1000000),
+            'max_price': (0, 1000000),
+            'min_price': (0, 1000000),
             'ram_gb': (1, 64),
+            'min_ram_gb': (1, 64),
+            'max_ram_gb': (1, 64),
             'storage_gb': (1, 1024),
+            'min_storage_gb': (1, 1024),
+            'max_storage_gb': (1, 1024),
             'battery_capacity_numeric': (1000, 10000),
-            'screen_size_numeric': (3.0, 10.0)
+            'min_battery_capacity': (1000, 10000),
+            'max_battery_capacity': (1000, 10000),
+            'screen_size_numeric': (3.0, 10.0),
+            'min_screen_size': (3.0, 10.0),
+            'max_screen_size': (3.0, 10.0),
+            'min_primary_camera_mp': (1, 200),
+            'min_selfie_camera_mp': (1, 100),
+            'min_refresh_rate': (30, 240),
+            'min_charging_wattage': (5, 150),
+            'max_age_in_months': (0, 60)
         }
         
         for key, (min_val, max_val) in numeric_filters.items():
@@ -286,7 +301,8 @@ class DataValidator:
         # Score filters (0-10)
         score_filters = [
             'camera_score', 'battery_score', 'performance_score',
-            'display_score', 'overall_device_score'
+            'display_score', 'overall_device_score', 'connectivity_score',
+            'security_score'
         ]
         
         for key in score_filters:
@@ -295,17 +311,24 @@ class DataValidator:
                 if 0 <= value <= 10:
                     validated_filters[key] = value
         
-        # String filters
-        string_filters = ['brand', 'price_category', 'network', 'chipset']
+        # String filters - expanded to include all possible filter keys
+        string_filters = [
+            'brand', 'price_category', 'network', 'chipset', 'operating_system',
+            'display_type', 'battery_type', 'camera_setup', 'build', 'waterproof',
+            'ip_rating', 'bluetooth', 'nfc', 'usb', 'fingerprint_sensor',
+            'face_unlock', 'wireless_charging', 'quick_charging', 'reverse_charging'
+        ]
+        
         for key in string_filters:
             if key in filters:
                 value = DataValidator._validate_string(filters[key])
                 if value:
                     validated_filters[key] = value
         
-        # Boolean filters
+        # Boolean filters - expanded to include all possible boolean filters
         boolean_filters = [
-            'has_fast_charging', 'has_wireless_charging', 'is_popular_brand'
+            'has_fast_charging', 'has_wireless_charging', 'is_popular_brand',
+            'is_new_release', 'is_upcoming'
         ]
         
         for key in boolean_filters:

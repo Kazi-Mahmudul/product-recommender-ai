@@ -1005,8 +1005,8 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
                 # If no specific brand filter, we'll handle this in the query
                 pass
         
-        # Handle price category
-        if 'price_category' in filters:
+        # Handle price category only if explicit price filters are not provided
+        if 'price_category' in filters and 'max_price' not in filters and 'min_price' not in filters:
             price_category = filters['price_category'].lower()
             if price_category == 'budget':
                 params['max_price'] = 30000

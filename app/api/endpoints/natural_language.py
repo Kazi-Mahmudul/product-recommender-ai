@@ -640,23 +640,37 @@ async def rag_enhanced_query(
     with phone database information.
     """
     try:
-        # Import RAG services
-        from app.services.gemini_rag_service import GeminiRAGService
-        from app.services.knowledge_retrieval import KnowledgeRetrievalService
-        from app.services.response_formatter import ResponseFormatterService
-        
-        # Initialize RAG services
-        gemini_rag_service = GeminiRAGService()
-        knowledge_retrieval_service = KnowledgeRetrievalService()
-        response_formatter_service = ResponseFormatterService()
+        # Try to import RAG services, but fall back if they're not available
+        try:
+            from app.services.gemini_rag_service import GeminiRAGService
+            from app.services.knowledge_retrieval import KnowledgeRetrievalService
+            from app.services.response_formatter import ResponseFormatterService
+            rag_services_available = True
+        except ImportError as e:
+            logger.warning(f"RAG services not available: {str(e)}. Using direct Gemini AI service.")
+            rag_services_available = False
         
         logger.info(f"Processing RAG query: {request.query[:100]}...")
         
-        # Step 1: Parse query with GEMINI service
-        gemini_response = await gemini_rag_service.parse_query_with_context(
-            query=request.query,
-            conversation_history=request.conversation_history or []
-        )
+        # Step 1: Parse query with GEMINI service (either through RAG or direct)
+        if rag_services_available:
+            try:
+                # Initialize RAG services
+                gemini_rag_service = GeminiRAGService()
+                knowledge_retrieval_service = KnowledgeRetrievalService()
+                response_formatter_service = ResponseFormatterService()
+                
+                gemini_response = await gemini_rag_service.parse_query_with_context(
+                    query=request.query,
+                    conversation_history=request.conversation_history or []
+                )
+            except Exception as rag_error:
+                logger.warning(f"RAG service failed: {str(rag_error)}. Falling back to direct Gemini service.")
+                rag_services_available = False
+        
+        if not rag_services_available:
+            # Fall back to direct Gemini AI service call
+            gemini_response = await call_gemini_ai_service(request.query)
         
         # Step 2: Enhance with knowledge from database
         response_type = gemini_response.get("type", "chat")
@@ -799,15 +813,37 @@ async def rag_enhanced_query(
                         # Pass through any unmapped filters
                         processed_filters[key] = value
             
-            # Use the phone_crud.get_phones_by_filters with processed filters
             logger.info(f"Original filters from Gemini: {filters}")
             logger.info(f"Processed filters for database query: {processed_filters}")
-            phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
-            logger.info(f"Retrieved {len(phones)} phones after filtering")
             
-            # The phones are already dictionaries from get_phones_by_filters
-            phone_dicts = phones
+            # Try RAG services first if available, but use processed filters
+            if rag_services_available:
+                try:
+                    phones_data = await knowledge_retrieval_service.find_similar_phones(
+                        db=db,
+                        filters=processed_filters,  # Use processed filters instead of original filters
+                        limit=5
+                    )
+                    
+                    if phones_data:
+                        logger.info(f"RAG service retrieved {len(phones_data)} phones after filtering")
+                        phone_dicts = phones_data
+                    else:
+                        logger.warning("RAG service returned no phones, falling back to direct database query")
+                        phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                        phone_dicts = phones
+                except Exception as rag_error:
+                    logger.warning(f"RAG service failed: {str(rag_error)}. Falling back to direct database query.")
+                    phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                    phone_dicts = phones
+            else:
+                # Use direct database query
+                phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                phone_dicts = phones
+                
+            logger.info(f"Retrieved {len(phone_dicts)} phones after filtering")
             
+            # The phones are already dictionaries from either RAG service or get_phones_by_filters
             # Format phones to include all database fields directly (not nested in key_specs)
             formatted_phones = []
             for phone_dict in phone_dicts:
@@ -904,8 +940,8 @@ async def rag_enhanced_query(
                     "connectivity_score": phone_dict.get("connectivity_score"),
                     
                     # Additional metadata if available
-                    "relevance_score": getattr(phone, 'relevance_score', 0.9),
-                    "match_reasons": getattr(phone, 'match_reasons', [])
+                    "relevance_score": phone_dict.get('relevance_score', 0.9),
+                    "match_reasons": phone_dict.get('match_reasons', [])
                 }
                 
                 formatted_phones.append(formatted_phone)
@@ -939,25 +975,41 @@ async def rag_enhanced_query(
         elif response_type == "comparison":
             # Get comparison data for specified phones
             phone_names = gemini_response.get("data", [])
-            comparison_data = await knowledge_retrieval_service.get_comparison_data(db, phone_names)
-            
-            # Format comparison
-            formatted_response = await response_formatter_service.format_comparison(
-                comparison_data=comparison_data,
-                reasoning=gemini_response.get("reasoning", ""),
-                original_query=request.query
-            )
+            if rag_services_available:
+                try:
+                    comparison_data = await knowledge_retrieval_service.get_comparison_data(db, phone_names)
+                    # Format comparison
+                    formatted_response = await response_formatter_service.format_comparison(
+                        comparison_data=comparison_data,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query=request.query
+                    )
+                except Exception as e:
+                    logger.warning(f"RAG comparison failed: {str(e)}. Using basic comparison.")
+                    # Fallback to basic comparison
+                    formatted_response = generate_comparison_response(db, request.query, phone_names=phone_names)
+            else:
+                # Direct comparison fallback
+                formatted_response = generate_comparison_response(db, request.query, phone_names=phone_names)
             
         elif response_type == "drill_down":
             # Get detailed specifications for a specific phone
             phone_names = gemini_response.get("data", [])
-            if phone_names:
-                phone_specs = await knowledge_retrieval_service.retrieve_phone_specs(db, phone_names[0])
-                formatted_response = await response_formatter_service.format_specifications(
-                    phone_specs=phone_specs,
-                    reasoning=gemini_response.get("reasoning", ""),
-                    original_query=request.query
-                )
+            if phone_names and rag_services_available:
+                try:
+                    phone_specs = await knowledge_retrieval_service.retrieve_phone_specs(db, phone_names[0])
+                    formatted_response = await response_formatter_service.format_specifications(
+                        phone_specs=phone_specs,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query=request.query
+                    )
+                except Exception as e:
+                    logger.warning(f"RAG drill down failed: {str(e)}. Using basic response.")
+                    formatted_response = {
+                        "response_type": "text",
+                        "content": {"text": f"Here's information about the {phone_names[0]}. Please check our database for detailed specifications."},
+                        "suggestions": ["Ask about a specific phone model", "Get phone recommendations"]
+                    }
             else:
                 formatted_response = {
                     "response_type": "text",
@@ -968,23 +1020,72 @@ async def rag_enhanced_query(
         elif response_type == "qa":
             # Handle Q&A with potential database lookup
             query_data = gemini_response.get("data", "")
-            related_phones = await knowledge_retrieval_service.search_by_features(db, query_data, limit=3)
-            
-            formatted_response = await response_formatter_service.format_conversational(
-                text=query_data,
-                related_phones=related_phones if related_phones else None,
-                reasoning=gemini_response.get("reasoning", ""),
-                original_query=request.query
-            )
+            if rag_services_available:
+                try:
+                    related_phones = await knowledge_retrieval_service.search_by_features(db, query_data, limit=3)
+                    formatted_response = await response_formatter_service.format_conversational(
+                        text=query_data,
+                        related_phones=related_phones if related_phones else None,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query=request.query
+                    )
+                except Exception as e:
+                    logger.warning(f"RAG QA failed: {str(e)}. Using basic response.")
+                    formatted_response = {
+                        "response_type": "text",
+                        "content": {
+                            "text": query_data or gemini_response.get("reasoning", "I'm here to help with smartphone questions!"),
+                            "suggestions": gemini_response.get("suggestions", [])
+                        }
+                    }
+            else:
+                # Direct QA fallback
+                formatted_response = {
+                    "response_type": "text",
+                    "content": {
+                        "text": query_data or gemini_response.get("reasoning", "I'm here to help with smartphone questions!"),
+                        "suggestions": gemini_response.get("suggestions", [])
+                    }
+                }
             
         else:
             # Default conversational response
-            formatted_response = await response_formatter_service.format_conversational(
-                text=gemini_response.get("data", gemini_response.get("reasoning", "")),
-                related_phones=None,
-                reasoning=gemini_response.get("reasoning", ""),
-                original_query=request.query
-            )
+            if rag_services_available:
+                try:
+                    formatted_response = await response_formatter_service.format_conversational(
+                        text=gemini_response.get("data", gemini_response.get("reasoning", "")),
+                        related_phones=None,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query=request.query
+                    )
+                except Exception as e:
+                    logger.warning(f"RAG formatting failed: {str(e)}. Using basic response.")
+                    formatted_response = {
+                        "response_type": "text",
+                        "content": {
+                            "text": gemini_response.get("data", gemini_response.get("reasoning", "I'm here to help with smartphone questions!")),
+                            "suggestions": [
+                                "Ask for phone recommendations",
+                                "Compare different phones",
+                                "Get phone specifications",
+                                "Ask about phone features"
+                            ]
+                        }
+                    }
+            else:
+                # Direct fallback
+                formatted_response = {
+                    "response_type": "text",
+                    "content": {
+                        "text": gemini_response.get("data", gemini_response.get("reasoning", "I'm here to help with smartphone questions!")),
+                        "suggestions": [
+                            "Ask for phone recommendations",
+                            "Compare different phones",
+                            "Get phone specifications",
+                            "Ask about phone features"
+                        ]
+                    }
+                }
         
         logger.info(f"RAG query processed successfully: {formatted_response.get('response_type')}")
         return formatted_response
@@ -992,25 +1093,97 @@ async def rag_enhanced_query(
     except Exception as e:
         logger.error(f"Error in RAG query processing: {str(e)}", exc_info=True)
         
-        # Fallback to existing intelligent query processing
+        # Try a simple fallback - basic phone query without AI processing
         try:
-            logger.info("Falling back to basic query processing")
-            # Basic fallback response
-            return {
-                "response_type": "text",
-                "content": {
-                    "text": "I'm having trouble processing your request right now. Please try rephrasing your question or try again in a moment.",
-                    "error": True
-                },
-                "suggestions": [
-                    "Try asking about a specific phone model",
-                    "Ask for phone recommendations with your budget",
-                    "Compare two phones directly"
-                ],
-                "metadata": {
-                    "error": str(e) if settings.DEBUG else "Service temporarily unavailable"
+            logger.info("Attempting basic phone recommendation fallback")
+            
+            # Extract basic filters from simple query patterns
+            query_lower = request.query.lower()
+            fallback_filters = {}
+            
+            # Simple price extraction
+            import re
+            price_matches = re.findall(r'(\d+)k?', query_lower)
+            if price_matches:
+                max_price = int(price_matches[0])
+                if 'k' in query_lower or max_price < 200:  # Assume it's in thousands
+                    max_price *= 1000
+                fallback_filters['max_price'] = max_price
+            
+            # Simple brand extraction
+            brands = ['apple', 'samsung', 'xiaomi', 'oneplus', 'google', 'realme', 'oppo', 'vivo']
+            for brand in brands:
+                if brand in query_lower:
+                    fallback_filters['brand'] = brand.title()
+                    break
+            
+            # Get basic recommendations
+            phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)
+            
+            if phones:
+                formatted_phones = []
+                for phone_dict in phones:
+                    formatted_phone = {
+                        "id": phone_dict.get("id"),
+                        "name": phone_dict.get("name"),
+                        "brand": phone_dict.get("brand"),
+                        "model": phone_dict.get("model"),
+                        "slug": phone_dict.get("slug"),
+                        "price": phone_dict.get("price_original") or phone_dict.get("price"),
+                        "url": phone_dict.get("url"),
+                        "img_url": phone_dict.get("img_url"),
+                        "chipset": phone_dict.get("chipset"),
+                        "ram": phone_dict.get("ram"),
+                        "internal_storage": phone_dict.get("internal_storage"),
+                        "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
+                        "battery_type": phone_dict.get("battery_type"),
+                        "capacity": phone_dict.get("capacity"),
+                        "operating_system": phone_dict.get("operating_system"),
+                        "overall_device_score": phone_dict.get("overall_device_score"),
+                        "camera_score": phone_dict.get("camera_score"),
+                        "battery_score": phone_dict.get("battery_score"),
+                        "performance_score": phone_dict.get("performance_score"),
+                        "display_score": phone_dict.get("display_score")
+                    }
+                    formatted_phones.append(formatted_phone)
+                
+                return {
+                    "response_type": "recommendations",
+                    "content": {
+                        "text": f"Here are some phone recommendations based on your query: '{request.query}'",
+                        "phones": formatted_phones,
+                        "filters_applied": fallback_filters,
+                        "total_found": len(formatted_phones)
+                    },
+                    "suggestions": [
+                        "Ask for more specific requirements",
+                        "Compare these phones",
+                        "Ask about a specific feature"
+                    ],
+                    "metadata": {
+                        "fallback_mode": True,
+                        "error_handled": True
+                    }
                 }
-            }
+            else:
+                # No phones found, return helpful message
+                return {
+                    "response_type": "text",
+                    "content": {
+                        "text": "I couldn't find specific phones matching your query, but I'm here to help! Try asking about specific phone brands, price ranges, or features.",
+                        "error": False
+                    },
+                    "suggestions": [
+                        "Ask for phones under a specific budget (e.g., '30k')",
+                        "Ask about a specific brand (e.g., 'Samsung phones')",
+                        "Ask for phones with specific features (e.g., 'good camera phones')"
+                    ],
+                    "metadata": {
+                        "fallback_mode": True,
+                        "no_results": True
+                    }
+                }
+                
         except Exception as fallback_error:
             logger.error(f"Fallback also failed: {str(fallback_error)}")
             
@@ -1018,16 +1191,17 @@ async def rag_enhanced_query(
             return {
                 "response_type": "text",
                 "content": {
-                    "text": "I'm having trouble processing your request right now. Please try rephrasing your question or try again in a moment.",
+                    "text": "I'm having trouble processing your request right now, but I'm still here to help! Could you try rephrasing your question?",
                     "error": True
                 },
                 "suggestions": [
-                    "Try asking about a specific phone model",
-                    "Ask for phone recommendations with your budget",
-                    "Compare two phones directly"
+                    "Try asking: 'Show me phones under 30k'",
+                    "Try asking: 'Best Samsung phones'",
+                    "Try asking: 'Compare iPhone vs Samsung'"
                 ],
                 "metadata": {
-                    "error": str(e) if settings.DEBUG else "Service temporarily unavailable"
+                    "fallback_mode": True,
+                    "service_error": True
                 }
             }
 
