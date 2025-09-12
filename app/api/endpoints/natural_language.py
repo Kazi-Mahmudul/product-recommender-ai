@@ -1,4 +1,5 @@
 from typing import List, Union, Dict, Any, Optional
+from typing import List, Union, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 import httpx
@@ -103,8 +104,7 @@ async def test_endpoint():
     """Test endpoint to check basic functionality"""
     return {"message": "Natural language endpoint is working"}
 
-import re
-from typing import List
+
 
 def extract_phone_names_from_query(query: str) -> List[str]:
     """Extract phone names from a query using regex patterns and a large brand dictionary"""
@@ -664,12 +664,153 @@ async def rag_enhanced_query(
         if response_type == "recommendation":
             # Get phone recommendations based on GEMINI filters
             filters = gemini_response.get("filters", {})
-            phones = await knowledge_retrieval_service.find_similar_phones(db, filters)
+            
+            # Preprocess filters to match the expected format for get_phones_by_filters
+            processed_filters = {}
+            
+            # Handle nested price filters
+            if "price" in filters:
+                price_filter = filters["price"]
+                if isinstance(price_filter, dict):
+                    if "max" in price_filter:
+                        processed_filters["max_price"] = price_filter["max"]
+                    if "min" in price_filter:
+                        processed_filters["min_price"] = price_filter["min"]
+                else:
+                    # If price is just a number, treat it as max_price
+                    processed_filters["max_price"] = price_filter
+            
+            # Handle nested RAM filters
+            if "ram" in filters:
+                ram_filter = filters["ram"]
+                if isinstance(ram_filter, dict):
+                    if "min" in ram_filter:
+                        processed_filters["min_ram_gb"] = ram_filter["min"]
+                    if "max" in ram_filter:
+                        processed_filters["max_ram_gb"] = ram_filter["max"]
+                else:
+                    processed_filters["min_ram_gb"] = ram_filter
+            
+            # Handle nested storage filters
+            if "storage" in filters:
+                storage_filter = filters["storage"]
+                if isinstance(storage_filter, dict):
+                    if "min" in storage_filter:
+                        processed_filters["min_storage_gb"] = storage_filter["min"]
+                    if "max" in storage_filter:
+                        processed_filters["max_storage_gb"] = storage_filter["max"]
+                else:
+                    processed_filters["min_storage_gb"] = storage_filter
+            
+            # Handle nested battery filters
+            if "battery" in filters:
+                battery_filter = filters["battery"]
+                if isinstance(battery_filter, dict):
+                    if "min_capacity" in battery_filter:
+                        processed_filters["min_battery_capacity"] = battery_filter["min_capacity"]
+                    if "max_capacity" in battery_filter:
+                        processed_filters["max_battery_capacity"] = battery_filter["max_capacity"]
+                else:
+                    processed_filters["min_battery_capacity"] = battery_filter
+            
+            # Handle nested camera filters
+            if "camera" in filters:
+                camera_filter = filters["camera"]
+                if isinstance(camera_filter, dict):
+                    if "min_mp" in camera_filter:
+                        processed_filters["min_primary_camera_mp"] = camera_filter["min_mp"]
+                    if "min_selfie_mp" in camera_filter:
+                        processed_filters["min_selfie_camera_mp"] = camera_filter["min_selfie_mp"]
+                else:
+                    processed_filters["min_primary_camera_mp"] = camera_filter
+            
+            # Handle nested display filters
+            if "display" in filters:
+                display_filter = filters["display"]
+                if isinstance(display_filter, dict):
+                    if "min_size" in display_filter:
+                        processed_filters["min_screen_size"] = display_filter["min_size"]
+                    if "max_size" in display_filter:
+                        processed_filters["max_screen_size"] = display_filter["max_size"]
+                    if "min_refresh_rate" in display_filter:
+                        processed_filters["min_refresh_rate"] = display_filter["min_refresh_rate"]
+                    if "type" in display_filter:
+                        processed_filters["display_type"] = display_filter["type"]
+            
+            # Handle other filters with direct mapping or special processing
+            filter_mappings = {
+                # Direct mappings
+                "brand": "brand",
+                "chipset": "chipset",
+                "operating_system": "operating_system",
+                "network": "network",
+                "display_type": "display_type",
+                "battery_type": "battery_type",
+                "camera_setup": "camera_setup",
+                "build": "build",
+                "waterproof": "waterproof",
+                "ip_rating": "ip_rating",
+                "bluetooth": "bluetooth",
+                "nfc": "nfc",
+                "usb": "usb",
+                "fingerprint_sensor": "fingerprint_sensor",
+                "face_unlock": "face_unlock",
+                "wireless_charging": "wireless_charging",
+                "quick_charging": "quick_charging",
+                "reverse_charging": "reverse_charging",
+                
+                # Numeric filters (handled as minimum values)
+                "ram_gb": "min_ram_gb",
+                "storage_gb": "min_storage_gb",
+                "battery_capacity_numeric": "min_battery_capacity",
+                "primary_camera_mp": "min_primary_camera_mp",
+                "selfie_camera_mp": "min_selfie_camera_mp",
+                "screen_size_numeric": "min_screen_size",
+                "refresh_rate_numeric": "min_refresh_rate",
+                "charging_wattage": "min_charging_wattage",
+                
+                # Score filters (handled separately)
+                "camera_score": "camera_score",
+                "performance_score": "performance_score",
+                "display_score": "display_score",
+                "battery_score": "battery_score",
+                "security_score": "security_score",
+                "connectivity_score": "connectivity_score",
+                "overall_device_score": "overall_device_score",
+                
+                # Boolean filters
+                "has_fast_charging": "has_fast_charging",
+                "has_wireless_charging": "has_wireless_charging",
+                "is_popular_brand": "is_popular_brand",
+                "is_new_release": "is_new_release",
+                "is_upcoming": "is_upcoming",
+                
+                # Special filters
+                "price_category": "price_category",
+                "age_in_months": "max_age_in_months"
+            }
+            
+            # Apply direct mappings for other filters
+            for key, value in filters.items():
+                if key not in ["price", "ram", "storage", "battery", "camera", "display"]:  # Skip already processed nested filters
+                    if key in filter_mappings:
+                        processed_filters[filter_mappings[key]] = value
+                    else:
+                        # Pass through any unmapped filters
+                        processed_filters[key] = value
+            
+            # Use the phone_crud.get_phones_by_filters with processed filters
+            logger.info(f"Original filters from Gemini: {filters}")
+            logger.info(f"Processed filters for database query: {processed_filters}")
+            phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+            logger.info(f"Retrieved {len(phones)} phones after filtering")
+            
+            # The phones are already dictionaries from get_phones_by_filters
+            phone_dicts = phones
             
             # Format phones to include all database fields directly (not nested in key_specs)
             formatted_phones = []
-            for phone in phones:
-                phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
+            for phone_dict in phone_dicts:
                 
                 # Create flattened phone structure
                 formatted_phone = {

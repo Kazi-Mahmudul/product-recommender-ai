@@ -1,4 +1,5 @@
 from typing import List, Optional, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Float
 import logging
@@ -151,18 +152,35 @@ def get_phones(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     min_ram_gb: Optional[int] = None,
+    max_ram_gb: Optional[int] = None,
     min_storage_gb: Optional[int] = None,
+    max_storage_gb: Optional[int] = None,
     camera_setup: Optional[str] = None,
     min_primary_camera_mp: Optional[float] = None,
     min_selfie_camera_mp: Optional[float] = None,
     battery_type: Optional[str] = None,
     min_battery_capacity: Optional[int] = None,
+    max_battery_capacity: Optional[int] = None,
     display_type: Optional[str] = None,
     min_refresh_rate: Optional[int] = None,
     min_screen_size: Optional[float] = None,
     max_screen_size: Optional[float] = None,
     chipset: Optional[str] = None,
     operating_system: Optional[str] = None,
+    network: Optional[str] = None,
+    bluetooth: Optional[str] = None,
+    nfc: Optional[str] = None,
+    usb: Optional[str] = None,
+    fingerprint_sensor: Optional[str] = None,
+    face_unlock: Optional[str] = None,
+    wireless_charging: Optional[str] = None,
+    quick_charging: Optional[str] = None,
+    reverse_charging: Optional[str] = None,
+    build: Optional[str] = None,
+    waterproof: Optional[str] = None,
+    ip_rating: Optional[str] = None,
+    min_charging_wattage: Optional[float] = None,
+    max_age_in_months: Optional[int] = None,
     sort: Optional[str] = None,
     search: Optional[str] = None
 ) -> Tuple[List[Phone], int]:
@@ -194,10 +212,20 @@ def get_phones(
         elif min_ram_gb is not None:
             logger.warning("ram_gb column not found, skipping min_ram_gb filter")
             
+        if max_ram_gb is not None and column_validation.get('ram_gb', False):
+            query = query.filter(Phone.ram_gb <= max_ram_gb)
+        elif max_ram_gb is not None:
+            logger.warning("ram_gb column not found, skipping max_ram_gb filter")
+            
         if min_storage_gb is not None and column_validation.get('storage_gb', False):
             query = query.filter(Phone.storage_gb >= min_storage_gb)
         elif min_storage_gb is not None:
             logger.warning("storage_gb column not found, skipping min_storage_gb filter")
+            
+        if max_storage_gb is not None and column_validation.get('storage_gb', False):
+            query = query.filter(Phone.storage_gb <= max_storage_gb)
+        elif max_storage_gb is not None:
+            logger.warning("storage_gb column not found, skipping max_storage_gb filter")
         
         # Camera filters
         if camera_setup is not None and column_validation.get('camera_setup', False):
@@ -225,6 +253,11 @@ def get_phones(
             query = query.filter(Phone.battery_capacity_numeric >= min_battery_capacity)
         elif min_battery_capacity is not None:
             logger.warning("battery_capacity_numeric column not found, skipping min_battery_capacity filter")
+            
+        if max_battery_capacity is not None and column_validation.get('battery_capacity_numeric', False):
+            query = query.filter(Phone.battery_capacity_numeric <= max_battery_capacity)
+        elif max_battery_capacity is not None:
+            logger.warning("battery_capacity_numeric column not found, skipping max_battery_capacity filter")
         
         # Display filters
         if display_type is not None and column_validation.get('display_type', False):
@@ -257,6 +290,81 @@ def get_phones(
             query = query.filter(func.lower(Phone.operating_system).contains(func.lower(operating_system)))
         elif operating_system is not None:
             logger.warning("operating_system column not found, skipping operating_system filter")
+        
+        # Connectivity filters
+        if network is not None and column_validation.get('network', False):
+            query = query.filter(func.lower(Phone.network).contains(func.lower(network)))
+        elif network is not None:
+            logger.warning("network column not found, skipping network filter")
+            
+        if bluetooth is not None and column_validation.get('bluetooth', False):
+            query = query.filter(func.lower(Phone.bluetooth).contains(func.lower(bluetooth)))
+        elif bluetooth is not None:
+            logger.warning("bluetooth column not found, skipping bluetooth filter")
+            
+        if nfc is not None and column_validation.get('nfc', False):
+            query = query.filter(func.lower(Phone.nfc).contains(func.lower(nfc)))
+        elif nfc is not None:
+            logger.warning("nfc column not found, skipping nfc filter")
+            
+        if usb is not None and column_validation.get('usb', False):
+            query = query.filter(func.lower(Phone.usb).contains(func.lower(usb)))
+        elif usb is not None:
+            logger.warning("usb column not found, skipping usb filter")
+            
+        # Security filters
+        if fingerprint_sensor is not None and column_validation.get('fingerprint_sensor', False):
+            query = query.filter(func.lower(Phone.fingerprint_sensor).contains(func.lower(fingerprint_sensor)))
+        elif fingerprint_sensor is not None:
+            logger.warning("fingerprint_sensor column not found, skipping fingerprint_sensor filter")
+            
+        if face_unlock is not None and column_validation.get('face_unlock', False):
+            query = query.filter(func.lower(Phone.face_unlock).contains(func.lower(face_unlock)))
+        elif face_unlock is not None:
+            logger.warning("face_unlock column not found, skipping face_unlock filter")
+        
+        # Charging filters
+        if wireless_charging is not None and column_validation.get('wireless_charging', False):
+            query = query.filter(func.lower(Phone.wireless_charging).contains(func.lower(wireless_charging)))
+        elif wireless_charging is not None:
+            logger.warning("wireless_charging column not found, skipping wireless_charging filter")
+            
+        if quick_charging is not None and column_validation.get('quick_charging', False):
+            query = query.filter(func.lower(Phone.quick_charging).contains(func.lower(quick_charging)))
+        elif quick_charging is not None:
+            logger.warning("quick_charging column not found, skipping quick_charging filter")
+            
+        if reverse_charging is not None and column_validation.get('reverse_charging', False):
+            query = query.filter(func.lower(Phone.reverse_charging).contains(func.lower(reverse_charging)))
+        elif reverse_charging is not None:
+            logger.warning("reverse_charging column not found, skipping reverse_charging filter")
+        
+        # Design and build filters
+        if build is not None and column_validation.get('build', False):
+            query = query.filter(func.lower(Phone.build).contains(func.lower(build)))
+        elif build is not None:
+            logger.warning("build column not found, skipping build filter")
+            
+        if waterproof is not None and column_validation.get('waterproof', False):
+            query = query.filter(func.lower(Phone.waterproof).contains(func.lower(waterproof)))
+        elif waterproof is not None:
+            logger.warning("waterproof column not found, skipping waterproof filter")
+            
+        if ip_rating is not None and column_validation.get('ip_rating', False):
+            query = query.filter(func.lower(Phone.ip_rating).contains(func.lower(ip_rating)))
+        elif ip_rating is not None:
+            logger.warning("ip_rating column not found, skipping ip_rating filter")
+        
+        # Advanced filters
+        if min_charging_wattage is not None and column_validation.get('charging_wattage', False):
+            query = query.filter(Phone.charging_wattage >= min_charging_wattage)
+        elif min_charging_wattage is not None:
+            logger.warning("charging_wattage column not found, skipping min_charging_wattage filter")
+            
+        if max_age_in_months is not None and column_validation.get('age_in_months', False):
+            query = query.filter(Phone.age_in_months <= max_age_in_months)
+        elif max_age_in_months is not None:
+            logger.warning("age_in_months column not found, skipping max_age_in_months filter")
         
         # Search filter - basic columns should always exist
         if search:
@@ -833,19 +941,48 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
             'max_price': 'max_price',  # Direct mapping for max_price
             'min_price': 'min_price',  # Direct mapping for min_price
             'price_category': None,  # Handle separately
-            'ram_gb': 'min_ram_gb',
-            'storage_gb': 'min_storage_gb',
-            'battery_capacity_numeric': 'min_battery_capacity',
+            'min_ram_gb': 'min_ram_gb',
+            'max_ram_gb': 'max_ram_gb',
+            'min_storage_gb': 'min_storage_gb',
+            'max_storage_gb': 'max_storage_gb',
+            'min_battery_capacity': 'min_battery_capacity',
+            'max_battery_capacity': 'max_battery_capacity',
+            'min_primary_camera_mp': 'min_primary_camera_mp',
+            'min_selfie_camera_mp': 'min_selfie_camera_mp',
+            'min_screen_size': 'min_screen_size',
+            'max_screen_size': 'max_screen_size',
+            'min_refresh_rate': 'min_refresh_rate',
+            'min_charging_wattage': 'min_charging_wattage',
+            'max_age_in_months': 'max_age_in_months',
             'camera_score': None,  # Handle separately
             'performance_score': None,  # Handle separately
             'display_score': None,  # Handle separately
             'overall_device_score': None,  # Handle separately
+            'battery_score': None,  # Handle separately
+            'security_score': None,  # Handle separately
+            'connectivity_score': None,  # Handle separately
             'is_popular_brand': None,  # Handle separately
             'has_fast_charging': None,  # Handle separately
             'has_wireless_charging': None,  # Handle separately
-            'network': None,  # Handle separately
+            'is_new_release': None,  # Handle separately
+            'is_upcoming': None,  # Handle separately
+            'network': 'network',
             'chipset': 'chipset',
-            'operating_system': 'operating_system'
+            'operating_system': 'operating_system',
+            'display_type': 'display_type',
+            'battery_type': 'battery_type',
+            'camera_setup': 'camera_setup',
+            'bluetooth': 'bluetooth',
+            'nfc': 'nfc',
+            'usb': 'usb',
+            'fingerprint_sensor': 'fingerprint_sensor',
+            'face_unlock': 'face_unlock',
+            'wireless_charging': 'wireless_charging',
+            'quick_charging': 'quick_charging',
+            'reverse_charging': 'reverse_charging',
+            'build': 'build',
+            'waterproof': 'waterproof',
+            'ip_rating': 'ip_rating'
         }
         
         # Build parameters for get_phones method
@@ -903,6 +1040,21 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
                 if display_score < filters['display_score']:
                     continue
             
+            if 'battery_score' in filters:
+                battery_score = phone_dict.get('battery_score', 0)
+                if battery_score < filters['battery_score']:
+                    continue
+            
+            if 'security_score' in filters:
+                security_score = phone_dict.get('security_score', 0)
+                if security_score < filters['security_score']:
+                    continue
+            
+            if 'connectivity_score' in filters:
+                connectivity_score = phone_dict.get('connectivity_score', 0)
+                if connectivity_score < filters['connectivity_score']:
+                    continue
+            
             if 'overall_device_score' in filters:
                 overall_score = phone_dict.get('overall_device_score', 0)
                 if overall_score < filters['overall_device_score']:
@@ -924,10 +1076,14 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
                 if has_wireless_charging != filters['has_wireless_charging']:
                     continue
             
-            if 'network' in filters:
-                network = phone_dict.get('network', '').lower()
-                required_network = filters['network'].lower()
-                if required_network not in network:
+            if 'is_new_release' in filters:
+                is_new_release = phone_dict.get('is_new_release', False)
+                if is_new_release != filters['is_new_release']:
+                    continue
+            
+            if 'is_upcoming' in filters:
+                is_upcoming = phone_dict.get('is_upcoming', False)
+                if is_upcoming != filters['is_upcoming']:
                     continue
             
             phone_dicts.append(phone_dict)
