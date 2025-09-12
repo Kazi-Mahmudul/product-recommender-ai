@@ -297,8 +297,8 @@ How can I help you today?`,
         if (useRAGPipeline) {
           setLoadingStage('processing');
           
-          // Use HTTP client with proper error handling
-          const ragResponse: any = await httpClient.post(apiConfig.getChatQueryURL(), {
+          // Use HTTP client with proper error handling - using RAG endpoint
+          const ragResponse: any = await httpClient.post(apiConfig.getNaturalLanguageRagURL(), {
             query: messageToSend,
             conversation_history: ragMessages.map(msg => ({
               type: msg.type,
