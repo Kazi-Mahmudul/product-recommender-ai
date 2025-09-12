@@ -679,6 +679,44 @@ async def rag_enhanced_query(
             # Get phone recommendations based on GEMINI filters
             filters = gemini_response.get("filters", {})
             
+            # Extract the requested limit from Gemini response, default to 5 if not specified
+            requested_limit = gemini_response.get("limit", None)
+            
+            # If Gemini didn't extract limit, try to extract it from the original query
+            if requested_limit is None:
+                import re
+                query_lower = request.query.lower()
+                
+                # Look for explicit numbers
+                number_matches = re.findall(r'\b(\d+)\b', query_lower)
+                
+                # Check for "best phone" (singular) - should return 1
+                if re.search(r'\bbest\s+phone\b(?!s)', query_lower) and 'phones' not in query_lower:
+                    requested_limit = 1
+                # Check for "top/best X phones" patterns
+                elif re.search(r'\b(?:top|best)\s+(\d+)\s+phones?\b', query_lower):
+                    match = re.search(r'\b(?:top|best)\s+(\d+)\s+phones?\b', query_lower)
+                    requested_limit = int(match.group(1))
+                # Check for "show/give me X phones" patterns
+                elif re.search(r'\b(?:show|give\s+me|find)\s+(\d+)\s+phones?\b', query_lower):
+                    match = re.search(r'\b(?:show|give\s+me|find)\s+(\d+)\s+phones?\b', query_lower)
+                    requested_limit = int(match.group(1))
+                # Check for single numbers followed by "phones" or similar
+                elif number_matches and any(word in query_lower for word in ['phones', 'recommendations', 'options']):
+                    # Use the first number found if it seems reasonable (1-20)
+                    first_num = int(number_matches[0])
+                    if 1 <= first_num <= 20:
+                        requested_limit = first_num
+                
+                # Default to 5 if still not found
+                if requested_limit is None:
+                    requested_limit = 5
+            
+            # Ensure limit is reasonable (between 1 and 20)
+            limit = max(1, min(requested_limit, 20))
+            
+            logger.info(f"Processing recommendation request with limit: {limit}")
+            
             # Preprocess filters to match the expected format for get_phones_by_filters
             processed_filters = {}
             
@@ -822,7 +860,7 @@ async def rag_enhanced_query(
                     phones_data = await knowledge_retrieval_service.find_similar_phones(
                         db=db,
                         filters=processed_filters,  # Use processed filters instead of original filters
-                        limit=5
+                        limit=limit  # Use the extracted limit
                     )
                     
                     if phones_data:
@@ -830,15 +868,15 @@ async def rag_enhanced_query(
                         phone_dicts = phones_data
                     else:
                         logger.warning("RAG service returned no phones, falling back to direct database query")
-                        phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                        phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=limit)  # Use the extracted limit
                         phone_dicts = phones
                 except Exception as rag_error:
                     logger.warning(f"RAG service failed: {str(rag_error)}. Falling back to direct database query.")
-                    phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                    phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=limit)  # Use the extracted limit
                     phone_dicts = phones
             else:
                 # Use direct database query
-                phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=limit)  # Use the extracted limit
                 phone_dicts = phones
                 
             logger.info(f"Retrieved {len(phone_dicts)} phones after filtering")
@@ -1118,7 +1156,7 @@ async def rag_enhanced_query(
                     break
             
             # Get basic recommendations
-            phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)
+            phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)  # Use default 5 for fallback
             
             if phones:
                 formatted_phones = []
