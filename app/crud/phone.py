@@ -813,3 +813,131 @@ def validate_database_schema(db: Session) -> Dict[str, Any]:
             "error": str(e),
             "recommendations": ["Database schema validation failed - check database connection and table structure"]
         }
+def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Get phones based on a dictionary of filters.
+    This method is used by the RAG system for flexible phone retrieval.
+    
+    Args:
+        db: Database session
+        filters: Dictionary of filter criteria
+        limit: Maximum number of phones to return
+        
+    Returns:
+        List of phone dictionaries
+    """
+    try:
+        # Map filter keys to get_phones parameters
+        filter_mapping = {
+            'brand': 'brand',
+            'price_original': 'max_price',  # Treat as max price
+            'price_category': None,  # Handle separately
+            'ram_gb': 'min_ram_gb',
+            'storage_gb': 'min_storage_gb',
+            'battery_capacity_numeric': 'min_battery_capacity',
+            'camera_score': None,  # Handle separately
+            'performance_score': None,  # Handle separately
+            'display_score': None,  # Handle separately
+            'overall_device_score': None,  # Handle separately
+            'is_popular_brand': None,  # Handle separately
+            'has_fast_charging': None,  # Handle separately
+            'has_wireless_charging': None,  # Handle separately
+            'network': None,  # Handle separately
+            'chipset': 'chipset',
+            'operating_system': 'operating_system'
+        }
+        
+        # Build parameters for get_phones method
+        params = {
+            'db': db,
+            'skip': 0,
+            'limit': limit
+        }
+        
+        # Map simple filters
+        for filter_key, param_name in filter_mapping.items():
+            if filter_key in filters and param_name:
+                params[param_name] = filters[filter_key]
+        
+        # Handle special filters
+        if 'is_popular_brand' in filters and filters['is_popular_brand']:
+            # Filter for popular brands
+            popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
+            if 'brand' not in params:
+                # If no specific brand filter, we'll handle this in the query
+                pass
+        
+        # Handle price category
+        if 'price_category' in filters:
+            price_category = filters['price_category'].lower()
+            if price_category == 'budget':
+                params['max_price'] = 30000
+            elif price_category == 'mid-range':
+                params['min_price'] = 30000
+                params['max_price'] = 80000
+            elif price_category == 'premium':
+                params['min_price'] = 80000
+        
+        # Call the existing get_phones method
+        phones, total = get_phones(**params)
+        
+        # Convert to dictionaries
+        phone_dicts = []
+        for phone in phones:
+            phone_dict = phone_to_dict(phone)
+            
+            # Apply additional filters that aren't handled by get_phones
+            if 'camera_score' in filters:
+                camera_score = phone_dict.get('camera_score', 0)
+                if camera_score < filters['camera_score']:
+                    continue
+            
+            if 'performance_score' in filters:
+                performance_score = phone_dict.get('performance_score', 0)
+                if performance_score < filters['performance_score']:
+                    continue
+            
+            if 'display_score' in filters:
+                display_score = phone_dict.get('display_score', 0)
+                if display_score < filters['display_score']:
+                    continue
+            
+            if 'overall_device_score' in filters:
+                overall_score = phone_dict.get('overall_device_score', 0)
+                if overall_score < filters['overall_device_score']:
+                    continue
+            
+            if 'is_popular_brand' in filters and filters['is_popular_brand']:
+                brand = phone_dict.get('brand', '')
+                popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
+                if brand not in popular_brands:
+                    continue
+            
+            if 'has_fast_charging' in filters:
+                has_fast_charging = phone_dict.get('has_fast_charging', False)
+                if has_fast_charging != filters['has_fast_charging']:
+                    continue
+            
+            if 'has_wireless_charging' in filters:
+                has_wireless_charging = phone_dict.get('has_wireless_charging', False)
+                if has_wireless_charging != filters['has_wireless_charging']:
+                    continue
+            
+            if 'network' in filters:
+                network = phone_dict.get('network', '').lower()
+                required_network = filters['network'].lower()
+                if required_network not in network:
+                    continue
+            
+            phone_dicts.append(phone_dict)
+            
+            # Stop if we have enough phones
+            if len(phone_dicts) >= limit:
+                break
+        
+        logger.info(f"Retrieved {len(phone_dicts)} phones with filters: {filters}")
+        return phone_dicts
+        
+    except Exception as e:
+        logger.error(f"Error in get_phones_by_filters: {str(e)}", exc_info=True)
+        return []

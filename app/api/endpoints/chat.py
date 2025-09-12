@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.services.gemini_rag_service import GeminiRAGService
 from app.services.knowledge_retrieval import KnowledgeRetrievalService
 from app.services.response_formatter import ResponseFormatterService
+from app.services.error_handling_service import error_service, track_performance, ChatErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/query", response_model=ChatResponse)
+@track_performance("chat_query")
 async def process_chat_query(
     request: ChatQueryRequest,
     background_tasks: BackgroundTasks,
@@ -74,7 +76,7 @@ async def process_chat_query(
         HTTPException: For validation errors or service failures
     """
     start_time = time.time()
-    request_id = str(uuid.uuid4())[:8]
+    request_id = error_service.generate_request_id()
     
     logger.info(f"[{request_id}] Processing chat query: '{request.query[:100]}...'")
     
@@ -88,26 +90,68 @@ async def process_chat_query(
         
         # Step 1: Parse query with GEMINI service
         logger.info(f"[{request_id}] Step 1: Parsing query with GEMINI service")
-        gemini_response = await gemini_rag_service.parse_query_with_context(
-            query=request.query,
-            conversation_history=request.conversation_history or []
-        )
+        try:
+            gemini_response = await gemini_rag_service.parse_query_with_context(
+                query=request.query,
+                conversation_history=request.conversation_history or []
+            )
+        except Exception as gemini_error:
+            logger.error(f"[{request_id}] Gemini service error: {str(gemini_error)}")
+            error_response = ChatErrorHandler.handle_gemini_service_error(
+                gemini_error, request.query, request_id
+            )
+            processing_time = time.time() - start_time
+            return ChatResponse(
+                response_type=error_response["response_type"],
+                content=error_response["content"],
+                suggestions=error_response["suggestions"],
+                metadata=error_response["metadata"],
+                session_id=session_id,
+                processing_time=processing_time
+            )
         
         # Step 2: Enhance with knowledge from database
         logger.info(f"[{request_id}] Step 2: Enhancing with database knowledge")
-        enhanced_response = await enhance_with_knowledge(
-            gemini_response=gemini_response,
-            db=db,
-            request_id=request_id
-        )
+        try:
+            enhanced_response = await enhance_with_knowledge(
+                gemini_response=gemini_response,
+                db=db,
+                request_id=request_id
+            )
+        except Exception as db_error:
+            logger.error(f"[{request_id}] Database error: {str(db_error)}")
+            error_response = ChatErrorHandler.handle_database_error(
+                db_error, "knowledge_enhancement", request_id
+            )
+            processing_time = time.time() - start_time
+            return ChatResponse(
+                response_type=error_response["response_type"],
+                content=error_response["content"],
+                suggestions=error_response["suggestions"],
+                metadata=error_response["metadata"],
+                session_id=session_id,
+                processing_time=processing_time
+            )
         
         # Step 3: Format response for frontend
         logger.info(f"[{request_id}] Step 3: Formatting response")
-        formatted_response = await format_response(
-            enhanced_response=enhanced_response,
-            original_query=request.query,
-            request_id=request_id
-        )
+        try:
+            formatted_response = await format_response(
+                enhanced_response=enhanced_response,
+                original_query=request.query,
+                request_id=request_id
+            )
+        except Exception as format_error:
+            logger.error(f"[{request_id}] Formatting error: {str(format_error)}")
+            # Use enhanced response directly if formatting fails
+            formatted_response = {
+                "response_type": "text",
+                "content": {
+                    "text": enhanced_response.get("text", "I found some information but had trouble formatting it properly."),
+                    "error": False
+                },
+                "suggestions": ["Try rephrasing your question", "Ask for more specific information"]
+            }
         
         # Calculate processing time
         processing_time = time.time() - start_time
@@ -144,24 +188,17 @@ async def process_chat_query(
         raise
     except Exception as e:
         processing_time = time.time() - start_time
-        logger.error(f"[{request_id}] Error processing chat query: {str(e)}", exc_info=True)
+        logger.error(f"[{request_id}] Unexpected error processing chat query: {str(e)}", exc_info=True)
         
-        # Return graceful error response
+        # Use error handler for generic errors
+        error_response = ChatErrorHandler.handle_generic_error(e, "chat_query", request_id)
+        
         return ChatResponse(
-            response_type="text",
-            content={
-                "text": "I'm having trouble processing your request right now. Please try rephrasing your question or try again in a moment.",
-                "error": True
-            },
-            suggestions=[
-                "Try asking about a specific phone model",
-                "Ask for phone recommendations with your budget",
-                "Compare two phones directly"
-            ],
-            metadata={
-                "request_id": request_id,
-                "error": str(e) if settings.DEBUG else "Internal error"
-            },
+            response_type=error_response["response_type"],
+            content=error_response["content"],
+            suggestions=error_response["suggestions"],
+            metadata=error_response["metadata"],
+            session_id=request.session_id or str(uuid.uuid4()),
             processing_time=processing_time
         )
 
@@ -360,6 +397,9 @@ async def chat_health_check():
         # Check if services are available
         gemini_status = await gemini_rag_service.health_check()
         
+        # Get error handling metrics
+        error_metrics = error_service.get_metrics()
+        
         return {
             "status": "healthy",
             "services": {
@@ -367,6 +407,7 @@ async def chat_health_check():
                 "knowledge_retrieval": "available",
                 "response_formatter": "available"
             },
+            "performance_metrics": error_metrics,
             "timestamp": time.time()
         }
     except Exception as e:
@@ -376,3 +417,39 @@ async def chat_health_check():
             "error": str(e),
             "timestamp": time.time()
         }
+
+@router.get("/metrics")
+async def get_chat_metrics():
+    """Get detailed chat system metrics."""
+    try:
+        metrics = error_service.get_metrics()
+        recent_errors = error_service.get_recent_errors(limit=5)
+        
+        return {
+            "metrics": metrics,
+            "recent_errors": recent_errors,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get chat metrics: {str(e)}")
+        return {
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
+@router.get("/errors/{request_id}")
+async def get_error_details(request_id: str):
+    """Get detailed error information for a specific request."""
+    try:
+        error_details = error_service.get_error_details(request_id)
+        
+        if error_details:
+            return error_details
+        else:
+            raise HTTPException(status_code=404, detail="Error details not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get error details for {request_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve error details")

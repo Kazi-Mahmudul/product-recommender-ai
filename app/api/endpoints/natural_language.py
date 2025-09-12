@@ -33,7 +33,7 @@ phone_name_resolver = PhoneNameResolver()
 context_manager = ContextManager()
 
 # Gemini AI service configuration
-GEMINI_AI_SERVICE_URL = os.getenv("GEMINI_AI_SERVICE_URL")
+GEMINI_AI_SERVICE_URL = settings.GEMINI_SERVICE_URL_SECURE
 
 async def call_gemini_ai_service(query: str) -> dict:
     """
@@ -736,7 +736,80 @@ def handle_gemini_chat_response(gemini_response: dict) -> IntelligentQueryRespon
         metadata={}
     )
 
+async def handle_gemini_drill_down_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
+    """Handle drill down responses from Gemini AI service"""
+    # Extract phone names from the response data
+    data = gemini_response.get("data", [])
+    phone_names = data if isinstance(data, list) else [data] if data else []
+    
+    if not phone_names:
+        return IntelligentQueryResponse(
+            response_type="text",
+            content={"text": "I couldn't identify which phone you'd like to know more about. Could you please specify the phone name?"},
+            formatting_hints={"text_style": "error"}
+        )
+    
+    # Get detailed specifications for the first phone
+    phone_name = phone_names[0]
+    try:
+        from app.services.knowledge_retrieval import KnowledgeRetrievalService
+        knowledge_service = KnowledgeRetrievalService()
+        phone_specs = await knowledge_service.retrieve_phone_specs(db, phone_name)
+        
+        if not phone_specs:
+            return IntelligentQueryResponse(
+                response_type="text",
+                content={"text": f"I couldn't find detailed information about {phone_name}. Please check the phone name and try again."},
+                formatting_hints={"text_style": "error"}
+            )
+        
+        return IntelligentQueryResponse(
+            response_type="specs",
+            content={
+                "phone": phone_specs.get("basic_info", {}),
+                "specifications": phone_specs,
+                "text": f"Here are the detailed specifications for the {phone_name}:"
+            },
+            formatting_hints={
+                "display_as": "specifications",
+                "show_detailed_specs": True
+            },
+            metadata={
+                "phone_name": phone_name
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving phone specs for {phone_name}: {str(e)}")
+        return IntelligentQueryResponse(
+            response_type="text",
+            content={"text": f"I encountered an error while retrieving information about {phone_name}. Please try again."},
+            formatting_hints={"text_style": "error"}
+        )
 
+def handle_gemini_unknown_response(gemini_response: dict) -> IntelligentQueryResponse:
+    """Handle unknown response types from Gemini AI service"""
+    response_text = gemini_response.get("data") or gemini_response.get("reasoning") or "I'm here to help you with smartphone questions!"
+    
+    return IntelligentQueryResponse(
+        response_type="text",
+        content={
+            "text": response_text,
+            "suggestions": [
+                "Ask for phone recommendations",
+                "Compare different phones",
+                "Get phone specifications",
+                "Ask about phone features"
+            ]
+        },
+        formatting_hints={
+            "text_style": "conversational",
+            "show_suggestions": True
+        },
+        metadata={
+            "original_response_type": gemini_response.get("type", "unknown")
+        }
+    )
 
 def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
     """Create a fallback response when AI service is unavailable"""
@@ -1142,4 +1215,5 @@ async def test_rag_integration(
             "query": query,
             "error": str(e),
             "rag_integration": "failed"
-        }
+        }        
+

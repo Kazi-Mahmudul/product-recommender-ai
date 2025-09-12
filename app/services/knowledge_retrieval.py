@@ -12,6 +12,8 @@ import logging
 
 from app.crud import phone as phone_crud
 from app.models.phone import Phone
+from app.services.database_service import db_service, cached_query
+from app.services.data_validator import DataValidator
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class KnowledgeRetrievalService:
             'has_fast_charging', 'has_wireless_charging', 'network'
         }
         
+    @cached_query(cache_ttl=1800, use_cache=True)  # Cache for 30 minutes
     async def retrieve_phone_specs(
         self,
         db: Session,
@@ -89,6 +92,7 @@ class KnowledgeRetrievalService:
             logger.error(f"Database error retrieving phone specs for '{phone_name}': {str(e)}", exc_info=True)
             return None
     
+    @cached_query(cache_ttl=600, use_cache=True)  # Cache for 10 minutes
     async def find_similar_phones(
         self,
         db: Session,
@@ -110,7 +114,7 @@ class KnowledgeRetrievalService:
             limit = min(limit or self.max_recommendations, 50)  # Cap at 50 for performance
             
             # Validate and sanitize filters
-            sanitized_filters = self._sanitize_filters(filters)
+            sanitized_filters = DataValidator.validate_filters(filters)
             
             if not sanitized_filters:
                 logger.warning("No valid filters provided, using default popular phones")
@@ -134,9 +138,12 @@ class KnowledgeRetrievalService:
                 try:
                     phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
                     
-                    # Validate phone data
+                    # Validate and sanitize phone data
+                    phone_dict = DataValidator.validate_phone_data(phone_dict)
+                    
+                    # Check if phone has required data after validation
                     if not phone_dict.get('name') or not phone_dict.get('id'):
-                        logger.warning(f"Skipping phone with incomplete data: {phone_dict}")
+                        logger.warning(f"Skipping phone with incomplete data after validation: {phone_dict}")
                         continue
                     
                     # Calculate relevance score based on position and filters

@@ -98,6 +98,33 @@ async def startup_event():
     logger.info(f"PORT environment variable: {os.getenv('PORT')}")
     logger.info(f"ENVIRONMENT: {os.getenv('ENVIRONMENT')}")
     
+    startup_errors = []
+    
+    # Initialize and validate all critical services
+    try:
+        from app.services.health_check_service import HealthCheckService
+        health_service = HealthCheckService()
+        
+        logger.info("🔍 Running comprehensive startup health checks...")
+        health_results = await health_service.check_all_services()
+        
+        if health_results["overall_health"]:
+            logger.info("✅ All services initialized successfully")
+        else:
+            logger.warning("⚠️ Some services have issues:")
+            for service_name, service_status in health_results["services"].items():
+                if not service_status.get("healthy", False):
+                    error_msg = f"  - {service_name}: {service_status.get('error', 'Unknown issue')}"
+                    logger.warning(error_msg)
+                    startup_errors.append(error_msg)
+                else:
+                    logger.info(f"  ✅ {service_name}: {service_status.get('status', 'OK')}")
+        
+    except Exception as e:
+        error_msg = f"Failed to run startup health checks: {e}"
+        logger.error(error_msg)
+        startup_errors.append(error_msg)
+    
     # Validate database schema on startup
     try:
         from app.crud.phone import validate_database_schema
@@ -121,15 +148,47 @@ async def startup_event():
         db.close()
         
     except Exception as e:
-        logger.error(f"Failed to validate database schema: {e}")
+        error_msg = f"Failed to validate database schema: {e}"
+        logger.error(error_msg)
+        startup_errors.append(error_msg)
     
+    # Initialize scheduler
     try:
         # Try to start the scheduler
         scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
         scheduler.start()
-        logger.info("Scheduler started successfully")
+        logger.info("✅ Scheduler started successfully")
     except Exception as e:
-        logger.error(f"Failed to start scheduler: {e}")
+        error_msg = f"Failed to start scheduler: {e}"
+        logger.error(error_msg)
+        startup_errors.append(error_msg)
+    
+    # Initialize chat services
+    try:
+        from app.services.gemini_rag_service import GeminiRAGService
+        from app.services.knowledge_retrieval import KnowledgeRetrievalService
+        from app.services.response_formatter import ResponseFormatterService
+        
+        # Test service initialization
+        gemini_service = GeminiRAGService()
+        knowledge_service = KnowledgeRetrievalService()
+        formatter_service = ResponseFormatterService()
+        
+        logger.info("✅ Chat services initialized successfully")
+        
+    except Exception as e:
+        error_msg = f"Failed to initialize chat services: {e}"
+        logger.error(error_msg)
+        startup_errors.append(error_msg)
+    
+    # Log startup summary
+    if startup_errors:
+        logger.warning(f"⚠️ Application started with {len(startup_errors)} issues:")
+        for error in startup_errors:
+            logger.warning(f"  {error}")
+        logger.warning("Some functionality may be limited. Check /health endpoint for details.")
+    else:
+        logger.info("🎉 Application startup completed successfully - all services healthy!")
     
     logger.info("Application startup complete")
 
@@ -188,7 +247,7 @@ app.add_middleware(SecurityHeadersMiddleware)  # Add security headers middleware
 # Include API router
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
-# Health check endpoint for GCP Cloud Run
+# Health check endpoints
 @app.get("/health")
 @app.get("/api/v1/health")
 async def health_check(request: Request):
@@ -196,102 +255,95 @@ async def health_check(request: Request):
     Enhanced health check endpoint for GCP Cloud Run.
     Returns detailed status of all service dependencies.
     """
-    health_status = "healthy"
-    services = {}
-    
-    # Check database connection
     try:
-        from app.core.database import engine, current_db_type
-        if current_db_type != "dummy":
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-                # Test if phones table exists and has data
-                result = conn.execute(text("SELECT COUNT(*) FROM phones LIMIT 1"))
-                phone_count = result.scalar()
-                services["database"] = {
-                    "status": "healthy",
-                    "type": current_db_type,
-                    "phone_count": phone_count
-                }
+        from app.services.health_check_service import HealthCheckService
+        
+        health_service = HealthCheckService()
+        health_results = await health_service.check_all_services()
+        
+        # Add request context information
+        health_results["request_info"] = {
+            "scheme": str(request.url.scheme),
+            "is_https": request.url.scheme == "https",
+            "forwarded_proto": request.headers.get("x-forwarded-proto"),
+            "host": str(request.url.hostname),
+            "port": request.url.port,
+            "behind_proxy": bool(request.headers.get("x-forwarded-for") or 
+                               request.headers.get("x-forwarded-proto"))
+        }
+        
+        health_results["environment_info"] = {
+            "port": os.getenv("PORT", "Not set"),
+            "environment": os.getenv("ENVIRONMENT", "Not set"),
+            "cors_origins": settings.CORS_ORIGINS,
+            "gemini_service_url": settings.GEMINI_SERVICE_URL_SECURE
+        }
+        
+        # Determine HTTP status code
+        if health_results["status"] == "healthy":
+            status_code = 200
+        elif health_results["status"] == "degraded":
+            status_code = 200  # Still functional
         else:
-            services["database"] = {
-                "status": "dummy",
-                "type": "dummy",
-                "message": "Using dummy database in production fallback"
-            }
-            if os.getenv("ENVIRONMENT") == "production":
-                health_status = "degraded"
+            status_code = 503
+        
+        return Response(
+            content=json.dumps(health_results, indent=2),
+            status_code=status_code,
+            media_type="application/json"
+        )
+        
     except Exception as e:
-        services["database"] = {
+        logger.error(f"Health check failed: {str(e)}", exc_info=True)
+        error_response = {
             "status": "error",
-            "error": str(e)
+            "timestamp": time.time(),
+            "error": str(e),
+            "overall_health": False
         }
-        health_status = "degraded" if os.getenv("ENVIRONMENT") == "production" else "unhealthy"
+        
+        return Response(
+            content=json.dumps(error_response),
+            status_code=503,
+            media_type="application/json"
+        )
+
+@app.get("/api/v1/health/{service_name}")
+async def health_check_service(service_name: str):
+    """
+    Check health of a specific service.
     
-    # Check AI service connection
+    Args:
+        service_name: Name of service to check (database, gemini_ai, chat_services, knowledge_services)
+    """
     try:
-        import httpx
-        ai_service_url = settings.GEMINI_SERVICE_URL_SECURE
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{ai_service_url}/health")
-            if response.status_code == 200:
-                services["ai_service"] = {
-                    "status": "healthy",
-                    "url": ai_service_url,
-                    "response_time": response.elapsed.total_seconds()
-                }
-            else:
-                services["ai_service"] = {
-                    "status": "error",
-                    "url": ai_service_url,
-                    "status_code": response.status_code
-                }
-                health_status = "degraded"
+        from app.services.health_check_service import HealthCheckService
+        
+        health_service = HealthCheckService()
+        result = await health_service.check_service_specific(service_name)
+        
+        status_code = 200 if result.get("healthy", False) else 503
+        
+        return Response(
+            content=json.dumps(result, indent=2),
+            status_code=status_code,
+            media_type="application/json"
+        )
+        
     except Exception as e:
-        services["ai_service"] = {
+        logger.error(f"Service health check failed for {service_name}: {str(e)}")
+        error_response = {
             "status": "error",
-            "url": settings.GEMINI_SERVICE_URL_SECURE,
-            "error": str(e)
+            "service": service_name,
+            "error": str(e),
+            "healthy": False
         }
-        health_status = "degraded"
-    
-    # Check HTTPS configuration
-    https_status = {
-        "scheme": str(request.url.scheme),
-        "is_https": request.url.scheme == "https",
-        "forwarded_proto": request.headers.get("x-forwarded-proto"),
-        "host": str(request.url.hostname),
-        "port": request.url.port
-    }
-    
-    # Check if running behind a proxy (like Google Cloud Run)
-    is_behind_proxy = bool(request.headers.get("x-forwarded-for") or 
-                          request.headers.get("x-forwarded-proto"))
-    
-    # Overall health determination
-    if health_status == "healthy":
-        status_code = 200
-    elif health_status == "degraded":
-        status_code = 200  # Still return 200 for degraded but functional
-    else:
-        status_code = 503
-    
-    response_data = {
-        "status": health_status,
-        "timestamp": time.time(),
-        "services": services,
-        "https": https_status,
-        "behind_proxy": is_behind_proxy,
-        "port": os.getenv("PORT", "Not set"),
-        "environment": os.getenv("ENVIRONMENT", "Not set"),
-        "cors_origins": settings.CORS_ORIGINS
-    }
-    
-    return Response(
-        content=json.dumps(response_data),
-        status_code=status_code,
-        media_type="application/json"
-    )
+        
+        return Response(
+            content=json.dumps(error_response),
+            status_code=503,
+            media_type="application/json"
+        )
 
 @app.get("/")
 def root():

@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 import httpx
 import logging
 import asyncio
+import time
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 class GeminiRAGService:
     """
     Wrapper service for GEMINI with RAG-specific enhancements.
+    Includes circuit breaker pattern and comprehensive error handling.
     """
     
     def __init__(self):
@@ -25,6 +27,87 @@ class GeminiRAGService:
         self.max_retries = 3
         self.base_delay = 1.0  # Base delay for exponential backoff
         
+        # Circuit breaker state
+        self.failure_count = 0
+        self.last_failure_time = 0
+        self.circuit_breaker_threshold = 5  # Open circuit after 5 failures
+        self.circuit_breaker_timeout = 300  # 5 minutes
+        self.circuit_state = "closed"  # closed, open, half-open
+        
+        # Request caching
+        self._cache = {}
+        self._cache_ttl = 300  # 5 minutes cache TTL
+        
+    def _is_circuit_open(self) -> bool:
+        """Check if circuit breaker is open."""
+        if self.circuit_state == "open":
+            # Check if timeout has passed
+            if time.time() - self.last_failure_time > self.circuit_breaker_timeout:
+                self.circuit_state = "half-open"
+                logger.info("Circuit breaker moved to half-open state")
+                return False
+            return True
+        return False
+    
+    def _record_success(self):
+        """Record successful request."""
+        self.failure_count = 0
+        if self.circuit_state == "half-open":
+            self.circuit_state = "closed"
+            logger.info("Circuit breaker closed after successful request")
+    
+    def _record_failure(self):
+        """Record failed request."""
+        import time
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.failure_count >= self.circuit_breaker_threshold:
+            self.circuit_state = "open"
+            logger.warning(f"Circuit breaker opened after {self.failure_count} failures")
+    
+    def _get_cache_key(self, query: str, conversation_history: List[Dict[str, str]] = None) -> str:
+        """Generate cache key for request."""
+        import hashlib
+        
+        # Create a simple hash of query and recent history
+        cache_data = query
+        if conversation_history:
+            # Only use last 2 messages for cache key
+            recent_history = conversation_history[-2:]
+            cache_data += str(recent_history)
+        
+        return hashlib.md5(cache_data.encode()).hexdigest()
+    
+    def _get_cached_response(self, cache_key: str) -> Optional[Dict[str, Any]]:
+        """Get cached response if available and not expired."""
+        import time
+        
+        if cache_key in self._cache:
+            cached_data = self._cache[cache_key]
+            if time.time() - cached_data["timestamp"] < self._cache_ttl:
+                logger.info("Returning cached response")
+                return cached_data["response"]
+            else:
+                # Remove expired cache entry
+                del self._cache[cache_key]
+        
+        return None
+    
+    def _cache_response(self, cache_key: str, response: Dict[str, Any]):
+        """Cache response."""
+        import time
+        
+        self._cache[cache_key] = {
+            "response": response,
+            "timestamp": time.time()
+        }
+        
+        # Simple cache cleanup - remove oldest entries if cache gets too large
+        if len(self._cache) > 100:
+            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]["timestamp"])
+            del self._cache[oldest_key]
+
     async def parse_query_with_context(
         self,
         query: str,
@@ -32,7 +115,7 @@ class GeminiRAGService:
         retry_count: int = 0
     ) -> Dict[str, Any]:
         """
-        Enhanced query parsing with conversation context and retry logic.
+        Enhanced query parsing with conversation context, retry logic, and circuit breaker.
         
         Args:
             query: User's query string
@@ -42,6 +125,17 @@ class GeminiRAGService:
         Returns:
             Dict containing parsed query response from GEMINI
         """
+        # Check circuit breaker
+        if self._is_circuit_open():
+            logger.warning("Circuit breaker is open, returning fallback response")
+            return self._create_fallback_response(query, "AI service temporarily unavailable")
+        
+        # Check cache first
+        cache_key = self._get_cache_key(query, conversation_history)
+        cached_response = self._get_cached_response(cache_key)
+        if cached_response:
+            return cached_response
+        
         try:
             # Enhance query with conversation context if available
             enhanced_query = self._enhance_query_with_context(query, conversation_history or [])
@@ -57,6 +151,11 @@ class GeminiRAGService:
                 if response.status_code == 200:
                     result = response.json()
                     logger.info(f"GEMINI response received: {result.get('type', 'unknown')}")
+                    
+                    # Record success and cache response
+                    self._record_success()
+                    self._cache_response(cache_key, result)
+                    
                     return result
                 elif response.status_code == 429:
                     # Rate limiting - implement exponential backoff
@@ -80,9 +179,11 @@ class GeminiRAGService:
                         return self._create_fallback_response(query, "AI service temporarily unavailable")
                 else:
                     logger.error(f"GEMINI service error: {response.status_code} - {response.text}")
+                    self._record_failure()
                     return self._create_fallback_response(query, f"AI service error: {response.status_code}")
                     
         except httpx.TimeoutException:
+            self._record_failure()
             if retry_count < self.max_retries:
                 delay = self._calculate_backoff_delay(retry_count)
                 logger.warning(f"Request timeout, retrying in {delay}s (attempt {retry_count + 1})")
@@ -92,9 +193,11 @@ class GeminiRAGService:
                 logger.error("GEMINI service timeout after max retries")
                 return self._create_fallback_response(query, "AI service timeout")
         except httpx.ConnectError:
+            self._record_failure()
             logger.error("Failed to connect to GEMINI service")
             return self._create_fallback_response(query, "AI service unavailable")
         except Exception as e:
+            self._record_failure()
             logger.error(f"Unexpected error calling GEMINI service: {str(e)}", exc_info=True)
             return self._create_fallback_response(query, "Unexpected AI service error")
     
@@ -266,6 +369,23 @@ class GeminiRAGService:
         # Default to chat
         return "chat"
     
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """
+        Get current circuit breaker status.
+        
+        Returns:
+            Dict containing circuit breaker information
+        """
+        import time
+        
+        return {
+            "state": self.circuit_state,
+            "failure_count": self.failure_count,
+            "last_failure_time": self.last_failure_time,
+            "time_since_last_failure": time.time() - self.last_failure_time if self.last_failure_time > 0 else 0,
+            "cache_size": len(self._cache)
+        }
+
     async def health_check(self) -> str:
         """
         Check if GEMINI service is available.
@@ -273,13 +393,20 @@ class GeminiRAGService:
         Returns:
             Service status string
         """
+        # If circuit is open, return status without making request
+        if self._is_circuit_open():
+            return f"circuit_open_failures_{self.failure_count}"
+        
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(f"{self.gemini_service_url}/health")
                 if response.status_code == 200:
+                    self._record_success()
                     return "available"
                 else:
+                    self._record_failure()
                     return f"error_status_{response.status_code}"
         except Exception as e:
+            self._record_failure()
             logger.error(f"GEMINI health check failed: {str(e)}")
             return f"unavailable_{str(e)[:50]}"

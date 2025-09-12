@@ -7,6 +7,8 @@ for frontend consumption and display.
 
 from typing import List, Dict, Any, Optional
 import logging
+from app.services.data_validator import DataValidator
+from app.services.response_validator import ResponseValidator
 
 logger = logging.getLogger(__name__)
 
@@ -99,28 +101,31 @@ class ResponseFormatterService:
                         logger.warning(f"Skipping invalid phone data at index {i}")
                         continue
                     
-                    # Validate required fields
-                    if not phone.get("id") or not phone.get("name"):
-                        logger.warning(f"Skipping phone with missing required fields: {phone}")
+                    # Validate and sanitize phone data
+                    validated_phone = DataValidator.validate_phone_data(phone)
+                    
+                    # Check if phone has required data after validation
+                    if not validated_phone.get("id") or not validated_phone.get("name"):
+                        logger.warning(f"Skipping phone with missing required fields after validation: {validated_phone}")
                         continue
                     
                     formatted_phone = {
-                        "slug": phone.get("slug", f"{phone.get('brand', 'unknown')}-{phone.get('name', 'phone')}".lower().replace(' ', '-')),
-                        "name": phone.get("name", "Unknown Phone"),
-                        "brand": phone.get("brand", "Unknown"),
-                        "price": self._safe_numeric_value(phone.get("price_original")),
-                        "image": phone.get("img_url", ""),
-                        "key_specs": phone.get("key_features", {}),
+                        "slug": validated_phone.get("slug", f"{validated_phone.get('brand', 'unknown')}-{validated_phone.get('name', 'phone')}".lower().replace(' ', '-')),
+                        "name": validated_phone.get("name", "Unknown Phone"),
+                        "brand": validated_phone.get("brand", "Unknown"),
+                        "price": validated_phone.get("price_original", 0),
+                        "image": validated_phone.get("img_url", ""),
+                        "key_specs": validated_phone.get("key_features", {}),
                         "scores": {
-                            "overall": self._safe_numeric_value(phone.get("overall_device_score"), 0, 10),
-                            "camera": self._safe_numeric_value(phone.get("camera_score"), 0, 10),
-                            "battery": self._safe_numeric_value(phone.get("battery_score"), 0, 10),
-                            "performance": self._safe_numeric_value(phone.get("performance_score"), 0, 10),
-                            "display": self._safe_numeric_value(phone.get("display_score"), 0, 10)
+                            "overall": validated_phone.get("overall_device_score", 0),
+                            "camera": validated_phone.get("camera_score", 0),
+                            "battery": validated_phone.get("battery_score", 0),
+                            "performance": validated_phone.get("performance_score", 0),
+                            "display": validated_phone.get("display_score", 0)
                         },
-                        "relevance_score": self._safe_numeric_value(phone.get("relevance_score"), 0, 1),
-                        "match_reasons": phone.get("match_reasons", [])[:3],  # Limit to 3 reasons
-                        "url": f"/phones/{phone.get('slug', phone.get('id'))}"  # Link to detailed view using slug
+                        "relevance_score": self._safe_numeric_value(validated_phone.get("relevance_score"), 0, 1),
+                        "match_reasons": validated_phone.get("match_reasons", [])[:3],  # Limit to 3 reasons
+                        "url": f"/phones/{validated_phone.get('slug', validated_phone.get('id'))}"  # Link to detailed view using slug
                     }
                     formatted_phones.append(formatted_phone)
                     
@@ -150,7 +155,7 @@ class ResponseFormatterService:
                 logger.warning(f"Error generating suggestions: {str(suggestion_error)}")
                 suggestions = ["Show me more phones", "Compare these phones", "Find phones in different price range"]
             
-            return {
+            response = {
                 "response_type": "recommendations",
                 "content": {
                     "text": response_text,
@@ -164,6 +169,9 @@ class ResponseFormatterService:
                     "confidence_score": 0.9 if len(formatted_phones) >= 3 else 0.7
                 }
             }
+            
+            # Validate response before returning
+            return ResponseValidator.validate_chat_response(response)
             
         except Exception as e:
             logger.error(f"Critical error formatting recommendations: {str(e)}", exc_info=True)
@@ -229,7 +237,7 @@ class ResponseFormatterService:
             # Generate suggestions
             suggestions = self._generate_comparison_suggestions(phones)
             
-            return {
+            response = {
                 "response_type": "comparison",
                 "content": {
                     "text": comparison_text,
@@ -245,6 +253,9 @@ class ResponseFormatterService:
                     "phone_count": len(phones)
                 }
             }
+            
+            # Validate response before returning
+            return ResponseValidator.validate_chat_response(response)
             
         except Exception as e:
             logger.error(f"Error formatting comparison: {str(e)}")
@@ -291,7 +302,7 @@ class ResponseFormatterService:
             # Generate suggestions
             suggestions = self._generate_specs_suggestions(phone_specs)
             
-            return {
+            response = {
                 "response_type": "specs",
                 "content": {
                     "text": specs_text,
@@ -305,6 +316,9 @@ class ResponseFormatterService:
                     "confidence_score": phone_specs.get("relevance_score", 0.9)
                 }
             }
+            
+            # Validate response before returning
+            return ResponseValidator.validate_chat_response(response)
             
         except Exception as e:
             logger.error(f"Error formatting specifications: {str(e)}")
@@ -345,7 +359,7 @@ class ResponseFormatterService:
                 "related_phones": related_phones[:3] if related_phones else None
             }
             
-            return {
+            response = {
                 "response_type": "text",
                 "content": content,
                 "suggestions": suggestions,
@@ -354,6 +368,9 @@ class ResponseFormatterService:
                     "confidence_score": 0.8
                 }
             }
+            
+            # Validate response before returning
+            return ResponseValidator.validate_chat_response(response)
             
         except Exception as e:
             logger.error(f"Error formatting conversational response: {str(e)}")
