@@ -209,7 +209,7 @@ async def enhance_with_knowledge(
     request_id: str
 ) -> Dict[str, Any]:
     """
-    Combines GEMINI response with database knowledge.
+    Combines GEMINI response with database knowledge using enhanced filtering.
     
     Args:
         gemini_response: Response from GEMINI service
@@ -220,74 +220,568 @@ async def enhance_with_knowledge(
         Dict containing enhanced response with database knowledge
     """
     try:
+        from app.crud import phone as phone_crud
+        
         response_type = gemini_response.get("type", "chat")
         
         if response_type == "recommendation":
-            # Get phone recommendations based on GEMINI filters
+            # Get phone recommendations based on GEMINI filters with enhanced preprocessing
             filters = gemini_response.get("filters", {})
-            phones = await knowledge_retrieval_service.find_similar_phones(db, filters)
+            
+            # Preprocess filters to match the expected format for get_phones_by_filters
+            processed_filters = {}
+            
+            # Handle nested price filters
+            if "price" in filters:
+                price_filter = filters["price"]
+                if isinstance(price_filter, dict):
+                    if "max" in price_filter:
+                        processed_filters["max_price"] = price_filter["max"]
+                    if "min" in price_filter:
+                        processed_filters["min_price"] = price_filter["min"]
+                else:
+                    # If price is just a number, treat it as max_price
+                    processed_filters["max_price"] = price_filter
+            
+            # Handle nested RAM filters
+            if "ram" in filters:
+                ram_filter = filters["ram"]
+                if isinstance(ram_filter, dict):
+                    if "min" in ram_filter:
+                        processed_filters["min_ram_gb"] = ram_filter["min"]
+                    if "max" in ram_filter:
+                        processed_filters["max_ram_gb"] = ram_filter["max"]
+                else:
+                    processed_filters["min_ram_gb"] = ram_filter
+            
+            # Handle nested storage filters
+            if "storage" in filters:
+                storage_filter = filters["storage"]
+                if isinstance(storage_filter, dict):
+                    if "min" in storage_filter:
+                        processed_filters["min_storage_gb"] = storage_filter["min"]
+                    if "max" in storage_filter:
+                        processed_filters["max_storage_gb"] = storage_filter["max"]
+                else:
+                    processed_filters["min_storage_gb"] = storage_filter
+            
+            # Handle nested battery filters
+            if "battery" in filters:
+                battery_filter = filters["battery"]
+                if isinstance(battery_filter, dict):
+                    if "min_capacity" in battery_filter:
+                        processed_filters["min_battery_capacity"] = battery_filter["min_capacity"]
+                    if "max_capacity" in battery_filter:
+                        processed_filters["max_battery_capacity"] = battery_filter["max_capacity"]
+                else:
+                    processed_filters["min_battery_capacity"] = battery_filter
+            
+            # Handle nested camera filters
+            if "camera" in filters:
+                camera_filter = filters["camera"]
+                if isinstance(camera_filter, dict):
+                    if "min_mp" in camera_filter:
+                        processed_filters["min_primary_camera_mp"] = camera_filter["min_mp"]
+                    if "min_selfie_mp" in camera_filter:
+                        processed_filters["min_selfie_camera_mp"] = camera_filter["min_selfie_mp"]
+                else:
+                    processed_filters["min_primary_camera_mp"] = camera_filter
+            
+            # Handle nested display filters
+            if "display" in filters:
+                display_filter = filters["display"]
+                if isinstance(display_filter, dict):
+                    if "min_size" in display_filter:
+                        processed_filters["min_screen_size"] = display_filter["min_size"]
+                    if "max_size" in display_filter:
+                        processed_filters["max_screen_size"] = display_filter["max_size"]
+                    if "min_refresh_rate" in display_filter:
+                        processed_filters["min_refresh_rate"] = display_filter["min_refresh_rate"]
+                    if "type" in display_filter:
+                        processed_filters["display_type"] = display_filter["type"]
+            
+            # Handle other filters with direct mapping or special processing
+            filter_mappings = {
+                # Direct mappings
+                "brand": "brand",
+                "chipset": "chipset",
+                "operating_system": "operating_system",
+                "network": "network",
+                "display_type": "display_type",
+                "battery_type": "battery_type",
+                "camera_setup": "camera_setup",
+                "build": "build",
+                "waterproof": "waterproof",
+                "ip_rating": "ip_rating",
+                "bluetooth": "bluetooth",
+                "nfc": "nfc",
+                "usb": "usb",
+                "fingerprint_sensor": "fingerprint_sensor",
+                "face_unlock": "face_unlock",
+                "wireless_charging": "wireless_charging",
+                "quick_charging": "quick_charging",
+                "reverse_charging": "reverse_charging",
+                
+                # Numeric filters (handled as minimum values)
+                "ram_gb": "min_ram_gb",
+                "storage_gb": "min_storage_gb",
+                "battery_capacity_numeric": "min_battery_capacity",
+                "primary_camera_mp": "min_primary_camera_mp",
+                "selfie_camera_mp": "min_selfie_camera_mp",
+                "screen_size_numeric": "min_screen_size",
+                "refresh_rate_numeric": "min_refresh_rate",
+                "charging_wattage": "min_charging_wattage",
+                
+                # Score filters (handled separately)
+                "camera_score": "camera_score",
+                "performance_score": "performance_score",
+                "display_score": "display_score",
+                "battery_score": "battery_score",
+                "security_score": "security_score",
+                "connectivity_score": "connectivity_score",
+                "overall_device_score": "overall_device_score",
+                
+                # Boolean filters
+                "has_fast_charging": "has_fast_charging",
+                "has_wireless_charging": "has_wireless_charging",
+                "is_popular_brand": "is_popular_brand",
+                "is_new_release": "is_new_release",
+                "is_upcoming": "is_upcoming",
+                
+                # Special filters
+                "price_category": "price_category",
+                "age_in_months": "max_age_in_months"
+            }
+            
+            # Apply direct mappings for other filters
+            for key, value in filters.items():
+                if key not in ["price", "ram", "storage", "battery", "camera", "display"]:  # Skip already processed nested filters
+                    if key in filter_mappings:
+                        processed_filters[filter_mappings[key]] = value
+                    else:
+                        # Pass through any unmapped filters
+                        processed_filters[key] = value
+            
+            logger.info(f"[{request_id}] Original filters from Gemini: {filters}")
+            logger.info(f"[{request_id}] Processed filters for database query: {processed_filters}")
+            
+            # Try RAG services first if available, but use processed filters
+            phones_data = None
+            try:
+                logger.info(f"[{request_id}] Attempting RAG service with processed filters")
+                phones_data = await knowledge_retrieval_service.find_similar_phones(
+                    db=db,
+                    filters=processed_filters,  # Use processed filters instead of original filters
+                    limit=5
+                )
+                
+                if phones_data and len(phones_data) > 0:
+                    logger.info(f"[{request_id}] RAG service retrieved {len(phones_data)} phones after filtering")
+                    phone_dicts = phones_data
+                else:
+                    logger.warning(f"[{request_id}] RAG service returned no phones, falling back to direct database query")
+                    phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                    phone_dicts = phones
+            except Exception as rag_error:
+                logger.warning(f"[{request_id}] RAG service failed: {str(rag_error)}. Falling back to direct database query.")
+                phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=5)
+                phone_dicts = phones
+            
+            # Additional fallback if still no results
+            if not phone_dicts or len(phone_dicts) == 0:
+                logger.warning(f"[{request_id}] No phones found with processed filters, trying relaxed search")
+                # Try with fewer filters
+                relaxed_filters = {}
+                if 'brand' in processed_filters:
+                    relaxed_filters['brand'] = processed_filters['brand']
+                if 'max_price' in processed_filters:
+                    relaxed_filters['max_price'] = processed_filters['max_price'] * 1.5  # Increase budget by 50%
+                
+                try:
+                    phones = phone_crud.get_phones_by_filters(db, relaxed_filters, limit=5)
+                    phone_dicts = phones
+                    if phone_dicts and len(phone_dicts) > 0:
+                        logger.info(f"[{request_id}] Relaxed search found {len(phone_dicts)} phones")
+                except Exception as relaxed_error:
+                    logger.error(f"[{request_id}] Relaxed search also failed: {str(relaxed_error)}")
+                    phone_dicts = []
+            
+            # Format phones to include all database fields directly (not nested in key_specs)
+            formatted_phones = []
+            for phone_dict in phone_dicts:
+                # Create flattened phone structure
+                formatted_phone = {
+                    "id": phone_dict.get("id"),
+                    "name": phone_dict.get("name"),
+                    "brand": phone_dict.get("brand"),
+                    "model": phone_dict.get("model"),
+                    "slug": phone_dict.get("slug"),
+                    "price": phone_dict.get("price_original") or phone_dict.get("price"),
+                    "url": phone_dict.get("url"),
+                    "img_url": phone_dict.get("img_url"),
+                    
+                    # Display fields
+                    "display_type": phone_dict.get("display_type"),
+                    "screen_size_inches": phone_dict.get("screen_size_inches"),
+                    "display_resolution": phone_dict.get("display_resolution"),
+                    "pixel_density_ppi": phone_dict.get("pixel_density_ppi"),
+                    "refresh_rate_hz": phone_dict.get("refresh_rate_hz"),
+                    "screen_protection": phone_dict.get("screen_protection"),
+                    "display_brightness": phone_dict.get("display_brightness"),
+                    "aspect_ratio": phone_dict.get("aspect_ratio"),
+                    "hdr_support": phone_dict.get("hdr_support"),
+                    
+                    # Performance fields
+                    "chipset": phone_dict.get("chipset"),
+                    "cpu": phone_dict.get("cpu"),
+                    "gpu": phone_dict.get("gpu"),
+                    "ram": phone_dict.get("ram"),
+                    "ram_type": phone_dict.get("ram_type"),
+                    "internal_storage": phone_dict.get("internal_storage"),
+                    "storage_type": phone_dict.get("storage_type"),
+                    
+                    # Camera fields
+                    "camera_setup": phone_dict.get("camera_setup"),
+                    "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
+                    "selfie_camera_resolution": phone_dict.get("selfie_camera_resolution"),
+                    "main_camera": phone_dict.get("main_camera"),
+                    "front_camera": phone_dict.get("front_camera"),
+                    "camera_features": phone_dict.get("camera_features"),
+                    
+                    # Battery fields
+                    "battery_type": phone_dict.get("battery_type"),
+                    "capacity": phone_dict.get("capacity"),
+                    "quick_charging": phone_dict.get("quick_charging"),
+                    "wireless_charging": phone_dict.get("wireless_charging"),
+                    "reverse_charging": phone_dict.get("reverse_charging"),
+                    
+                    # Design fields
+                    "build": phone_dict.get("build"),
+                    "weight": phone_dict.get("weight"),
+                    "thickness": phone_dict.get("thickness"),
+                    "colors": phone_dict.get("colors"),
+                    "waterproof": phone_dict.get("waterproof"),
+                    "ip_rating": phone_dict.get("ip_rating"),
+                    
+                    # Connectivity fields
+                    "network": phone_dict.get("network"),
+                    "bluetooth": phone_dict.get("bluetooth"),
+                    "wlan": phone_dict.get("wlan"),
+                    "gps": phone_dict.get("gps"),
+                    "nfc": phone_dict.get("nfc"),
+                    "usb": phone_dict.get("usb"),
+                    "fingerprint_sensor": phone_dict.get("fingerprint_sensor"),
+                    "face_unlock": phone_dict.get("face_unlock"),
+                    
+                    # Operating system
+                    "operating_system": phone_dict.get("operating_system"),
+                    "os_version": phone_dict.get("os_version"),
+                    "release_date": phone_dict.get("release_date"),
+                    
+                    # Derived/numeric fields
+                    "storage_gb": phone_dict.get("storage_gb"),
+                    "ram_gb": phone_dict.get("ram_gb"),
+                    "screen_size_numeric": phone_dict.get("screen_size_numeric"),
+                    "primary_camera_mp": phone_dict.get("primary_camera_mp"),
+                    "selfie_camera_mp": phone_dict.get("selfie_camera_mp"),
+                    "battery_capacity_numeric": phone_dict.get("battery_capacity_numeric"),
+                    "has_fast_charging": phone_dict.get("has_fast_charging"),
+                    "has_wireless_charging": phone_dict.get("has_wireless_charging"),
+                    "charging_wattage": phone_dict.get("charging_wattage"),
+                    "refresh_rate_numeric": phone_dict.get("refresh_rate_numeric"),
+                    "ppi_numeric": phone_dict.get("ppi_numeric"),
+                    
+                    # Scores
+                    "overall_device_score": phone_dict.get("overall_device_score"),
+                    "performance_score": phone_dict.get("performance_score"),
+                    "display_score": phone_dict.get("display_score"),
+                    "camera_score": phone_dict.get("camera_score"),
+                    "battery_score": phone_dict.get("battery_score"),
+                    "security_score": phone_dict.get("security_score"),
+                    "connectivity_score": phone_dict.get("connectivity_score"),
+                    
+                    # Additional metadata if available
+                    "relevance_score": phone_dict.get('relevance_score', 0.9),
+                    "match_reasons": phone_dict.get('match_reasons', [])
+                }
+                
+                formatted_phones.append(formatted_phone)
             
             return {
                 "type": "recommendations",
-                "phones": phones,
+                "phones": formatted_phones,
                 "reasoning": gemini_response.get("reasoning", ""),
-                "filters_applied": filters
+                "filters_applied": filters,
+                "total_found": len(formatted_phones)
             }
             
         elif response_type == "comparison":
-            # Get comparison data for specified phones
+            # Get comparison data for specified phones with enhanced error handling
             phone_names = gemini_response.get("data", [])
-            comparison_data = await knowledge_retrieval_service.get_comparison_data(db, phone_names)
-            
-            return {
-                "type": "comparison",
-                "comparison_data": comparison_data,
-                "reasoning": gemini_response.get("reasoning", "")
-            }
+            try:
+                logger.info(f"[{request_id}] Attempting comparison for phones: {phone_names}")
+                comparison_data = await knowledge_retrieval_service.get_comparison_data(db, phone_names)
+                
+                if comparison_data:
+                    # Format comparison
+                    formatted_response = await response_formatter_service.format_comparison(
+                        comparison_data=comparison_data,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query="chat query"
+                    )
+                    return {
+                        "type": "comparison",
+                        "comparison_data": formatted_response,
+                        "reasoning": gemini_response.get("reasoning", "")
+                    }
+                else:
+                    logger.warning(f"[{request_id}] No comparison data found for phones: {phone_names}")
+                    # Fallback to basic phone lookup
+                    phones = phone_crud.get_phones_by_filters(db, {}, limit=10)
+                    available_phones = [p.get('name', '') for p in phones if p.get('name')]
+                    return {
+                        "type": "text",
+                        "text": f"I couldn't find comparison data for the requested phones. Here are some available phones you can compare: {', '.join(available_phones[:5])}",
+                        "reasoning": gemini_response.get("reasoning", "")
+                    }
+            except Exception as e:
+                logger.warning(f"[{request_id}] RAG comparison failed: {str(e)}. Using fallback response.")
+                # Fallback to basic comparison guidance
+                return {
+                    "type": "text",
+                    "text": "I can help you compare phones, but I'm having trouble accessing the comparison data right now. Please specify the exact phone models you'd like to compare, or ask for recommendations instead.",
+                    "reasoning": gemini_response.get("reasoning", ""),
+                    "suggestions": ["Ask for phone recommendations", "Specify exact phone model names", "Try asking about specific features"]
+                }
             
         elif response_type == "drill_down":
-            # Get detailed specifications for a specific phone
+            # Get detailed specifications for a specific phone with enhanced error handling
             phone_names = gemini_response.get("data", [])
             if phone_names:
-                phone_specs = await knowledge_retrieval_service.retrieve_phone_specs(db, phone_names[0])
+                try:
+                    logger.info(f"[{request_id}] Attempting drill down for phone: {phone_names[0]}")
+                    phone_specs = await knowledge_retrieval_service.retrieve_phone_specs(db, phone_names[0])
+                    
+                    if phone_specs:
+                        formatted_response = await response_formatter_service.format_specifications(
+                            phone_specs=phone_specs,
+                            reasoning=gemini_response.get("reasoning", ""),
+                            original_query="chat query"
+                        )
+                        return {
+                            "type": "specs",
+                            "phone_specs": formatted_response,
+                            "reasoning": gemini_response.get("reasoning", "")
+                        }
+                    else:
+                        logger.warning(f"[{request_id}] No specs found for phone: {phone_names[0]}")
+                        # Try direct database lookup as fallback
+                        phones = phone_crud.get_phones_by_filters(db, {'name': phone_names[0]}, limit=1)
+                        if phones and len(phones) > 0:
+                            phone = phones[0]
+                            return {
+                                "type": "specs",
+                                "phone_specs": {
+                                    "phone": phone,
+                                    "specifications": {
+                                        "display": phone.get('display_type', 'N/A'),
+                                        "processor": phone.get('chipset', 'N/A'),
+                                        "memory": phone.get('ram', 'N/A'),
+                                        "storage": phone.get('internal_storage', 'N/A'),
+                                        "camera": phone.get('primary_camera_resolution', 'N/A'),
+                                        "battery": phone.get('capacity', 'N/A'),
+                                        "os": phone.get('operating_system', 'N/A')
+                                    }
+                                },
+                                "reasoning": f"Here are the basic specifications for {phone_names[0]}"
+                            }
+                        else:
+                            return {
+                                "type": "text",
+                                "text": f"I couldn't find detailed information about {phone_names[0]}. Please check the spelling or try asking about a different phone model.",
+                                "reasoning": gemini_response.get("reasoning", "")
+                            }
+                except Exception as e:
+                    logger.warning(f"[{request_id}] RAG drill down failed: {str(e)}. Using basic response.")
+                    return {
+                        "type": "text",
+                        "text": f"I'm having trouble getting detailed specifications for {phone_names[0]} right now. Please try asking for general information or phone recommendations instead.",
+                        "reasoning": gemini_response.get("reasoning", ""),
+                        "suggestions": ["Ask for phone recommendations", "Try a different phone model", "Ask about specific features"]
+                    }
+            else:
                 return {
-                    "type": "specs",
-                    "phone_specs": phone_specs,
-                    "reasoning": gemini_response.get("reasoning", "")
+                    "type": "text",
+                    "text": "Please specify which phone you'd like to know more about. I can provide detailed specifications for most smartphone models.",
+                    "reasoning": gemini_response.get("reasoning", ""),
+                    "suggestions": ["Name a specific phone model", "Ask for phone recommendations first"]
                 }
             
         elif response_type == "qa":
-            # Handle Q&A with potential database lookup
+            # Handle Q&A with potential database lookup and enhanced error handling
             query_data = gemini_response.get("data", "")
-            # Try to enhance with relevant phone data if applicable
-            enhanced_data = await knowledge_retrieval_service.search_by_features(
-                db, 
-                query_data, 
-                limit=3
+            try:
+                logger.info(f"[{request_id}] Attempting QA enhancement with knowledge retrieval")
+                # Try to enhance with relevant phone data if applicable
+                enhanced_data = await knowledge_retrieval_service.search_by_features(
+                    db, 
+                    query_data, 
+                    limit=3
+                )
+                
+                if enhanced_data and len(enhanced_data) > 0:
+                    logger.info(f"[{request_id}] Found {len(enhanced_data)} related phones for QA")
+                    
+                    formatted_response = await response_formatter_service.format_conversational(
+                        text=query_data,
+                        related_phones=enhanced_data,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query="chat query"
+                    )
+                    
+                    return {
+                        "type": "text",
+                        "text": formatted_response.get("content", {}).get("text", query_data),
+                        "related_phones": enhanced_data,
+                        "reasoning": gemini_response.get("reasoning", "")
+                    }
+                else:
+                    logger.info(f"[{request_id}] No related phones found, providing direct answer")
+                    # No related phones, just format the response
+                    formatted_response = await response_formatter_service.format_conversational(
+                        text=query_data,
+                        related_phones=None,
+                        reasoning=gemini_response.get("reasoning", ""),
+                        original_query="chat query"
+                    )
+                    
+                    return {
+                        "type": "text",
+                        "text": formatted_response.get("content", {}).get("text", query_data),
+                        "reasoning": gemini_response.get("reasoning", "")
+                    }
+                    
+            except Exception as e:
+                logger.warning(f"[{request_id}] RAG QA failed: {str(e)}. Using basic response.")
+                # Fallback to basic response
+                return {
+                    "type": "text",
+                    "text": query_data or gemini_response.get("reasoning", "I'm here to help with smartphone questions! Feel free to ask about phone features, specifications, or recommendations."),
+                    "reasoning": gemini_response.get("reasoning", ""),
+                    "suggestions": ["Ask about specific phone features", "Request phone recommendations", "Compare phone models"]
+                }
+        
+        # Default: return as conversational response with enhanced error handling
+        try:
+            logger.info(f"[{request_id}] Processing default conversational response")
+            formatted_response = await response_formatter_service.format_conversational(
+                text=gemini_response.get("data", gemini_response.get("reasoning", "")),
+                related_phones=None,
+                reasoning=gemini_response.get("reasoning", ""),
+                original_query="chat query"
             )
             
             return {
                 "type": "text",
-                "text": query_data,
-                "related_phones": enhanced_data if enhanced_data else None,
+                "text": formatted_response.get("content", {}).get("text", gemini_response.get("data", gemini_response.get("reasoning", ""))),
                 "reasoning": gemini_response.get("reasoning", "")
             }
-        
-        # Default: return as conversational response
-        return {
-            "type": "text",
-            "text": gemini_response.get("data", gemini_response.get("reasoning", "")),
-            "reasoning": gemini_response.get("reasoning", "")
-        }
+        except Exception as e:
+            logger.warning(f"[{request_id}] RAG formatting failed: {str(e)}. Using basic response.")
+            return {
+                "type": "text",
+                "text": gemini_response.get("data", gemini_response.get("reasoning", "I'm here to help with smartphone questions! Feel free to ask about phone features, specifications, or recommendations.")),
+                "reasoning": gemini_response.get("reasoning", ""),
+                "suggestions": ["Ask for phone recommendations", "Compare phone models", "Ask about specific features"]
+            }
         
     except Exception as e:
         logger.error(f"[{request_id}] Error enhancing with knowledge: {str(e)}")
-        # Fallback to original GEMINI response
-        return {
-            "type": "text",
-            "text": gemini_response.get("data", gemini_response.get("reasoning", "I'm having trouble accessing the phone database right now.")),
-            "error": True
-        }
+        
+        # Try a simple fallback - basic phone query without AI processing
+        try:
+            from app.crud import phone as phone_crud
+            import re
+            
+            logger.info(f"[{request_id}] Attempting basic phone recommendation fallback")
+            
+            # Extract basic filters from simple query patterns
+            query_lower = gemini_response.get("original_query", "").lower()
+            fallback_filters = {}
+            
+            # Simple price extraction
+            price_matches = re.findall(r'(\d+)k?', query_lower)
+            if price_matches:
+                max_price = int(price_matches[0])
+                if 'k' in query_lower or max_price < 200:  # Assume it's in thousands
+                    max_price *= 1000
+                fallback_filters['max_price'] = max_price
+            
+            # Simple brand extraction
+            brands = ['apple', 'samsung', 'xiaomi', 'oneplus', 'google', 'realme', 'oppo', 'vivo']
+            for brand in brands:
+                if brand in query_lower:
+                    fallback_filters['brand'] = brand.title()
+                    break
+            
+            # Get basic recommendations
+            phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)
+            
+            if phones:
+                formatted_phones = []
+                for phone_dict in phones:
+                    formatted_phone = {
+                        "id": phone_dict.get("id"),
+                        "name": phone_dict.get("name"),
+                        "brand": phone_dict.get("brand"),
+                        "model": phone_dict.get("model"),
+                        "slug": phone_dict.get("slug"),
+                        "price": phone_dict.get("price_original") or phone_dict.get("price"),
+                        "url": phone_dict.get("url"),
+                        "img_url": phone_dict.get("img_url"),
+                        "chipset": phone_dict.get("chipset"),
+                        "ram": phone_dict.get("ram"),
+                        "internal_storage": phone_dict.get("internal_storage"),
+                        "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
+                        "battery_type": phone_dict.get("battery_type"),
+                        "capacity": phone_dict.get("capacity"),
+                        "operating_system": phone_dict.get("operating_system"),
+                        "overall_device_score": phone_dict.get("overall_device_score"),
+                        "camera_score": phone_dict.get("camera_score"),
+                        "battery_score": phone_dict.get("battery_score"),
+                        "performance_score": phone_dict.get("performance_score"),
+                        "display_score": phone_dict.get("display_score")
+                    }
+                    formatted_phones.append(formatted_phone)
+                
+                return {
+                    "type": "recommendations",
+                    "phones": formatted_phones,
+                    "reasoning": f"Here are some phone recommendations based on your query",
+                    "filters_applied": fallback_filters,
+                    "total_found": len(formatted_phones),
+                    "fallback_mode": True
+                }
+            else:
+                # No phones found, return helpful message
+                return {
+                    "type": "text",
+                    "text": "I couldn't find specific phones matching your query, but I'm here to help! Try asking about specific phone brands, price ranges, or features.",
+                    "reasoning": "No matches found in fallback mode",
+                    "fallback_mode": True
+                }
+                
+        except Exception as fallback_error:
+            logger.error(f"[{request_id}] Fallback also failed: {str(fallback_error)}")
+            
+            # Final fallback response
+            return {
+                "type": "text",
+                "text": "I'm having trouble processing your request right now, but I'm still here to help! Could you try rephrasing your question?",
+                "error": True,
+                "reasoning": "Service temporarily unavailable",
+                "fallback_mode": True
+            }
 
 
 async def format_response(
