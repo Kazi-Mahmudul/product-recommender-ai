@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, Star, Battery, Camera, Zap } from "lucide-react";
+import { getThemeClasses } from "../utils/colorUtils";
 import { generatePhoneDetailUrl } from "../utils/slugUtils";
 import { useComparison } from "../context/ComparisonContext";
 import { Phone } from "../api/phones";
@@ -9,10 +10,26 @@ interface ChatPhoneCardProps {
   phone: Phone;
   darkMode: boolean;
   isTopResult?: boolean;
+  // RAG-specific props
+  showRelevanceScore?: boolean;
+  matchReasons?: string[];
+  relevanceScore?: number;
+  onClick?: (phoneSlug: string) => void;
+  highlightFeatures?: string[];
+  compactMode?: boolean;
 }
 
-const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode, 
-  isTopResult = false }) => {
+const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ 
+  phone, 
+  darkMode, 
+  isTopResult = false,
+  showRelevanceScore = false,
+  matchReasons = [],
+  relevanceScore,
+  onClick,
+  highlightFeatures = [],
+  compactMode = false
+}) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const navigate = useNavigate();
 
@@ -23,7 +40,9 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
   const isSelected = phone.slug ? isPhoneSelected(phone.slug) : false;
 
   const handleViewDetails = () => {
-    if (phone.id) {
+    if (onClick && phone.slug) {
+      onClick(phone.slug);
+    } else if (phone.slug) {
       navigate(generatePhoneDetailUrl(phone));
     }
   };
@@ -55,6 +74,21 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
     return "text-red-500";
   };
 
+  // Check if a feature should be highlighted
+  const isFeatureHighlighted = (featureName: string) => {
+    return highlightFeatures.some(feature => 
+      feature.toLowerCase().includes(featureName.toLowerCase()) ||
+      featureName.toLowerCase().includes(feature.toLowerCase())
+    );
+  };
+
+  // Get highlight class for features
+  const getFeatureHighlightClass = (featureName: string) => {
+    return isFeatureHighlighted(featureName) 
+      ? `${darkMode ? "bg-yellow-900/30 text-yellow-200" : "bg-yellow-100 text-yellow-800"} px-1 rounded`
+      : "";
+  };
+
   // Determine if this is a top result card (larger, more detailed) or a regular result
   return isTopResult ? (
     // Top result card - larger with more details
@@ -75,7 +109,13 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
         <div className="absolute -top-2 -left-2 px-2 py-0.5 rounded-full bg-brand text-white text-xs font-medium">
           {phone.brand}
         </div>
-        {phone.overall_device_score && (
+        {/* Show relevance score if available, otherwise show overall score */}
+        {showRelevanceScore && relevanceScore ? (
+          <div className={`absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white bg-brand backdrop-blur-sm`}>
+            <span>🎯</span>
+            {(relevanceScore * 100).toFixed(0)}%
+          </div>
+        ) : phone.overall_device_score && (
           <div className={`absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${getScoreColor(phone.overall_device_score)} ${darkMode ? "bg-gray-900/80" : "bg-white/80"} backdrop-blur-sm`}>
             <Star size={12} />
             {phone.overall_device_score.toFixed(1)}
@@ -95,31 +135,31 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
         <div className={`grid grid-cols-2 gap-x-4 gap-y-2 text-xs mt-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}>
           <div className="flex items-center gap-1">
             <span className="font-semibold">📱</span>
-            <span>{phone.display_type || "N/A"}</span>
+            <span className={getFeatureHighlightClass("display")}>{phone.display_type || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold">📏</span>
-            <span>{phone.screen_size_inches ? `${phone.screen_size_inches}"` : "N/A"}</span>
+            <span className={getFeatureHighlightClass("screen")}>{phone.screen_size_inches ? `${phone.screen_size_inches}"` : "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold">⚡</span>
-            <span>{phone.chipset || phone.cpu || "N/A"}</span>
+            <span className={getFeatureHighlightClass("performance")}>{phone.chipset || phone.cpu || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold">💾</span>
-            <span>{phone.ram || "N/A"}</span>
+            <span className={getFeatureHighlightClass("ram")}>{phone.ram || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold">💾</span>
-            <span>{phone.internal_storage || "N/A"}</span>
+            <span className={getFeatureHighlightClass("storage")}>{phone.internal_storage || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold">📸</span>
-            <span>{phone.main_camera || "N/A"} / {phone.front_camera || "N/A"}</span>
+            <span className={getFeatureHighlightClass("camera")}>{phone.main_camera || "N/A"} / {phone.front_camera || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold">🔋</span>
-            <span>{phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric} mAh` : phone.capacity || "N/A"}</span>
+            <span className={getFeatureHighlightClass("battery")}>{phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric} mAh` : phone.capacity || "N/A"}</span>
           </div>
           {phone.overall_device_score && (
             <div className="flex items-center gap-1">
@@ -128,6 +168,27 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
             </div>
           )}
         </div>
+        
+        {/* Match reasons for RAG responses */}
+        {matchReasons.length > 0 && (
+          <div className={`mt-3 p-2 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-green-50"}`}>
+            <div className="text-xs font-semibold mb-1 text-green-600 dark:text-green-400">
+              Why this phone matches:
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {matchReasons.slice(0, 3).map((reason, index) => (
+                <span
+                  key={index}
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className="flex justify-between items-center mt-3">
           <button
@@ -176,7 +237,13 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-brand text-white text-xs font-medium">
           {phone.brand}
         </div>
-        {phone.overall_device_score && (
+        {/* Show relevance score if available, otherwise show overall score */}
+        {showRelevanceScore && relevanceScore ? (
+          <div className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold text-white bg-brand backdrop-blur-sm`}>
+            <span>🎯</span>
+            {(relevanceScore * 100).toFixed(0)}%
+          </div>
+        ) : phone.overall_device_score && (
           <div className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${getScoreColor(phone.overall_device_score)} ${darkMode ? "bg-gray-900/80" : "bg-white/80"} backdrop-blur-sm`}>
             <Star size={10} />
             {phone.overall_device_score.toFixed(1)}
@@ -240,6 +307,25 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({ phone, darkMode,
             <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.internal_storage || "N/A"}</span>
           </div>
         </div>
+        
+        {/* Match reasons for RAG responses - compact version */}
+        {matchReasons.length > 0 && (
+          <div className="mb-2">
+            <div className="flex flex-wrap gap-1">
+              {matchReasons.slice(0, 2).map((reason, index) => (
+                <span
+                  key={index}
+                  className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700"
+                  }`}
+                  title={reason}
+                >
+                  {reason.length > 20 ? `${reason.substring(0, 20)}...` : reason}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className="flex items-center justify-between">
           <div className="font-semibold text-xs text-brand dark:text-[#80EF80]">

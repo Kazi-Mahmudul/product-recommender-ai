@@ -258,7 +258,7 @@ export class AIResponseEnhancer {
     ];
     
     // Add contextual elements for returning users
-    if (context.queryCount > 1) {
+    if (context.queryCount && context.queryCount > 1) {
       const returningStarters = [
         "Welcome back! ",
         "Good to see you again! ",

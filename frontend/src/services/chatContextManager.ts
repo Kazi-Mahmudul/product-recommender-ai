@@ -1,1058 +1,575 @@
-// Chat context management service for maintaining conversation state
+/**
+ * Chat Context Manager - Manages conversation history and context in frontend session storage.
+ *
+ * This service handles session-based conversation history without persisting data
+ * in the backend or database, as per the RAG pipeline requirements.
+ */
 
-import { Phone } from '../api/phones';
-import { ChatMessage } from '../types/chat';
-import { ContextAnalytics } from './contextAnalytics';
-import SessionManager from './sessionManager';
-
-export interface UserPreferences {
-  priceRange?: [number, number];
-  preferredBrands?: string[];
-  importantFeatures?: string[];
-  budgetCategory?: 'budget' | 'mid-range' | 'premium';
-  primaryUseCase?: 'general' | 'gaming' | 'photography' | 'business';
+// Enhanced chat message interface for RAG pipeline
+export interface RAGChatMessage {
+  id: string;
+  type: "user" | "assistant";
+  content: string | object;
+  timestamp: Date;
+  metadata?: {
+    response_type?: string;
+    phone_slugs?: string[];
+    query_type?: string;
+    processing_time?: number;
+    session_id?: string;
+    error?: boolean;
+    confidence_score?: number;
+    data_sources?: string[];
+  };
 }
 
+// Phone recommendation context interface
 export interface PhoneRecommendationContext {
-  id: string;
-  phones: Phone[];
+  phones: any[];
   originalQuery: string;
   timestamp: number;
-  metadata: {
-    priceRange: { min: number; max: number };
-    brands: string[];
-    keyFeatures: string[];
-    averageRating: number;
-    recommendationReason: string;
+  metadata?: {
+    priceRange?: {
+      min: number;
+      max: number;
+    };
+    brands?: string[];
+    features?: string[];
   };
+  phoneId?: string;
+  phoneName?: string;
+  brand?: string;
+  relevanceScore?: number;
+  mentionedFeatures?: string[];
+  queryContext?: string;
 }
 
+// Chat context interface
 export interface ChatContext {
   sessionId: string;
-  currentRecommendations: Phone[];
-  userPreferences: UserPreferences;
-  conversationHistory: ChatMessage[];
-  lastQuery: string;
-  queryCount: number;
-  timestamp: Date;
-  interactionPatterns: {
-    frequentFeatures: string[];
-    preferredPriceRange: [number, number] | null;
-    brandInteractions: Record<string, number>;
-    featureInteractions: Record<string, number>;
-  };
+  messages: RAGChatMessage[];
   phoneRecommendations: PhoneRecommendationContext[];
-  currentRecommendationId?: string;
+  userPreferences: Record<string, any>;
+  conversationSummary: string;
+  queryCount?: number;
 }
 
+// Session metadata interface
+export interface SessionMetadata {
+  sessionId: string;
+  startTime: Date;
+  lastActivity: Date;
+  messageCount: number;
+  totalProcessingTime: number;
+}
+type ConversationSummary = ReturnType<
+  ChatContextManager["getConversationSummary"]
+>;
 export class ChatContextManager {
-  private static readonly STORAGE_KEY = 'peyechi_chat_context';
-  private static readonly MAX_HISTORY_LENGTH = 50;
-  private static readonly CONTEXT_EXPIRY_HOURS = 24;
-  private static readonly CACHE_KEY = 'peyechi_context_cache';
-  private static readonly MAX_PHONE_RECOMMENDATIONS = 10;
-  private static readonly CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
-  
-  // In-memory cache for performance optimization
-  private static contextCache: ChatContext | null = null;
-  private static cacheTimestamp: number = 0;
-  private static readonly CACHE_TTL = 30 * 1000; // 30 seconds
-  
-  // Performance monitoring
-  private static performanceMetrics = {
-    saveOperations: 0,
-    loadOperations: 0,
-    cacheHits: 0,
-    cacheMisses: 0,
-    cleanupOperations: 0,
-    averageSaveTime: 0,
-    averageLoadTime: 0
-  };
-  
-  // Cleanup timer
-  private static cleanupTimer: NodeJS.Timeout | null = null;
+  private readonly STORAGE_KEY = "peyechi_chat_session";
+  private readonly METADATA_KEY = "peyechi_chat_metadata";
+  private readonly MAX_MESSAGES = 100; // Limit to prevent storage overflow
+  private readonly SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-  /**
-   * Initialize a new chat context
-   */
-  static initializeContext(): ChatContext {
-    // Use centralized session manager for consistent session IDs across the app
-    const sessionManager = SessionManager.getInstance();
-    const sessionId = sessionManager.getSessionId();
-    
-    const context: ChatContext = {
-      sessionId,
-      currentRecommendations: [],
-      userPreferences: {
-        preferredBrands: [],
-        importantFeatures: []
-      },
-      conversationHistory: [],
-      lastQuery: '',
-      queryCount: 0,
-      timestamp: new Date(),
-      interactionPatterns: {
-        frequentFeatures: [],
-        preferredPriceRange: null,
-        brandInteractions: {},
-        featureInteractions: {}
-      },
-      phoneRecommendations: [],
-      currentRecommendationId: undefined
-    };
+  private currentSessionId: string;
+  private sessionMetadata: SessionMetadata;
 
-    this.saveContext(context);
-    return context;
+  constructor() {
+    this.currentSessionId = this.initializeSession();
+    this.sessionMetadata = this.loadSessionMetadata();
+    this.cleanupExpiredSessions();
   }
 
   /**
-   * Load existing context from storage or create new one with caching
+   * Initialize or restore session
    */
-  static loadContext(): ChatContext {
-    const startTime = performance.now();
-    this.performanceMetrics.loadOperations++;
-    
+  private initializeSession(): string {
+    const existingMetadata = this.loadSessionMetadata();
+
+    // Check if existing session is still valid
+    if (existingMetadata && this.isSessionValid(existingMetadata)) {
+      console.log(
+        `📱 Restored existing chat session: ${existingMetadata.sessionId}`
+      );
+      return existingMetadata.sessionId;
+    }
+
+    // Create new session
+    const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    console.log(`🆕 Created new chat session: ${newSessionId}`);
+
+    // Clear any old data
+    this.clearStorageData();
+
+    return newSessionId;
+  }
+
+  /**
+   * Load session metadata from storage
+   */
+  private loadSessionMetadata(): SessionMetadata {
     try {
-      // Check in-memory cache first
-      if (this.contextCache && this.isCacheValid()) {
-        this.performanceMetrics.cacheHits++;
-        return this.contextCache;
+      const stored = sessionStorage.getItem(this.METADATA_KEY);
+      if (stored) {
+        const metadata = JSON.parse(stored);
+        return {
+          ...metadata,
+          startTime: new Date(metadata.startTime),
+          lastActivity: new Date(metadata.lastActivity),
+        };
       }
-      
-      this.performanceMetrics.cacheMisses++;
-      
-      // Get the current session ID from SessionManager
-      const sessionManager = SessionManager.getInstance();
-      const currentSessionId = sessionManager.getSessionId();
-      
-      const stored = localStorage.getItem(this.STORAGE_KEY);
-      if (!stored) {
-        const newContext = this.initializeContext();
-        this.updateCache(newContext);
-        return newContext;
-      }
-
-      const context: ChatContext = JSON.parse(stored);
-      
-      // Check if the stored context matches the current session
-      if (context.sessionId !== currentSessionId) {
-        // Session has changed, create new context with current session ID
-        const newContext = this.initializeContext();
-        this.updateCache(newContext);
-        return newContext;
-      }
-      
-      // Check if context has expired
-      const contextAge = Date.now() - new Date(context.timestamp).getTime();
-      const maxAge = this.CONTEXT_EXPIRY_HOURS * 60 * 60 * 1000;
-      
-      if (contextAge > maxAge) {
-        const newContext = this.initializeContext();
-        this.updateCache(newContext);
-        return newContext;
-      }
-
-      // Ensure context has all required properties
-      const validatedContext = this.validateAndMigrateContext(context);
-      this.updateCache(validatedContext);
-      
-      // Start cleanup timer if not already running
-      this.startCleanupTimer();
-      
-      return validatedContext;
     } catch (error) {
-      console.warn('Failed to load chat context:', error);
-      const newContext = this.initializeContext();
-      this.updateCache(newContext);
-      return newContext;
-    } finally {
-      const endTime = performance.now();
-      this.updateAverageTime('load', endTime - startTime);
+      console.warn("Failed to load session metadata:", error);
+    }
+
+    // Create new metadata
+    const now = new Date();
+    return {
+      sessionId: this.currentSessionId,
+      startTime: now,
+      lastActivity: now,
+      messageCount: 0,
+      totalProcessingTime: 0,
+    };
+  }
+
+  /**
+   * Save session metadata to storage
+   */
+  private saveSessionMetadata(): void {
+    try {
+      sessionStorage.setItem(
+        this.METADATA_KEY,
+        JSON.stringify(this.sessionMetadata)
+      );
+    } catch (error) {
+      console.error("Failed to save session metadata:", error);
     }
   }
 
   /**
-   * Save context to local storage with performance optimization
+   * Check if session is still valid
    */
-  static saveContext(context: ChatContext): void {
-    const startTime = performance.now();
-    this.performanceMetrics.saveOperations++;
-    
+  private isSessionValid(metadata: SessionMetadata): boolean {
+    const now = Date.now();
+    const lastActivity = new Date(metadata.lastActivity).getTime();
+    return now - lastActivity < this.SESSION_TIMEOUT;
+  }
+
+  /**
+   * Clean up expired sessions and old data
+   */
+  private cleanupExpiredSessions(): void {
     try {
-      // Optimize context before saving
-      const optimizedContext = this.optimizeContextForStorage(context);
-      
-      // Update cache
-      this.updateCache(optimizedContext);
-      
-      // Save to localStorage with compression for large contexts
-      const contextString = JSON.stringify(optimizedContext);
-      
-      // Check if context is getting too large
-      if (contextString.length > 1024 * 1024) { // 1MB
-        console.warn('Context size is large, performing aggressive cleanup');
-        const cleanedContext = this.aggressiveCleanup(optimizedContext);
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cleanedContext));
-        this.updateCache(cleanedContext);
-      } else {
-        localStorage.setItem(this.STORAGE_KEY, contextString);
-      }
-      
-    } catch (error) {
-      console.warn('Failed to save chat context:', error);
-      
-      // If save fails due to storage quota, try aggressive cleanup
-      if (error instanceof DOMException && error.code === 22) {
-        try {
-          const cleanedContext = this.aggressiveCleanup(context);
-          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cleanedContext));
-          this.updateCache(cleanedContext);
-        } catch (cleanupError) {
-          console.error('Failed to save even after cleanup:', cleanupError);
+      // Clean up any old storage keys that might exist
+      const keysToRemove: string[] = [];
+
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (
+          key &&
+          key.startsWith("peyechi_chat_") &&
+          key !== this.STORAGE_KEY &&
+          key !== this.METADATA_KEY
+        ) {
+          keysToRemove.push(key);
         }
       }
-    } finally {
-      const endTime = performance.now();
-      this.updateAverageTime('save', endTime - startTime);
+
+      keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+
+      if (keysToRemove.length > 0) {
+        console.log(
+          `🧹 Cleaned up ${keysToRemove.length} old chat storage keys`
+        );
+      }
+    } catch (error) {
+      console.warn("Failed to cleanup expired sessions:", error);
     }
   }
 
   /**
-   * Update context with new message
+   * Clear all storage data
    */
-  static updateWithMessage(context: ChatContext, message: ChatMessage): ChatContext {
-    const updatedContext = {
-      ...context,
-      conversationHistory: [...context.conversationHistory, message],
-      lastQuery: message.user || context.lastQuery,
-      queryCount: message.user ? context.queryCount + 1 : context.queryCount,
-      timestamp: new Date()
+  private clearStorageData(): void {
+    try {
+      sessionStorage.removeItem(this.STORAGE_KEY);
+      sessionStorage.removeItem(this.METADATA_KEY);
+    } catch (error) {
+      console.error("Failed to clear storage data:", error);
+    }
+  }
+
+  /**
+   * Get current session ID
+   */
+  getSessionId(): string {
+    return this.currentSessionId;
+  }
+
+  /**
+   * Get session metadata
+   */
+  getSessionMetadata(): SessionMetadata {
+    return { ...this.sessionMetadata };
+  }
+
+  /**
+   * Add a message to the conversation history
+   */
+  addMessage(message: RAGChatMessage): void {
+    try {
+      const messages = this.getConversationHistory();
+
+      // Ensure message has session ID
+      const messageWithSession: RAGChatMessage = {
+        ...message,
+        metadata: {
+          ...message.metadata,
+          session_id: this.currentSessionId,
+        },
+      };
+
+      messages.push(messageWithSession);
+
+      // Limit message history to prevent storage overflow
+      if (messages.length > this.MAX_MESSAGES) {
+        messages.splice(0, messages.length - this.MAX_MESSAGES);
+        console.log(
+          `📝 Trimmed conversation history to ${this.MAX_MESSAGES} messages`
+        );
+      }
+
+      // Save to session storage
+      sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(messages));
+
+      // Update metadata
+      this.sessionMetadata.lastActivity = new Date();
+      this.sessionMetadata.messageCount = messages.length;
+
+      if (message.metadata?.processing_time) {
+        this.sessionMetadata.totalProcessingTime +=
+          message.metadata.processing_time;
+      }
+
+      this.saveSessionMetadata();
+
+      console.log(
+        `💬 Added ${message.type} message to session (${messages.length} total)`
+      );
+    } catch (error) {
+      console.error("Failed to add message to conversation history:", error);
+
+      // Try to recover by clearing corrupted data
+      if (error instanceof Error && error.name === "QuotaExceededError") {
+        console.warn("Storage quota exceeded, clearing old messages...");
+        this.clearSession();
+      }
+    }
+  }
+
+  /**
+   * Get conversation history from session storage
+   */
+  getConversationHistory(): RAGChatMessage[] {
+    try {
+      const stored = sessionStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const messages = JSON.parse(stored);
+
+        // Convert timestamp strings back to Date objects
+        return messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load conversation history:", error);
+
+      // Clear corrupted data
+      this.clearStorageData();
+    }
+
+    return [];
+  }
+
+  /**
+   * Get recent conversation context (last N messages)
+   */
+  getRecentContext(messageCount: number = 10): RAGChatMessage[] {
+    const allMessages = this.getConversationHistory();
+    return allMessages.slice(-messageCount);
+  }
+
+  /**
+   * Get conversation summary for context
+   */
+  getConversationSummary(): {
+    messageCount: number;
+    userQueries: string[];
+    phonesMentioned: string[];
+    queryTypes: string[];
+    sessionDuration: number;
+  } {
+    const messages = this.getConversationHistory();
+    const userMessages = messages.filter((msg) => msg.type === "user");
+    const assistantMessages = messages.filter(
+      (msg) => msg.type === "assistant"
+    );
+
+    const userQueries = userMessages
+      .map((msg) => msg.content as string)
+      .slice(-5); // Last 5 queries
+
+    const phonesMentioned: string[] = [];
+    const queryTypes: string[] = [];
+
+    assistantMessages.forEach((msg) => {
+      if (msg.metadata?.phone_slugs) {
+        phonesMentioned.push(...msg.metadata.phone_slugs);
+      }
+      if (msg.metadata?.query_type) {
+        queryTypes.push(msg.metadata.query_type);
+      }
+    });
+
+    const sessionDuration =
+      Date.now() - this.sessionMetadata.startTime.getTime();
+
+    return {
+      messageCount: messages.length,
+      userQueries,
+      phonesMentioned: Array.from(new Set(phonesMentioned)),
+      queryTypes: Array.from(new Set(queryTypes)),
+      sessionDuration,
+    };
+  }
+
+  /**
+   * Clear current session and start fresh
+   */
+  clearSession(): void {
+    console.log(`🗑️ Clearing chat session: ${this.currentSessionId}`);
+
+    // Clear storage
+    this.clearStorageData();
+
+    // Create new session
+    this.currentSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+    // Reset metadata
+    const now = new Date();
+    this.sessionMetadata = {
+      sessionId: this.currentSessionId,
+      startTime: now,
+      lastActivity: now,
+      messageCount: 0,
+      totalProcessingTime: 0,
     };
 
-    // Analyze user preferences from the message
-    if (message.user) {
-      this.analyzeUserPreferences(updatedContext, message.user);
-    }
+    this.saveSessionMetadata();
 
-    // Update current recommendations if phones are present
-    if (message.phones && message.phones.length > 0) {
-      updatedContext.currentRecommendations = message.phones;
-      this.updateInteractionPatterns(updatedContext, message.phones);
-    }
-
-    this.saveContext(updatedContext);
-    return updatedContext;
+    console.log(`🆕 Started new chat session: ${this.currentSessionId}`);
   }
 
   /**
-   * Update user preferences based on query analysis
+   * Export conversation history for user reference
    */
-  static updateUserPreferences(context: ChatContext, preferences: Partial<UserPreferences>): ChatContext {
-    const updatedContext = {
-      ...context,
-      userPreferences: {
-        ...context.userPreferences,
-        ...preferences
-      },
-      timestamp: new Date()
+  exportHistory(): {
+    sessionId: string;
+    exportTime: Date;
+    metadata: SessionMetadata;
+    messages: RAGChatMessage[];
+    summary: ConversationSummary;
+  } {
+    return {
+      sessionId: this.currentSessionId,
+      exportTime: new Date(),
+      metadata: this.getSessionMetadata(),
+      messages: this.getConversationHistory(),
+      summary: this.getConversationSummary(),
     };
-
-    this.saveContext(updatedContext);
-    return updatedContext;
   }
 
   /**
-   * Clear context and start fresh
+   * Initialize a fresh chat context
    */
-  static clearContext(): ChatContext {
-    localStorage.removeItem(this.STORAGE_KEY);
-    this.clearCache();
-    const newContext = this.initializeContext();
-    this.updateCache(newContext);
-    return newContext;
+  static initializeContext(): ChatContext {
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    return {
+      sessionId,
+      messages: [],
+      phoneRecommendations: [],
+      userPreferences: {},
+      conversationSummary: "",
+    };
   }
 
   /**
-   * Add phone recommendation context with comprehensive error handling
+   * Load context from storage
+   */
+  static loadContext(): ChatContext {
+    try {
+      const stored = sessionStorage.getItem("peyechi_chat_context");
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn("Failed to load chat context:", error);
+    }
+    return this.initializeContext();
+  }
+
+  /**
+   * Save context to storage
+   */
+  static saveContext(context: ChatContext): void {
+    try {
+      sessionStorage.setItem("peyechi_chat_context", JSON.stringify(context));
+    } catch (error) {
+      console.error("Failed to save chat context:", error);
+    }
+  }
+
+  /**
+   * Clear context from storage
+   */
+  static clearContext(): void {
+    try {
+      sessionStorage.removeItem("peyechi_chat_context");
+    } catch (error) {
+      console.error("Failed to clear chat context:", error);
+    }
+  }
+
+  /**
+   * Add phone recommendation to context
    */
   static addPhoneRecommendation(
     context: ChatContext,
-    phones: Phone[],
-    originalQuery: string
+    phones: any[],
+    query: string
   ): ChatContext {
-    try {
-      // Validate inputs
-      if (!context) {
-        console.warn('ChatContextManager: Invalid context provided');
-        return this.initializeContext();
-      }
+    // Extract metadata from phones
+    const prices = phones
+      .map((p) => p.price || p.price_original || 0)
+      .filter((p) => p > 0);
+    const brands = Array.from(
+      new Set(phones.map((p) => p.brand).filter(Boolean))
+    );
+    const features = Array.from(
+      new Set(
+        phones.flatMap((p) => (p.key_specs ? Object.keys(p.key_specs) : []))
+      )
+    );
 
-      if (!phones || phones.length === 0) {
-        console.warn('ChatContextManager: No phones provided for context');
-        return context;
-      }
+    const phoneRecommendation: PhoneRecommendationContext = {
+      phones: phones,
+      originalQuery: query,
+      timestamp: Date.now(),
+      metadata: {
+        priceRange:
+          prices.length > 0
+            ? {
+                min: Math.min(...prices),
+                max: Math.max(...prices),
+              }
+            : undefined,
+        brands: brands,
+        features: features,
+      },
+    };
 
-      if (!originalQuery || originalQuery.trim().length === 0) {
-        console.warn('ChatContextManager: No query provided for context');
-        return context;
-      }
-
-      const recommendationId = this.generateRecommendationId();
-      
-      // Calculate metadata with error handling
-      const prices = phones
-        .map(p => p.price_original || 0)
-        .filter(p => typeof p === 'number' && p > 0);
-      
-      const priceRange = prices.length > 0 
-        ? { min: Math.min(...prices), max: Math.max(...prices) }
-        : { min: 0, max: 0 };
-      
-      const brands = Array.from(new Set(
-        phones
-          .map(p => p.brand)
-          .filter(brand => brand && typeof brand === 'string' && brand.trim().length > 0)
-      ));
-      
-      const keyFeatures = this.extractKeyFeatures(phones, originalQuery);
-      
-      const validRatings = phones
-        .map(p => p.overall_device_score || 0)
-        .filter(rating => typeof rating === 'number' && rating > 0);
-      
-      const averageRating = validRatings.length > 0 
-        ? validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length
-        : 0;
-      
-      const recommendationReason = this.generateRecommendationReason(phones, originalQuery);
-
-      const phoneRecommendation: PhoneRecommendationContext = {
-        id: recommendationId,
-        phones: phones.filter(p => p && typeof p === 'object'), // Filter out invalid phones
-        originalQuery: originalQuery.trim(),
-        timestamp: Date.now(),
-        metadata: {
-          priceRange,
-          brands,
-          keyFeatures,
-          averageRating,
-          recommendationReason
-        }
-      };
-
-      // Ensure phoneRecommendations array exists and is valid
-      const existingRecommendations = Array.isArray(context.phoneRecommendations) 
-        ? context.phoneRecommendations 
-        : [];
-
-      // Check if we already have this exact recommendation to avoid duplicates
-      const isDuplicate = existingRecommendations.some(rec => 
-        rec.originalQuery === originalQuery.trim() &&
-        rec.phones.length === phones.length &&
-        rec.phones.every((phone, index) => phone.id === phones[index]?.id)
-      );
-
-      if (isDuplicate) {
-        return context; // Return existing context without changes
-      }
-
-      const updatedContext = {
-        ...context,
-        phoneRecommendations: [
-          ...existingRecommendations.slice(-4), // Keep last 4 recommendations
-          phoneRecommendation
-        ],
-        currentRecommendationId: recommendationId,
-        currentRecommendations: phoneRecommendation.phones,
-        timestamp: new Date()
-      };
-
-      this.saveContext(updatedContext);
-      
-      // Track context creation analytics
-      try {
-        ContextAnalytics.trackContextCreated(
-          recommendationId,
-          phoneRecommendation.phones.length,
-          originalQuery,
-          context.sessionId
-        );
-      } catch (error) {
-        console.warn('Failed to track context creation analytics:', error);
-      }
-      
-      return updatedContext;
-
-    } catch (error) {
-      console.error('ChatContextManager: Failed to add phone recommendation context:', error);
-      // Return original context if enhancement fails
-      return context;
-    }
+    return {
+      ...context,
+      phoneRecommendations: [
+        ...context.phoneRecommendations,
+        phoneRecommendation,
+      ],
+    };
   }
 
   /**
-   * Get current phone recommendation context with error handling
-   */
-  static getCurrentPhoneContext(context: ChatContext): PhoneRecommendationContext | null {
-    try {
-      if (!context || !context.currentRecommendationId) return null;
-      
-      if (!Array.isArray(context.phoneRecommendations)) {
-        console.warn('ChatContextManager: phoneRecommendations is not an array');
-        return null;
-      }
-      
-      const currentContext = context.phoneRecommendations.find(
-        rec => rec && rec.id === context.currentRecommendationId
-      );
-      
-      return currentContext || null;
-    } catch (error) {
-      console.error('ChatContextManager: Failed to get current phone context:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get recent phone recommendation contexts with error handling
+   * Get recent phone context within a time window
    */
   static getRecentPhoneContext(
     context: ChatContext,
-    maxAge: number = 300000 // 5 minutes
+    timeWindowMs: number = 600000 // 10 minutes default
   ): PhoneRecommendationContext[] {
-    try {
-      if (!context || !Array.isArray(context.phoneRecommendations)) {
-        console.warn('ChatContextManager: Invalid context or phoneRecommendations');
-        return [];
-      }
-      
-      const cutoffTime = Date.now() - maxAge;
-      
-      return context.phoneRecommendations
-        .filter(rec => {
-          // Validate recommendation structure
-          if (!rec || typeof rec !== 'object') return false;
-          if (!rec.timestamp || typeof rec.timestamp !== 'number') return false;
-          if (!rec.phones || !Array.isArray(rec.phones)) return false;
-          
-          return rec.timestamp > cutoffTime;
-        })
-        .sort((a, b) => b.timestamp - a.timestamp);
-        
-    } catch (error) {
-      console.error('ChatContextManager: Failed to get recent phone context:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check if phone context is available and recent with error handling
-   */
-  static hasRecentPhoneContext(context: ChatContext, maxAge: number = 300000): boolean {
-    try {
-      return this.getRecentPhoneContext(context, maxAge).length > 0;
-    } catch (error) {
-      console.error('ChatContextManager: Failed to check recent phone context:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Clean up stale or corrupted context data
-   */
-  static cleanupContext(context: ChatContext): ChatContext {
-    try {
-      const now = Date.now();
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-      
-      // Clean up old phone recommendations
-      const validRecommendations = Array.isArray(context.phoneRecommendations)
-        ? context.phoneRecommendations.filter(rec => {
-            if (!rec || typeof rec !== 'object') return false;
-            if (!rec.timestamp || typeof rec.timestamp !== 'number') return false;
-            if (now - rec.timestamp > maxAge) return false;
-            if (!rec.phones || !Array.isArray(rec.phones) || rec.phones.length === 0) return false;
-            return true;
-          })
-        : [];
-
-      // Clean up conversation history
-      const validHistory = Array.isArray(context.conversationHistory)
-        ? context.conversationHistory.slice(-this.MAX_HISTORY_LENGTH)
-        : [];
-
-      const cleanedContext = {
-        ...context,
-        phoneRecommendations: validRecommendations,
-        conversationHistory: validHistory,
-        // Reset current recommendation if it's no longer valid
-        currentRecommendationId: validRecommendations.find(
-          rec => rec.id === context.currentRecommendationId
-        ) ? context.currentRecommendationId : undefined,
-        timestamp: new Date()
-      };
-
-      this.saveContext(cleanedContext);
-      return cleanedContext;
-
-    } catch (error) {
-      console.error('ChatContextManager: Failed to cleanup context:', error);
-      // If cleanup fails, return a fresh context
-      return this.initializeContext();
-    }
-  }
-
-  /**
-   * Get context-aware suggestions based on user history
-   */
-  static getContextualSuggestions(context: ChatContext): string[] {
-    const suggestions: string[] = [];
-    const { userPreferences, interactionPatterns } = context;
-
-    // Price-based suggestions
-    if (userPreferences.priceRange) {
-      const [min, max] = userPreferences.priceRange;
-      suggestions.push(`Phones between ৳${min.toLocaleString()} - ৳${max.toLocaleString()}`);
-    }
-
-    // Brand-based suggestions
-    const topBrands = Object.entries(interactionPatterns.brandInteractions)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 2)
-      .map(([brand]) => brand);
-
-    if (topBrands.length > 0) {
-      suggestions.push(`More ${topBrands.join(' or ')} phones`);
-    }
-
-    // Feature-based suggestions
-    const topFeatures = Object.entries(interactionPatterns.featureInteractions)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 2)
-      .map(([feature]) => feature);
-
-    if (topFeatures.includes('camera')) {
-      suggestions.push('Phones with better cameras');
-    }
-    if (topFeatures.includes('battery')) {
-      suggestions.push('Phones with longer battery life');
-    }
-    if (topFeatures.includes('gaming')) {
-      suggestions.push('Gaming phones with high refresh rate');
-    }
-
-    // Use case based suggestions
-    if (userPreferences.primaryUseCase === 'photography') {
-      suggestions.push('Professional camera phones');
-    } else if (userPreferences.primaryUseCase === 'gaming') {
-      suggestions.push('High performance gaming phones');
-    }
-
-    return suggestions.slice(0, 5);
-  }
-
-  /**
-   * Analyze user preferences from query text
-   */
-  private static analyzeUserPreferences(context: ChatContext, query: string): void {
-    const lowerQuery = query.toLowerCase();
-    
-    // Extract price preferences
-    const priceMatch = lowerQuery.match(/under\s+([0-9,]+)|below\s+([0-9,]+)|less\s+than\s+([0-9,]+)/);
-    if (priceMatch) {
-      const price = parseInt((priceMatch[1] || priceMatch[2] || priceMatch[3]).replace(/,/g, ''));
-      if (price > 0) {
-        context.userPreferences.priceRange = [0, price];
-        
-        // Categorize budget
-        if (price < 25000) {
-          context.userPreferences.budgetCategory = 'budget';
-        } else if (price < 60000) {
-          context.userPreferences.budgetCategory = 'mid-range';
-        } else {
-          context.userPreferences.budgetCategory = 'premium';
-        }
-      }
-    }
-
-    // Extract brand preferences
-    const brands = ['samsung', 'apple', 'iphone', 'xiaomi', 'poco', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme'];
-    const mentionedBrands = brands.filter(brand => lowerQuery.includes(brand));
-    if (mentionedBrands.length > 0) {
-      context.userPreferences.preferredBrands = [
-        ...(context.userPreferences.preferredBrands || []),
-        ...mentionedBrands.map(brand => brand.charAt(0).toUpperCase() + brand.slice(1))
-      ];
-      // Remove duplicates
-      context.userPreferences.preferredBrands = Array.from(new Set(context.userPreferences.preferredBrands));
-    }
-
-    // Extract feature preferences
-    const features = ['camera', 'battery', 'gaming', 'performance', 'display', 'storage', 'ram'];
-    const mentionedFeatures = features.filter(feature => lowerQuery.includes(feature));
-    if (mentionedFeatures.length > 0) {
-      context.userPreferences.importantFeatures = [
-        ...(context.userPreferences.importantFeatures || []),
-        ...mentionedFeatures
-      ];
-      // Remove duplicates
-      context.userPreferences.importantFeatures = Array.from(new Set(context.userPreferences.importantFeatures));
-    }
-
-    // Extract use case
-    if (lowerQuery.includes('gaming') || lowerQuery.includes('game')) {
-      context.userPreferences.primaryUseCase = 'gaming';
-    } else if (lowerQuery.includes('camera') || lowerQuery.includes('photo') || lowerQuery.includes('picture')) {
-      context.userPreferences.primaryUseCase = 'photography';
-    } else if (lowerQuery.includes('business') || lowerQuery.includes('work') || lowerQuery.includes('office')) {
-      context.userPreferences.primaryUseCase = 'business';
-    }
-  }
-
-  /**
-   * Update interaction patterns based on phone recommendations
-   */
-  private static updateInteractionPatterns(context: ChatContext, phones: Phone[]): void {
-    const patterns = context.interactionPatterns;
-
-    // Update brand interactions
-    phones.forEach(phone => {
-      if (phone.brand) {
-        patterns.brandInteractions[phone.brand] = (patterns.brandInteractions[phone.brand] || 0) + 1;
-      }
-    });
-
-    // Update price range preferences
-    const prices = phones.map(p => p.price_original).filter(p => p && p > 0) as number[];
-    if (prices.length > 0) {
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      patterns.preferredPriceRange = [minPrice, maxPrice];
-    }
-
-    // Update feature interactions based on query context
-    const lastQuery = context.lastQuery.toLowerCase();
-    if (lastQuery.includes('camera')) {
-      patterns.featureInteractions['camera'] = (patterns.featureInteractions['camera'] || 0) + 1;
-    }
-    if (lastQuery.includes('battery')) {
-      patterns.featureInteractions['battery'] = (patterns.featureInteractions['battery'] || 0) + 1;
-    }
-    if (lastQuery.includes('gaming') || lastQuery.includes('performance')) {
-      patterns.featureInteractions['gaming'] = (patterns.featureInteractions['gaming'] || 0) + 1;
-    }
-    if (lastQuery.includes('display') || lastQuery.includes('screen')) {
-      patterns.featureInteractions['display'] = (patterns.featureInteractions['display'] || 0) + 1;
-    }
-  }
-
-  /**
-   * Validate and migrate context structure
-   */
-  private static validateAndMigrateContext(context: any): ChatContext {
-    const defaultContext = this.initializeContext();
-    
-    return {
-      sessionId: context.sessionId || defaultContext.sessionId,
-      currentRecommendations: Array.isArray(context.currentRecommendations) ? context.currentRecommendations : [],
-      userPreferences: context.userPreferences || {},
-      conversationHistory: Array.isArray(context.conversationHistory) ? context.conversationHistory : [],
-      lastQuery: context.lastQuery || '',
-      queryCount: typeof context.queryCount === 'number' ? context.queryCount : 0,
-      timestamp: context.timestamp ? new Date(context.timestamp) : new Date(),
-      interactionPatterns: {
-        frequentFeatures: Array.isArray(context.interactionPatterns?.frequentFeatures) 
-          ? context.interactionPatterns.frequentFeatures : [],
-        preferredPriceRange: context.interactionPatterns?.preferredPriceRange || null,
-        brandInteractions: context.interactionPatterns?.brandInteractions || {},
-        featureInteractions: context.interactionPatterns?.featureInteractions || {}
-      },
-      phoneRecommendations: Array.isArray(context.phoneRecommendations) ? context.phoneRecommendations : [],
-      currentRecommendationId: context.currentRecommendationId || undefined
-    };
-  }
-
-  // Session ID generation is now handled by centralized SessionManager
-  
-  /**
-   * Get current session ID from SessionManager
-   */
-  static getCurrentSessionId(): string {
-    const sessionManager = SessionManager.getInstance();
-    return sessionManager.getSessionId();
-  }
-
-  /**
-   * Generate unique recommendation ID
-   */
-  private static generateRecommendationId(): string {
-    return `rec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  }
-
-  /**
-   * Extract key features from phones and query
-   */
-  private static extractKeyFeatures(phones: Phone[], query: string): string[] {
-    const features: string[] = [];
-    const lowerQuery = query.toLowerCase();
-
-    // Check for high refresh rate
-    const highRefreshCount = phones.filter(p => 
-      p.refresh_rate_numeric && p.refresh_rate_numeric >= 90
-    ).length;
-    if (highRefreshCount >= phones.length * 0.6) {
-      features.push('high_refresh_rate');
-    }
-
-    // Check for fast charging
-    const fastChargingCount = phones.filter(p => p.has_fast_charging).length;
-    if (fastChargingCount >= phones.length * 0.6) {
-      features.push('fast_charging');
-    }
-
-    // Check for 5G
-    const fiveGCount = phones.filter(p => 
-      p.network && p.network.toLowerCase().includes('5g')
-    ).length;
-    if (fiveGCount >= phones.length * 0.6) {
-      features.push('5g');
-    }
-
-    // Check for good camera
-    const goodCameraCount = phones.filter(p => 
-      p.camera_score && p.camera_score >= 7
-    ).length;
-    if (goodCameraCount >= phones.length * 0.6 || lowerQuery.includes('camera')) {
-      features.push('good_camera');
-    }
-
-    // Check for good battery
-    const goodBatteryCount = phones.filter(p => 
-      p.battery_capacity_numeric && p.battery_capacity_numeric >= 4000
-    ).length;
-    if (goodBatteryCount >= phones.length * 0.6 || lowerQuery.includes('battery')) {
-      features.push('good_battery');
-    }
-
-    // Check for gaming features
-    if (lowerQuery.includes('gaming') || lowerQuery.includes('performance')) {
-      features.push('gaming');
-    }
-
-    return features;
-  }
-
-  /**
-   * Generate recommendation reason based on phones and query
-   */
-  private static generateRecommendationReason(phones: Phone[], query: string): string {
-    const lowerQuery = query.toLowerCase();
-    
-    if (lowerQuery.includes('budget') || lowerQuery.includes('cheap')) {
-      return 'Budget-friendly options';
-    }
-    if (lowerQuery.includes('premium') || lowerQuery.includes('flagship')) {
-      return 'Premium flagship phones';
-    }
-    if (lowerQuery.includes('gaming')) {
-      return 'Gaming performance focused';
-    }
-    if (lowerQuery.includes('camera')) {
-      return 'Camera quality focused';
-    }
-    if (lowerQuery.includes('battery')) {
-      return 'Battery life focused';
-    }
-
-    // Infer from phone characteristics
-    const avgPrice = phones.reduce((sum, p) => sum + (p.price_original || 0), 0) / phones.length;
-    if (avgPrice > 60000) return 'Premium options';
-    if (avgPrice < 20000) return 'Budget options';
-    
-    return 'General recommendations';
-  }
-
-  /**
-   * Get context summary for debugging
-   */
-  static getContextSummary(context: ChatContext): string {
-    const { userPreferences, queryCount, interactionPatterns } = context;
-    const topBrands = Object.entries(interactionPatterns.brandInteractions)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3)
-      .map(([brand, count]) => `${brand}(${count})`);
-
-    return `Session: ${context.sessionId.slice(-8)}, Queries: ${queryCount}, ` +
-           `Budget: ${userPreferences.budgetCategory || 'unknown'}, ` +
-           `Brands: ${topBrands.join(', ') || 'none'}, ` +
-           `Features: ${userPreferences.importantFeatures?.join(', ') || 'none'}`;
-  }
-
-  /**
-   * Performance and caching methods
-   */
-  
-  /**
-   * Check if in-memory cache is valid
-   */
-  private static isCacheValid(): boolean {
-    return this.contextCache !== null && 
-           (Date.now() - this.cacheTimestamp) < this.CACHE_TTL;
-  }
-  
-  /**
-   * Update in-memory cache
-   */
-  private static updateCache(context: ChatContext): void {
-    this.contextCache = { ...context };
-    this.cacheTimestamp = Date.now();
-  }
-  
-  /**
-   * Clear in-memory cache
-   */
-  static clearCache(): void {
-    this.contextCache = null;
-    this.cacheTimestamp = 0;
-  }
-  
-  /**
-   * Optimize context for storage by removing redundant data
-   */
-  private static optimizeContextForStorage(context: ChatContext): ChatContext {
-    return {
-      ...context,
-      conversationHistory: context.conversationHistory.slice(-this.MAX_HISTORY_LENGTH),
-      phoneRecommendations: context.phoneRecommendations
-        .slice(-this.MAX_PHONE_RECOMMENDATIONS)
-        .map(rec => ({
-          ...rec,
-          // Remove large phone objects, keep only essential data
-          phones: rec.phones.map(phone => ({
-            id: phone.id,
-            name: phone.name,
-            brand: phone.brand,
-            price_original: phone.price_original,
-            overall_device_score: phone.overall_device_score,
-            camera_score: phone.camera_score,
-            battery_capacity_numeric: phone.battery_capacity_numeric,
-            refresh_rate_numeric: phone.refresh_rate_numeric,
-            network: phone.network,
-            has_fast_charging: phone.has_fast_charging
-          } as Phone))
-        })),
-      timestamp: new Date()
-    };
-  }
-  
-  /**
-   * Aggressive cleanup for storage quota issues
-   */
-  private static aggressiveCleanup(context: ChatContext): ChatContext {
-    return {
-      ...context,
-      conversationHistory: context.conversationHistory.slice(-20), // Keep only last 20 messages
-      phoneRecommendations: context.phoneRecommendations
-        .slice(-5) // Keep only last 5 recommendations
-        .map(rec => ({
-          ...rec,
-          phones: rec.phones.slice(0, 3).map(phone => ({ // Keep only top 3 phones with minimal data
-            id: phone.id,
-            name: phone.name,
-            brand: phone.brand,
-            price_original: phone.price_original
-          } as Phone))
-        })),
-      interactionPatterns: {
-        ...context.interactionPatterns,
-        // Keep only top interactions
-        brandInteractions: Object.fromEntries(
-          Object.entries(context.interactionPatterns.brandInteractions)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5)
-        ),
-        featureInteractions: Object.fromEntries(
-          Object.entries(context.interactionPatterns.featureInteractions)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5)
-        )
-      },
-      timestamp: new Date()
-    };
-  }
-  
-  /**
-   * Start automatic cleanup timer
-   */
-  private static startCleanupTimer(): void {
-    if (this.cleanupTimer) return;
-    
-    this.cleanupTimer = setInterval(() => {
-      try {
-        this.performanceMetrics.cleanupOperations++;
-        
-        // Clear cache if it's stale
-        if (!this.isCacheValid()) {
-          this.clearCache();
-        }
-        
-        // Cleanup localStorage if context exists
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        if (stored) {
-          const context = JSON.parse(stored);
-          const cleanedContext = this.cleanupContext(context);
-          
-          // Only save if cleanup made changes
-          if (JSON.stringify(cleanedContext) !== stored) {
-            this.saveContext(cleanedContext);
-          }
-        }
-      } catch (error) {
-        console.warn('Cleanup timer error:', error);
-      }
-    }, this.CLEANUP_INTERVAL);
-  }
-  
-  /**
-   * Stop cleanup timer
-   */
-  static stopCleanupTimer(): void {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-      this.cleanupTimer = null;
-    }
-  }
-  
-  /**
-   * Update average time metrics
-   */
-  private static updateAverageTime(operation: 'save' | 'load', time: number): void {
-    if (operation === 'save' && this.performanceMetrics.saveOperations > 0) {
-      const previousTotal = this.performanceMetrics.averageSaveTime * (this.performanceMetrics.saveOperations - 1);
-      this.performanceMetrics.averageSaveTime = (previousTotal + time) / this.performanceMetrics.saveOperations;
-    } else if (operation === 'load' && this.performanceMetrics.loadOperations > 0) {
-      const previousTotal = this.performanceMetrics.averageLoadTime * (this.performanceMetrics.loadOperations - 1);
-      this.performanceMetrics.averageLoadTime = (previousTotal + time) / this.performanceMetrics.loadOperations;
-    }
-  }
-  
-  /**
-   * Get performance metrics for monitoring
-   */
-  static getPerformanceMetrics() {
-    const totalCacheOperations = this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses;
-    return {
-      ...this.performanceMetrics,
-      cacheHitRate: totalCacheOperations > 0 
-        ? (this.performanceMetrics.cacheHits / totalCacheOperations) * 100 
-        : 0,
-      contextCacheSize: this.contextCache ? JSON.stringify(this.contextCache).length : 0,
-      isCacheValid: this.isCacheValid()
-    };
-  }
-  
-  /**
-   * Reset performance metrics
-   */
-  static resetPerformanceMetrics(): void {
-    this.performanceMetrics = {
-      saveOperations: 0,
-      loadOperations: 0,
-      cacheHits: 0,
-      cacheMisses: 0,
-      cleanupOperations: 0,
-      averageSaveTime: 0,
-      averageLoadTime: 0
-    };
-    this.clearCache();
-  }
-  
-  /**
-   * Preload context for better performance
-   */
-  static preloadContext(): Promise<ChatContext> {
-    return new Promise((resolve) => {
-      // Use setTimeout to avoid blocking the main thread
-      setTimeout(() => {
-        const context = this.loadContext();
-        resolve(context);
-      }, 0);
+    const now = Date.now();
+    return context.phoneRecommendations.filter((rec) => {
+      return now - rec.timestamp <= timeWindowMs;
     });
   }
-  
-  /**
-   * Batch update context to reduce save operations
-   */
-  private static pendingUpdates: Partial<ChatContext>[] = [];
-  private static batchTimer: NodeJS.Timeout | null = null;
-  
-  static batchUpdateContext(context: ChatContext, updates: Partial<ChatContext>): void {
-    this.pendingUpdates.push(updates);
-    
-    if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
-    }
-    
-    this.batchTimer = setTimeout(() => {
-      try {
-        // Apply all pending updates
-        let updatedContext = { ...context };
-        this.pendingUpdates.forEach(update => {
-          updatedContext = { ...updatedContext, ...update };
-        });
-        
-        // Save the batched updates
-        this.saveContext(updatedContext);
-        
-        // Clear pending updates
-        this.pendingUpdates = [];
-        this.batchTimer = null;
-      } catch (error) {
-        console.warn('Batch update failed:', error);
-        this.pendingUpdates = [];
-        this.batchTimer = null;
-      }
-    }, 100); // 100ms batch window
-  }
-  
+
   /**
    * Get storage usage information
    */
-  static getStorageInfo(): {
+  getStorageInfo(): {
     used: number;
     available: number;
-    contextSize: number;
-    percentage: number;
+    messageCount: number;
+    storageHealthy: boolean;
   } {
     try {
-      const contextData = localStorage.getItem(this.STORAGE_KEY);
-      const contextSize = contextData ? contextData.length : 0;
-      
-      // Estimate total localStorage usage
-      let totalUsed = 0;
-      for (let key in localStorage) {
-        if (localStorage.hasOwnProperty(key)) {
-          totalUsed += localStorage[key].length + key.length;
-        }
-      }
-      
-      // Most browsers have ~5-10MB localStorage limit
-      const estimatedLimit = 5 * 1024 * 1024; // 5MB
-      
+      const messages = this.getConversationHistory();
+      const storageData = sessionStorage.getItem(this.STORAGE_KEY) || "";
+      const metadataData = sessionStorage.getItem(this.METADATA_KEY) || "";
+
+      const used = (storageData.length + metadataData.length) * 2; // Rough estimate in bytes
+      const available = 5 * 1024 * 1024; // 5MB typical sessionStorage limit
+
       return {
-        used: totalUsed,
-        available: estimatedLimit - totalUsed,
-        contextSize,
-        percentage: (totalUsed / estimatedLimit) * 100
+        used,
+        available,
+        messageCount: messages.length,
+        storageHealthy: used < available * 0.8, // Healthy if under 80% usage
       };
     } catch (error) {
-      console.warn('Failed to get storage info:', error);
+      console.error("Failed to get storage info:", error);
       return {
         used: 0,
         available: 0,
-        contextSize: 0,
-        percentage: 0
+        messageCount: 0,
+        storageHealthy: false,
       };
     }
   }
+
+  /**
+   * Handle storage quota exceeded error
+   */
+  handleStorageQuotaExceeded(): void {
+    console.warn("⚠️ Storage quota exceeded, implementing cleanup strategy...");
+
+    const messages = this.getConversationHistory();
+
+    if (messages.length > 20) {
+      // Keep only the most recent 20 messages
+      const recentMessages = messages.slice(-20);
+
+      try {
+        sessionStorage.setItem(
+          this.STORAGE_KEY,
+          JSON.stringify(recentMessages)
+        );
+
+        this.sessionMetadata.messageCount = recentMessages.length;
+        this.saveSessionMetadata();
+
+        console.log(
+          `✅ Cleaned up conversation history, kept ${recentMessages.length} recent messages`
+        );
+      } catch (error) {
+        console.error("Failed to cleanup after quota exceeded:", error);
+        this.clearSession();
+      }
+    } else {
+      // If still too much data with few messages, clear everything
+      this.clearSession();
+    }
+  }
 }
+
+// Create and export singleton instance
+export const chatContextManager = new ChatContextManager();

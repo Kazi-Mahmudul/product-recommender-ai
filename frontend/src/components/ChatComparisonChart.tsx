@@ -57,12 +57,32 @@ interface Feature {
 }
 
 interface ChatComparisonChartProps {
-  phones: Phone[];
-  features: Feature[];
+  phones?: Phone[];
+  features?: Feature[];
   darkMode: boolean;
   onPhoneSelect?: (phoneId: string) => void;
   onViewDetailedComparison?: () => void;
   compact?: boolean; // New prop to allow for compact display mode
+  // RAG-specific props
+  comparisonData?: {
+    phones: Array<{
+      slug: string;
+      name: string;
+      brand: string;
+      image: string;
+      price: number;
+    }>;
+    features: Array<{
+      key: string;
+      label: string;
+      values: any[];
+      unit?: string;
+    }>;
+    summary: string;
+  };
+  onPhoneClick?: (phoneSlug: string) => void;
+  showSummary?: boolean;
+  contextualSummary?: string;
 }
 
 // Custom label for LabelList (shows correct % for every phone, responsive, mode-aware)
@@ -539,13 +559,39 @@ const CustomTooltip = ({
 };
 
 const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
-  phones,
-  features,
+  phones: legacyPhones,
+  features: legacyFeatures,
   darkMode,
   onPhoneSelect,
   onViewDetailedComparison,
   compact = false,
+  // RAG-specific props
+  comparisonData,
+  onPhoneClick,
+  showSummary = true,
+  contextualSummary,
 }) => {
+  // Use RAG data if available, otherwise fall back to legacy props
+  const phones = comparisonData?.phones ? comparisonData.phones.map(p => ({
+    slug: p.slug,
+    name: p.name,
+    brand: p.brand,
+    img_url: p.image,
+    price: p.price.toString(),
+    // Add other required Phone properties with defaults
+    id: 0, // Legacy compatibility
+  } as Phone)) : (legacyPhones || []);
+  
+  const features = comparisonData?.features ? comparisonData.features.map(f => ({
+    key: f.key,
+    label: f.label,
+    percent: f.values.map((v, i) => {
+      // Normalize values to percentages for chart display
+      const maxVal = Math.max(...f.values.filter(val => typeof val === 'number' && !isNaN(val)));
+      return maxVal > 0 ? (v / maxVal) * 100 : 0;
+    }),
+    raw: f.values
+  } as Feature)) : (legacyFeatures || []);
   const themeClasses = getThemeClasses(darkMode);
   const { width: rawWindowWidth, isMobile, orientation } = useWindowSize();
 
@@ -696,6 +742,16 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
 
   // Generate enhanced summary text with more insights
   const summaryPoints = useMemo(() => {
+    // Use contextual summary from RAG if available
+    if (contextualSummary) {
+      return [contextualSummary];
+    }
+    
+    // Use comparison data summary if available
+    if (comparisonData?.summary) {
+      return [comparisonData.summary];
+    }
+    
     if (!phones || !features || phones.length < 2) return [];
 
     const points: Array<{
@@ -779,7 +835,16 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
       .sort((a, b) => b.importance - a.importance)
       .slice(0, 5)
       .map((point) => point.text);
-  }, [phones, features]);
+  }, [phones, features, contextualSummary, comparisonData?.summary]);
+
+  // Handle phone clicks for RAG integration
+  const handlePhoneClick = useCallback((phoneSlug: string) => {
+    if (onPhoneClick) {
+      onPhoneClick(phoneSlug);
+    } else if (onPhoneSelect) {
+      onPhoneSelect(phoneSlug);
+    }
+  }, [onPhoneClick, onPhoneSelect]);
 
   // Calculate optimal bar width and spacing with increased width
   const barSize = useMemo(

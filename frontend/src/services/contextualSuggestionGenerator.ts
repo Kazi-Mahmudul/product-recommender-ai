@@ -155,8 +155,8 @@ export class ContextualSuggestionGenerator {
     
     // Alternative/replacement queries
     if (lowerQuery.includes('cheaper') || lowerQuery.includes('alternative') || lowerQuery.includes('instead')) {
-      const priceRange = recentContext.metadata.priceRange;
-      return `${baseQuery} to ${phoneNames.join(', ')} under ${priceRange.min} BDT`;
+      const priceRange = recentContext.metadata?.priceRange;
+      return `${baseQuery} to ${phoneNames.join(', ')} under ${priceRange?.min || 50000} BDT`;
     }
     
     // Direct comparison queries

@@ -33,7 +33,7 @@ phone_name_resolver = PhoneNameResolver()
 context_manager = ContextManager()
 
 # Gemini AI service configuration
-GEMINI_AI_SERVICE_URL = os.getenv("GEMINI_AI_SERVICE_URL", "https://ai-service-188950165425.asia-southeast1.run.app")
+GEMINI_AI_SERVICE_URL = os.getenv("GEMINI_AI_SERVICE_URL")
 
 async def call_gemini_ai_service(query: str) -> dict:
     """
@@ -981,3 +981,165 @@ async def process_legacy_query(request: ContextualQueryRequest, db: Session):
             "data": "I'm having trouble processing your request. Please try again."
         }, status_code=500)
     
+# RAG Pipeline Integration
+@router.post("/rag-query")
+async def rag_enhanced_query(
+    request: IntelligentQueryRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    RAG-enhanced query endpoint that integrates GEMINI service with database knowledge.
+    This endpoint provides grounded, accurate responses by combining AI understanding
+    with phone database information.
+    """
+    try:
+        # Import RAG services
+        from app.services.gemini_rag_service import GeminiRAGService
+        from app.services.knowledge_retrieval import KnowledgeRetrievalService
+        from app.services.response_formatter import ResponseFormatterService
+        
+        # Initialize RAG services
+        gemini_rag_service = GeminiRAGService()
+        knowledge_retrieval_service = KnowledgeRetrievalService()
+        response_formatter_service = ResponseFormatterService()
+        
+        logger.info(f"Processing RAG query: {request.query[:100]}...")
+        
+        # Step 1: Parse query with GEMINI service
+        gemini_response = await gemini_rag_service.parse_query_with_context(
+            query=request.query,
+            conversation_history=request.conversation_history or []
+        )
+        
+        # Step 2: Enhance with knowledge from database
+        response_type = gemini_response.get("type", "chat")
+        
+        if response_type == "recommendation":
+            # Get phone recommendations based on GEMINI filters
+            filters = gemini_response.get("filters", {})
+            phones = await knowledge_retrieval_service.find_similar_phones(db, filters)
+            
+            # Format recommendations
+            formatted_response = await response_formatter_service.format_recommendations(
+                phones=phones,
+                reasoning=gemini_response.get("reasoning", ""),
+                filters=filters,
+                original_query=request.query
+            )
+            
+        elif response_type == "comparison":
+            # Get comparison data for specified phones
+            phone_names = gemini_response.get("data", [])
+            comparison_data = await knowledge_retrieval_service.get_comparison_data(db, phone_names)
+            
+            # Format comparison
+            formatted_response = await response_formatter_service.format_comparison(
+                comparison_data=comparison_data,
+                reasoning=gemini_response.get("reasoning", ""),
+                original_query=request.query
+            )
+            
+        elif response_type == "drill_down":
+            # Get detailed specifications for a specific phone
+            phone_names = gemini_response.get("data", [])
+            if phone_names:
+                phone_specs = await knowledge_retrieval_service.retrieve_phone_specs(db, phone_names[0])
+                formatted_response = await response_formatter_service.format_specifications(
+                    phone_specs=phone_specs,
+                    reasoning=gemini_response.get("reasoning", ""),
+                    original_query=request.query
+                )
+            else:
+                formatted_response = {
+                    "response_type": "text",
+                    "content": {"text": "Please specify which phone you'd like to know more about."},
+                    "suggestions": ["Ask about a specific phone model", "Get phone recommendations"]
+                }
+                
+        elif response_type == "qa":
+            # Handle Q&A with potential database lookup
+            query_data = gemini_response.get("data", "")
+            related_phones = await knowledge_retrieval_service.search_by_features(db, query_data, limit=3)
+            
+            formatted_response = await response_formatter_service.format_conversational(
+                text=query_data,
+                related_phones=related_phones if related_phones else None,
+                reasoning=gemini_response.get("reasoning", ""),
+                original_query=request.query
+            )
+            
+        else:
+            # Default conversational response
+            formatted_response = await response_formatter_service.format_conversational(
+                text=gemini_response.get("data", gemini_response.get("reasoning", "")),
+                related_phones=None,
+                reasoning=gemini_response.get("reasoning", ""),
+                original_query=request.query
+            )
+        
+        logger.info(f"RAG query processed successfully: {formatted_response.get('response_type')}")
+        return formatted_response
+        
+    except Exception as e:
+        logger.error(f"Error in RAG query processing: {str(e)}", exc_info=True)
+        
+        # Fallback to existing intelligent query processing
+        try:
+            logger.info("Falling back to existing intelligent query processing")
+            response = await process_intelligent_query(request, db)
+            return response.dict()
+        except Exception as fallback_error:
+            logger.error(f"Fallback also failed: {str(fallback_error)}")
+            
+            # Final fallback response
+            return {
+                "response_type": "text",
+                "content": {
+                    "text": "I'm having trouble processing your request right now. Please try rephrasing your question or try again in a moment.",
+                    "error": True
+                },
+                "suggestions": [
+                    "Try asking about a specific phone model",
+                    "Ask for phone recommendations with your budget",
+                    "Compare two phones directly"
+                ],
+                "metadata": {
+                    "error": str(e) if settings.DEBUG else "Service temporarily unavailable"
+                }
+            }
+
+
+@router.post("/rag-test")
+async def test_rag_integration(
+    query: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    Test endpoint for RAG integration functionality.
+    """
+    try:
+        # Create a test request
+        test_request = IntelligentQueryRequest(
+            query=query,
+            conversation_history=[],
+            session_id="test-session"
+        )
+        
+        # Process through RAG pipeline
+        response = await rag_enhanced_query(test_request, db)
+        
+        return {
+            "status": "success",
+            "query": query,
+            "response": response,
+            "rag_integration": "working"
+        }
+        
+    except Exception as e:
+        logger.error(f"RAG test failed: {str(e)}")
+        return {
+            "status": "error",
+            "query": query,
+            "error": str(e),
+            "rag_integration": "failed"
+        }

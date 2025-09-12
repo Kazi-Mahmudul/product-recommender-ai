@@ -5,64 +5,294 @@ import { ExternalLink } from "lucide-react";
 import { Phone } from "../api/phones";
 
 interface ChatSpecTableProps {
-  phones: Phone[];
+  phones?: Phone[];
   darkMode: boolean;
-  onPhoneSelect?: (phoneId: string) => void;
+  onPhoneSelect?: (phoneSlug: string) => void;
+  // RAG-specific props
+  specifications?: {
+    display: Record<string, any>;
+    performance: Record<string, any>;
+    camera: Record<string, any>;
+    battery: Record<string, any>;
+    connectivity: Record<string, any>;
+    design: Record<string, any>;
+    scores: Record<string, any>;
+  };
+  expandedByDefault?: boolean;
+  onToggleExpand?: () => void;
+  highlightFeatures?: string[];
+  compactMode?: boolean;
 }
 
-// Group specifications into logical categories
-const specGroups = [
-  {
-    name: "Basic",
-    specs: [
-      { key: "brand", label: "Brand" },
-      { key: "price", label: "Price", prefix: "৳ " },
-    ],
-  },
-  {
-    name: "Performance",
-    specs: [
-      { key: "chipset", label: "Chipset", fallbackKey: "cpu" },
-      { key: "ram", label: "RAM" },
-      { key: "internal_storage", label: "Storage" },
-    ],
-  },
-  {
-    name: "Display",
-    specs: [
-      { key: "display_type", label: "Type" },
-      { key: "screen_size_inches", label: "Size", suffix: '"' },
-      { key: "resolution", label: "Resolution" },
-      { key: "refresh_rate", label: "Refresh Rate", suffix: " Hz" },
-    ],
-  },
-  {
-    name: "Camera",
-    specs: [
-      { key: "main_camera", label: "Main Camera" },
-      { key: "front_camera", label: "Front Camera" },
-    ],
-  },
-  {
-    name: "Battery",
-    specs: [
-      { 
-        key: "battery_capacity_numeric", 
-        label: "Capacity", 
-        suffix: " mAh",
-        fallbackKey: "capacity" 
-      },
-      { key: "charging", label: "Charging" },
-    ],
-  },
-];
-
 const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
-  phones,
+  phones: legacyPhones,
   darkMode,
   onPhoneSelect,
+  // RAG-specific props
+  specifications,
+  expandedByDefault = false,
+  onToggleExpand,
+  highlightFeatures = [],
+  compactMode = false,
 }) => {
+  const [isExpanded, setIsExpanded] = React.useState(expandedByDefault);
+  
+  // Handle expand/collapse
+  const handleToggleExpand = () => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    if (onToggleExpand) {
+      onToggleExpand();
+    }
+  };
+  
+  // Check if we're in single phone spec mode (RAG specifications)
+  const isSinglePhoneMode = !!specifications;
+  const phones = legacyPhones || [];
   const themeClasses = getThemeClasses(darkMode);
+
+  // Helper function to format spec labels
+  const formatSpecLabel = (key: string): string => {
+    const labelMap: Record<string, string> = {
+      'type': 'Display Type',
+      'size': 'Screen Size',
+      'resolution': 'Resolution',
+      'ppi': 'Pixel Density',
+      'refresh_rate': 'Refresh Rate',
+      'protection': 'Screen Protection',
+      'score': 'Score',
+      'chipset': 'Chipset',
+      'cpu': 'Processor',
+      'gpu': 'Graphics',
+      'ram': 'RAM',
+      'storage': 'Storage',
+      'primary_mp': 'Main Camera',
+      'selfie_mp': 'Front Camera',
+      'camera_count': 'Camera Count',
+      'features': 'Camera Features',
+      'capacity': 'Battery Capacity',
+      'fast_charging': 'Fast Charging',
+      'wireless_charging': 'Wireless Charging',
+      'network': 'Network',
+      'bluetooth': 'Bluetooth',
+      'nfc': 'NFC',
+      'usb': 'USB',
+      'build': 'Build Quality',
+      'weight': 'Weight',
+      'thickness': 'Thickness',
+      'colors': 'Available Colors',
+      'waterproof': 'Water Resistance',
+      'ip_rating': 'IP Rating',
+      'overall': 'Overall Score',
+      'display': 'Display Score',
+      'performance': 'Performance Score',
+      'camera': 'Camera Score',
+      'battery': 'Battery Score',
+      'connectivity': 'Connectivity Score',
+      'security': 'Security Score'
+    };
+    
+    return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  // Helper function to format spec values
+  const formatSpecValue = (key: string, value: any): string => {
+    if (value === null || value === undefined) return 'N/A';
+    
+    // Handle boolean values
+    if (typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    
+    // Handle numeric values with units
+    if (typeof value === 'number') {
+      if (key.includes('score')) {
+        return `${value.toFixed(1)}/10`;
+      }
+      if (key.includes('capacity')) {
+        return `${value}mAh`;
+      }
+      if (key.includes('size')) {
+        return `${value}"`;
+      }
+      if (key.includes('ppi')) {
+        return `${value} PPI`;
+      }
+      if (key.includes('refresh_rate')) {
+        return `${value}Hz`;
+      }
+      if (key.includes('mp')) {
+        return `${value}MP`;
+      }
+      if (key.includes('ram') || key.includes('storage')) {
+        return `${value}GB`;
+      }
+      if (key.includes('weight')) {
+        return `${value}g`;
+      }
+      if (key.includes('thickness')) {
+        return `${value}mm`;
+      }
+    }
+    
+    return String(value);
+  };
+
+  // Check if a feature should be highlighted
+  const isFeatureHighlighted = (featureName: string) => {
+    return highlightFeatures.some(feature => 
+      feature.toLowerCase().includes(featureName.toLowerCase()) ||
+      featureName.toLowerCase().includes(feature.toLowerCase())
+    );
+  };
+
+  // Group specifications into logical categories
+  const specGroups = React.useMemo(() => {
+    if (isSinglePhoneMode && specifications) {
+      // RAG mode - create spec groups from structured specifications
+      const groups = [];
+      
+      if (specifications.display && Object.keys(specifications.display).length > 0) {
+        groups.push({
+          name: "Display",
+          specs: Object.entries(specifications.display)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      if (specifications.performance && Object.keys(specifications.performance).length > 0) {
+        groups.push({
+          name: "Performance",
+          specs: Object.entries(specifications.performance)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      if (specifications.camera && Object.keys(specifications.camera).length > 0) {
+        groups.push({
+          name: "Camera",
+          specs: Object.entries(specifications.camera)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      if (specifications.battery && Object.keys(specifications.battery).length > 0) {
+        groups.push({
+          name: "Battery",
+          specs: Object.entries(specifications.battery)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      if (specifications.connectivity && Object.keys(specifications.connectivity).length > 0) {
+        groups.push({
+          name: "Connectivity",
+          specs: Object.entries(specifications.connectivity)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      if (specifications.design && Object.keys(specifications.design).length > 0) {
+        groups.push({
+          name: "Design",
+          specs: Object.entries(specifications.design)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      if (specifications.scores && Object.keys(specifications.scores).length > 0) {
+        groups.push({
+          name: "Scores",
+          specs: Object.entries(specifications.scores)
+            .filter(([_, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => ({
+              key,
+              label: formatSpecLabel(key),
+              value: formatSpecValue(key, value)
+            }))
+        });
+      }
+      
+      return groups;
+    }
+    
+    // Legacy mode - use original spec groups
+    return [
+      {
+        name: "Basic",
+        specs: [
+          { key: "brand", label: "Brand" },
+          { key: "price", label: "Price", prefix: "৳ " },
+        ],
+      },
+      {
+        name: "Performance",
+        specs: [
+          { key: "chipset", label: "Chipset", fallbackKey: "cpu" },
+          { key: "ram", label: "RAM" },
+          { key: "internal_storage", label: "Storage" },
+        ],
+      },
+      {
+        name: "Display",
+        specs: [
+          { key: "display_type", label: "Type" },
+          { key: "screen_size_inches", label: "Size", suffix: '"' },
+          { key: "resolution", label: "Resolution" },
+          { key: "refresh_rate", label: "Refresh Rate", suffix: " Hz" },
+        ],
+      },
+      {
+        name: "Camera",
+        specs: [
+          { key: "main_camera", label: "Main Camera" },
+          { key: "front_camera", label: "Front Camera" },
+        ],
+      },
+      {
+        name: "Battery",
+        specs: [
+          { 
+            key: "battery_capacity_numeric", 
+            label: "Capacity", 
+            suffix: " mAh",
+            fallbackKey: "capacity" 
+          },
+          { key: "charging", label: "Charging" },
+        ],
+      },
+    ];
+  }, [isSinglePhoneMode, specifications, formatSpecLabel, formatSpecValue]);
   
   // Helper function to get the value of a spec
   const getSpecValue = (phone: Phone, spec: { key: string; label: string; prefix?: string; suffix?: string; fallbackKey?: string }) => {
@@ -109,6 +339,69 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
     return values.map(() => false);
   };
   
+  // Render single phone specifications (RAG mode)
+  if (isSinglePhoneMode) {
+    const visibleGroups = compactMode && !isExpanded ? specGroups.slice(0, 2) : specGroups;
+    
+    return (
+      <div className={themeClasses.chartContainer}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-semibold text-[#377D5B]">
+            Phone Specifications
+          </div>
+          {compactMode && (
+            <button
+              onClick={handleToggleExpand}
+              className={`text-xs px-2 py-1 rounded ${
+                darkMode
+                  ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              }`}
+            >
+              {isExpanded ? 'Show Less' : 'Show More'}
+            </button>
+          )}
+        </div>
+        
+        <div className="space-y-3">
+          {visibleGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className={`rounded-lg p-3 ${
+              darkMode ? "bg-gray-800/50" : "bg-gray-50"
+            }`}>
+              <div className="font-medium text-sm mb-2 text-brand">
+                {group.name}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {group.specs.map((spec: any, specIndex) => (
+                  <div
+                    key={specIndex}
+                    className={`flex justify-between items-center py-1 ${
+                      isFeatureHighlighted(spec.label) 
+                        ? `px-2 rounded ${darkMode ? "bg-yellow-900/30 text-yellow-200" : "bg-yellow-100 text-yellow-800"}`
+                        : ""
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{spec.label}:</span>
+                    <span className="text-sm">{spec.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {compactMode && !isExpanded && specGroups.length > 2 && (
+          <div className="text-center mt-2">
+            <span className="text-xs opacity-75">
+              {specGroups.length - 2} more categories available
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Render comparison table (legacy mode)
   return (
     <div className={themeClasses.chartContainer}>
       <div className="font-semibold mb-2 text-[#377D5B]">
@@ -123,10 +416,10 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
               {phones.map((phone, index) => (
                 <th key={index} className={themeClasses.tableHeader}>
                   {phone.name}
-                  {onPhoneSelect && phone.id && (
+                  {onPhoneSelect && phone.slug && (
                     <button
                       className="ml-1 inline-flex items-center justify-center opacity-70 hover:opacity-100"
-                      onClick={() => onPhoneSelect(String(phone.id!))}
+                      onClick={() => onPhoneSelect(phone.slug!)}
                       aria-label={`View details for ${phone.name}`}
                     >
                       <ExternalLink size={14} />
@@ -150,15 +443,19 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
                 </tr>
                 
                 {/* Group specs */}
-                {group.specs.map((spec, specIndex) => {
-                  const highlights = shouldHighlight(phones, spec);
+                {group.specs.map((spec: any, specIndex) => {
+                  const highlights = !isSinglePhoneMode ? shouldHighlight(phones, spec) : [];
                   
                   return (
                     <tr
                       key={`${groupIndex}-${specIndex}`}
                       className={specIndex % 2 === 0 ? themeClasses.tableRowEven : themeClasses.tableRowOdd}
                     >
-                      <td className="px-2 py-1 font-medium sticky left-0 z-10 bg-inherit">
+                      <td className={`px-2 py-1 font-medium sticky left-0 z-10 bg-inherit ${
+                        isFeatureHighlighted(spec.label) 
+                          ? `${darkMode ? "bg-yellow-900/30 text-yellow-200" : "bg-yellow-100 text-yellow-800"}`
+                          : ""
+                      }`}>
                         {spec.label}
                       </td>
                       {phones.map((phone, phoneIndex) => (
@@ -187,10 +484,10 @@ const ChatSpecTable: React.FC<ChatSpecTableProps> = ({
       {/* Action buttons */}
       <div className="mt-4 flex justify-end gap-2">
         {phones.map((phone, index) => (
-          phone.id && onPhoneSelect && (
+          phone.slug && onPhoneSelect && (
             <button
               key={index}
-              onClick={() => onPhoneSelect(String(phone.id!))}
+              onClick={() => onPhoneSelect(phone.slug!)}
               className={`text-xs px-3 py-1 rounded-full ${
                 darkMode
                   ? "bg-gray-800 hover:bg-gray-700 text-white"

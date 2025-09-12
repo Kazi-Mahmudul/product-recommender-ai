@@ -1,7 +1,12 @@
 // Gemini AI API utility
 // Uses REACT_APP_GEMINI_API from .env
-
+// Enhanced with RAG pipeline integration
+import { pipeline } from 'stream';
+// Import RAG chat service for integration
+import { chatAPIService, ChatQueryRequest, ChatResponse } from './chat';
 const GEMINI_API = process.env.REACT_APP_GEMINI_API;
+const RAG_API_BASE = process.env.REACT_APP_API_URL || '/api/v1';
+
 
 export async function fetchGeminiSummary(prompt: string): Promise<string> {
   if (!GEMINI_API) {
@@ -842,5 +847,168 @@ Format your response as JSON with "pros" and "cons" arrays.`;
         ]
       };
     }
+  }
+}
+/*** RAG-enhanced Gemini summary generation
+ * Uses RAG pipeline when available, falls back to direct Gemini API
+ */
+export async function fetchRAGEnhancedSummary(
+  prompt: string, 
+  conversationHistory?: Array<{ type: 'user' | 'assistant'; content: string }>,
+  sessionId?: string
+): Promise<string> {
+  try {
+    // First try RAG pipeline
+    const ragRequest: ChatQueryRequest = {
+      query: prompt,
+      conversation_history: conversationHistory,
+      session_id: sessionId
+    };
+
+    const ragResponse = await chatAPIService.sendChatQuery(ragRequest);
+    
+    // Extract text from RAG response
+    if (ragResponse.content.text) {
+      return ragResponse.content.text;
+    }
+    
+    // If RAG returns structured data, format it as text
+    if (ragResponse.response_type === 'recommendations' && ragResponse.content.phones) {
+      const phoneNames = ragResponse.content.phones.slice(0, 3).map(p => p.name).join(', ');
+      return `${ragResponse.content.text || 'Here are some great phone recommendations:'} ${phoneNames}`;
+    }
+    
+    if (ragResponse.response_type === 'comparison' && ragResponse.content.comparison_data) {
+      const phoneNames = ragResponse.content.comparison_data.phones.map(p => p.name).join(' vs ');
+      return `${ragResponse.content.text || 'Here\'s a comparison:'} ${phoneNames}. ${ragResponse.content.comparison_data.summary}`;
+    }
+    
+    // Fallback to original Gemini API
+    console.log('RAG response not suitable for summary, falling back to direct Gemini API');
+    return await fetchGeminiSummary(prompt);
+    
+  } catch (error) {
+    console.warn('RAG pipeline failed, falling back to direct Gemini API:', error);
+    return await fetchGeminiSummary(prompt);
+  }
+}
+
+/**
+ * RAG-enhanced phone analysis with contextual understanding
+ */
+export async function fetchRAGPhoneAnalysis(
+  phone: any,
+  analysisType: 'pros_cons' | 'summary' | 'comparison' = 'pros_cons',
+  context?: string
+): Promise<{ pros: string[]; cons: string[] } | string> {
+  try {
+    let query = '';
+    
+    if (analysisType === 'pros_cons') {
+      query = `Analyze the ${phone.name} smartphone and provide detailed pros and cons. Consider its price of ৳${phone.price_original?.toLocaleString() || 'N/A'}, specifications, and value proposition in the Bangladesh market.`;
+    } else if (analysisType === 'summary') {
+      query = `Provide a comprehensive summary of the ${phone.name} smartphone, including its key features, performance, and overall value proposition.`;
+    } else if (analysisType === 'comparison') {
+      query = `Compare the ${phone.name} with similar phones in its price range and category. What makes it stand out or fall behind?`;
+    }
+    
+    if (context) {
+      query += ` Additional context: ${context}`;
+    }
+
+    const ragRequest: ChatQueryRequest = {
+      query,
+      conversation_history: [],
+      session_id: `analysis-${Date.now()}`
+    };
+
+    const ragResponse = await chatAPIService.sendRAGQuery(ragRequest);
+    
+    if (ragResponse.content.text) {
+      if (analysisType === 'pros_cons') {
+        // Try to parse pros/cons from text response
+        const text = ragResponse.content.text;
+        const prosMatch = text.match(/(?:pros?|advantages?|positives?):\s*([\s\S]*?)(?=(?:cons?|disadvantages?|negatives?|limitations?):|$)/i);
+        const consMatch = text.match(/(?:cons?|disadvantages?|negatives?|limitations?):\s*([\s\S]*)$/i);
+
+        
+        if (prosMatch && consMatch) {
+          const pros = prosMatch[1].split(/[•\-\n]/).filter(p => p.trim()).map(p => p.trim());
+          const cons = consMatch[1].split(/[•\-\n]/).filter(c => c.trim()).map(c => c.trim());
+          return { pros: pros.slice(0, 5), cons: cons.slice(0, 4) };
+        }
+        
+        // Fallback to original pros/cons generation
+        return await fetchGeminiProsCons(phone);
+      }
+      
+      return ragResponse.content.text;
+    }
+    
+    // Fallback to original methods
+    if (analysisType === 'pros_cons') {
+      return await fetchGeminiProsCons(phone);
+    } else {
+      const phoneCategory = determinePhoneCategory(phone);
+      const prompt = `Provide a ${analysisType} for the ${phone.name} smartphone in the ${phoneCategory} category.`;
+      return await fetchGeminiSummary(prompt);
+    }
+    
+  } catch (error) {
+    console.warn('RAG phone analysis failed, falling back to original methods:', error);
+    
+    if (analysisType === 'pros_cons') {
+      return await fetchGeminiProsCons(phone);
+    } else {
+      const phoneCategory = determinePhoneCategory(phone);
+      const prompt = `Provide a ${analysisType} for the ${phone.name} smartphone.`;
+      return await fetchGeminiSummary(prompt);
+    }
+  }
+}
+
+/**
+ * Test RAG integration and return status
+ */
+export async function testRAGIntegration(): Promise<{
+  ragAvailable: boolean;
+  geminiAvailable: boolean;
+  recommendedMode: 'rag' | 'gemini' | 'fallback';
+}> {
+  try {
+    // Test RAG integration
+    const ragTest = await chatAPIService.testRAGIntegration('test query for integration check');
+    const ragAvailable = ragTest.rag_integration === 'working';
+    
+    // Test direct Gemini API
+    let geminiAvailable = false;
+    try {
+      await fetchGeminiSummary('test');
+      geminiAvailable = true;
+    } catch {
+      geminiAvailable = false;
+    }
+    
+    // Determine recommended mode
+    let recommendedMode: 'rag' | 'gemini' | 'fallback' = 'fallback';
+    if (ragAvailable) {
+      recommendedMode = 'rag';
+    } else if (geminiAvailable) {
+      recommendedMode = 'gemini';
+    }
+    
+    return {
+      ragAvailable,
+      geminiAvailable,
+      recommendedMode
+    };
+    
+  } catch (error) {
+    console.error('Failed to test integrations:', error);
+    return {
+      ragAvailable: false,
+      geminiAvailable: false,
+      recommendedMode: 'fallback'
+    };
   }
 }

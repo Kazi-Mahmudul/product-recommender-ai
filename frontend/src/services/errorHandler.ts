@@ -65,7 +65,7 @@ export class ErrorHandler {
       type: 'suggestion',
       message: `Suggestion generation failed: ${error.message}`,
       originalError: error,
-      context: { phoneCount: phones.length, queryCount: context.queryCount },
+      context: { phoneCount: phones.length, queryCount: context.queryCount || 0 },
       timestamp: new Date(),
       recoverable: true
     });
@@ -86,7 +86,7 @@ export class ErrorHandler {
       type: 'drill_down',
       message: `Drill-down command failed: ${command}`,
       originalError: error,
-      context: { command, queryCount: context.queryCount },
+      context: { command, queryCount: context.queryCount || 0 },
       timestamp: new Date(),
       recoverable: true
     });

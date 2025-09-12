@@ -1,10 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import IntelligentResponseHandler from "../components/IntelligentResponseHandler";
+import ChatErrorBoundary from "../components/ChatErrorBoundary";
 import { smartChatService, ChatState } from "../services/smartChatService";
 import { FormattedResponse } from "../services/directGeminiService";
 import { useMobileResponsive } from "../hooks/useMobileResponsive";
+import { chatContextManager } from "../services/chatContextManager";
 
+// Enhanced chat message interface for RAG pipeline
+interface RAGChatMessage {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string | FormattedResponse | object;
+  timestamp: Date;
+  metadata?: {
+    response_type?: string;
+    phone_slugs?: string[];
+    query_type?: string;
+    processing_time?: number;
+    session_id?: string;
+    error?: boolean;
+    confidence_score?: number;
+    data_sources?: string[];
+  };
+}
+
+// Legacy interface for backward compatibility
 interface ChatMessage {
   user: string;
   bot: string | FormattedResponse;
@@ -29,40 +50,106 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const location = useLocation();
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [ragMessages, setRagMessages] = useState<RAGChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [sessionId, setSessionId] = useState<string>("");
+  const [useRAGPipeline, setUseRAGPipeline] = useState(true);
   const [smartChatState, setSmartChatState] = useState<ChatState>(() => smartChatService.getChatState());
   const chatContainerRef = useRef<HTMLDivElement>(null);
   useMobileResponsive();
 
-  // Subscribe to smart chat state changes
+  // Initialize session on component mount
   useEffect(() => {
-    const unsubscribe = smartChatService.subscribe((newState) => {
-      setSmartChatState(newState);
-      setIsLoading(newState.isLoading);
+    const initializeSession = () => {
+      const existingHistory = chatContextManager.getConversationHistory();
+      const currentSessionId = chatContextManager.getSessionId();
       
-      // Convert smart chat messages to legacy format for existing UI
-      const legacyChatHistory: ChatMessage[] = [];
+      setSessionId(currentSessionId);
       
-      for (let i = 0; i < newState.messages.length; i += 2) {
-        const userMsg = newState.messages[i];
-        const botMsg = newState.messages[i + 1];
-        
-        if (userMsg && userMsg.sender === 'user') {
-          legacyChatHistory.push({
-            user: userMsg.text,
-            bot: botMsg ? (botMsg.response || botMsg.text) : "",
-            phones: botMsg?.response?.content?.phones || []
-          });
-        }
-      }
+      // Convert chat context manager messages to local RAG messages format
+      const convertedMessages: RAGChatMessage[] = existingHistory.map(msg => ({
+        id: msg.id,
+        type: msg.type,
+        content: msg.content,
+        timestamp: msg.timestamp,
+        metadata: msg.metadata
+      }));
       
-      setChatHistory(legacyChatHistory);
-    });
+      setRagMessages(convertedMessages);
+      
+      // Convert RAG messages to legacy format for existing UI
+      const legacyHistory = convertRAGToLegacyFormat(convertedMessages);
+      setChatHistory(legacyHistory);
+      
+      // Show welcome if no existing messages
+      setShowWelcome(convertedMessages.length === 0);
+    };
     
-    return unsubscribe;
+    initializeSession();
   }, []);
+
+  // Helper function to convert RAG messages to legacy format
+  const convertRAGToLegacyFormat = (ragMessages: RAGChatMessage[]): ChatMessage[] => {
+    const legacyHistory: ChatMessage[] = [];
+    
+    for (let i = 0; i < ragMessages.length; i += 2) {
+      const userMsg = ragMessages[i];
+      const botMsg = ragMessages[i + 1];
+      
+      if (userMsg && userMsg.type === 'user') {
+        // Convert bot content to proper format
+        let botContent: string | FormattedResponse = "";
+        if (botMsg) {
+          if (typeof botMsg.content === 'string') {
+            botContent = botMsg.content;
+          } else if (typeof botMsg.content === 'object') {
+            // Assume it's already a FormattedResponse or convert it
+            botContent = botMsg.content as FormattedResponse;
+          }
+        }
+        
+        legacyHistory.push({
+          user: userMsg.content as string,
+          bot: botContent,
+          phones: typeof botMsg?.content === 'object' ? (botMsg.content as any)?.content?.phones || [] : []
+        });
+      }
+    }
+    
+    return legacyHistory;
+  };
+
+  // Subscribe to smart chat state changes (fallback for non-RAG mode)
+  useEffect(() => {
+    if (!useRAGPipeline) {
+      const unsubscribe = smartChatService.subscribe((newState) => {
+        setSmartChatState(newState);
+        setIsLoading(newState.isLoading);
+        
+        // Convert smart chat messages to legacy format for existing UI
+        const legacyChatHistory: ChatMessage[] = [];
+        
+        for (let i = 0; i < newState.messages.length; i += 2) {
+          const userMsg = newState.messages[i];
+          const botMsg = newState.messages[i + 1];
+          
+          if (userMsg && userMsg.sender === 'user') {
+            legacyChatHistory.push({
+              user: userMsg.text,
+              bot: botMsg ? (botMsg.response || botMsg.text) : "",
+              phones: botMsg?.response?.content?.phones || []
+            });
+          }
+        }
+        
+        setChatHistory(legacyChatHistory);
+      });
+      
+      return unsubscribe;
+    }
+  }, [useRAGPipeline]);
 
   // Auto-scroll to bottom when chat history changes
   useEffect(() => {
@@ -116,32 +203,160 @@ How can I help you today?`,
       const messageToSend = initialMessage || message;
       if (!messageToSend.trim()) return;
 
-      console.log(`🚀 Sending query via Smart Chat Service: "${messageToSend}"`);
+      console.log(`🚀 Sending query via ${useRAGPipeline ? 'RAG Pipeline' : 'Smart Chat Service'}: "${messageToSend}"`);
       
       setMessage("");
       setError(null);
       setShowWelcome(false);
+      setIsLoading(true);
 
       try {
-        // Use the smart chat service to send the query directly to Gemini
-        const response = await smartChatService.sendQuery(messageToSend);
-        
-        console.log(`✅ Received response from Smart Chat Service:`, response);
-        
-        // The smart chat service handles everything - state updates will come through subscription
+        if (useRAGPipeline) {
+          // Use RAG pipeline
+          const response = await fetch('/api/v1/chat/query', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: messageToSend,
+              conversation_history: ragMessages.map(msg => ({
+                type: msg.type,
+                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+              })),
+              session_id: sessionId
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const ragResponse = await response.json();
+          console.log(`✅ Received RAG response:`, ragResponse);
+
+          // Add user message to session
+          const userMessage: RAGChatMessage = {
+            id: `user-${Date.now()}`,
+            type: 'user',
+            content: messageToSend,
+            timestamp: new Date(),
+            metadata: {
+              session_id: sessionId
+            }
+          };
+
+          // Add assistant response to session
+          const assistantMessage: RAGChatMessage = {
+            id: `assistant-${Date.now()}`,
+            type: 'assistant',
+            content: ragResponse,
+            timestamp: new Date(),
+            metadata: {
+              response_type: ragResponse.response_type,
+              processing_time: ragResponse.processing_time,
+              session_id: sessionId
+            }
+          };
+
+          // Convert to chat context manager format and update session storage
+          const userContextMessage = {
+            id: userMessage.id,
+            type: userMessage.type,
+            content: userMessage.content,
+            timestamp: userMessage.timestamp,
+            metadata: userMessage.metadata
+          };
+          
+          const assistantContextMessage = {
+            id: assistantMessage.id,
+            type: assistantMessage.type,
+            content: assistantMessage.content,
+            timestamp: assistantMessage.timestamp,
+            metadata: assistantMessage.metadata
+          };
+          
+          chatContextManager.addMessage(userContextMessage);
+          chatContextManager.addMessage(assistantContextMessage);
+
+          // Update local state
+          const updatedMessages = [...ragMessages, userMessage, assistantMessage];
+          setRagMessages(updatedMessages);
+          
+          // Convert to legacy format for existing UI
+          const legacyHistory = convertRAGToLegacyFormat(updatedMessages);
+          setChatHistory(legacyHistory);
+
+        } else {
+          // Fallback to existing smart chat service
+          const response = await smartChatService.sendQuery(messageToSend);
+          console.log(`✅ Received response from Smart Chat Service:`, response);
+        }
         
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        console.error('❌ Smart Chat Error:', error);
+        console.error(`❌ ${useRAGPipeline ? 'RAG Pipeline' : 'Smart Chat'} Error:`, error);
         
-        // Display error message
-        setError(`Sorry, I encountered an error: ${error.message}. Please try again.`);
-        
-        // Reset loading state
+        // Try fallback if RAG fails
+        if (useRAGPipeline) {
+          console.log('🔄 Falling back to Smart Chat Service...');
+          try {
+            const fallbackResponse = await smartChatService.sendQuery(messageToSend);
+            console.log(`✅ Fallback response received:`, fallbackResponse);
+            setUseRAGPipeline(false); // Switch to fallback mode
+          } catch (fallbackErr) {
+            console.error('❌ Fallback also failed:', fallbackErr);
+            setError(`Sorry, I encountered an error: ${error.message}. Please try again.`);
+          }
+        } else {
+          // Enhanced error handling with recovery suggestions
+          const errorMsg = getErrorMessage(error);
+          const recoverySuggestions = getRecoverySuggestions(error);
+          
+          setError(errorMsg);
+          
+          // Add recovery suggestions to the chat
+          if (recoverySuggestions.length > 0) {
+            const errorChatMessage: RAGChatMessage = {
+              id: `error-${Date.now()}`,
+              type: 'assistant',
+              content: {
+                response_type: 'text',
+                content: {
+                  text: errorMsg,
+                  error: true
+                },
+                suggestions: recoverySuggestions
+              },
+              timestamp: new Date(),
+              metadata: {
+                error: true,
+                session_id: sessionId
+              }
+            };
+            
+            // Convert to chat context manager format
+            const contextMessage = {
+              id: errorChatMessage.id,
+              type: errorChatMessage.type,
+              content: errorChatMessage.content,
+              timestamp: errorChatMessage.timestamp,
+              metadata: errorChatMessage.metadata
+            };
+            
+            chatContextManager.addMessage(contextMessage);
+            const updatedMessages = [...ragMessages, errorChatMessage];
+            setRagMessages(updatedMessages);
+            
+            const legacyHistory = convertRAGToLegacyFormat(updatedMessages);
+            setChatHistory(legacyHistory);
+          }
+        }
+      } finally {
         setIsLoading(false);
       }
     },
-    [message]
+    [message, useRAGPipeline, ragMessages, sessionId]
   );
 
   // Handle initial message from navigation
@@ -156,20 +371,96 @@ How can I help you today?`,
     handleSendMessage(query);
   };
 
+  // Error handling helper functions
+  const getErrorMessage = (error: Error): string => {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes('network') || message.includes('fetch')) {
+      return "I'm having trouble connecting to my services. Please check your internet connection and try again.";
+    } else if (message.includes('timeout')) {
+      return "The request is taking longer than expected. Please try again with a simpler question.";
+    } else if (message.includes('rate limit') || message.includes('429')) {
+      return "I'm receiving a lot of requests right now. Please wait a moment and try again.";
+    } else if (message.includes('500') || message.includes('server')) {
+      return "My services are experiencing some issues. Please try again in a few minutes.";
+    } else if (message.includes('400') || message.includes('invalid')) {
+      return "I didn't understand your request. Could you please rephrase your question?";
+    } else {
+      return "I encountered an unexpected issue. Please try rephrasing your question or try again.";
+    }
+  };
+
+  const getRecoverySuggestions = (error: Error): string[] => {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes('network') || message.includes('fetch')) {
+      return [
+        "Check your internet connection",
+        "Try refreshing the page",
+        "Ask a simpler question"
+      ];
+    } else if (message.includes('timeout')) {
+      return [
+        "Try a shorter question",
+        "Ask about a specific phone model",
+        "Use simpler terms"
+      ];
+    } else if (message.includes('rate limit')) {
+      return [
+        "Wait a moment and try again",
+        "Try a different question",
+        "Refresh the page to start over"
+      ];
+    } else {
+      return [
+        "Try rephrasing your question",
+        "Ask about a specific phone model",
+        "Start a new conversation",
+        "Check popular phone recommendations"
+      ];
+    }
+  };
+
+  const handleRetry = useCallback((retryQuery?: string) => {
+    setError(null);
+    if (retryQuery) {
+      handleSendMessage(retryQuery);
+    }
+  }, [handleSendMessage]);
+
   const handleNewChat = () => {
-    smartChatService.clearChat();
+    // Clear session storage
+    chatContextManager.clearSession();
+    
+    // Generate new session ID
+    const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    setSessionId(newSessionId);
+    
+    // Clear local state
+    setRagMessages([]);
     setChatHistory([]);
     setShowWelcome(true);
     setError(null);
+    setUseRAGPipeline(true); // Reset to RAG pipeline
+    
+    // Clear smart chat service as fallback
+    smartChatService.clearChat();
   };
 
   return (
-    <div className="my-8 flex items-center justify-center min-h-screen">
-      <div
-        className={`w-full max-w-3xl mx-auto my-8 rounded-2xl shadow-xl ${
-          darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"
-        } border flex flex-col`}
-      >
+    <ChatErrorBoundary 
+      darkMode={darkMode}
+      onError={(error, errorInfo) => {
+        console.error('Chat page error:', error, errorInfo);
+        // Could send to error tracking service here
+      }}
+    >
+      <div className="my-8 flex items-center justify-center min-h-screen">
+        <div
+          className={`w-full max-w-3xl mx-auto my-8 rounded-2xl shadow-xl ${
+            darkMode ? "bg-[#232323] border-gray-800" : "bg-white border-[#eae4da]"
+          } border flex flex-col`}
+        >
         {/* Header */}
         <div
           className={`flex items-center justify-between px-6 py-4 border-b ${
@@ -187,7 +478,13 @@ How can I help you today?`,
               <span className="font-bold text-xl text-brand">Peyechi AI</span>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <div className="flex items-center gap-2 text-xs">
+              <span className={darkMode ? "text-gray-400" : "text-gray-600"}>
+                {useRAGPipeline ? "RAG Enhanced" : "Fallback Mode"}
+              </span>
+              <div className={`w-2 h-2 rounded-full ${useRAGPipeline ? "bg-green-500" : "bg-yellow-500"}`}></div>
+            </div>
             <button
               className="px-4 py-2 rounded-full text-sm font-semibold bg-brand text-white hover:bg-brand-darkGreen transition"
               onClick={handleNewChat}
@@ -212,35 +509,52 @@ How can I help you today?`,
 
                 {/* Handle all response types with IntelligentResponseHandler */}
                 <div className="flex justify-start">
-                  <IntelligentResponseHandler
-                    response={chat.bot}
+                  <ChatErrorBoundary 
                     darkMode={darkMode}
-                    originalQuery={chat.user || ""}
-                    onSuggestionClick={(suggestion) => {
-                      const queryToSend = suggestion.contextualQuery || suggestion.query;
-                      handleSendMessage(queryToSend);
-                    }}
-                    onDrillDownClick={(option) => {
-                      let query = option.contextualQuery || "";
-                      if (!query) {
-                        switch (option.command) {
-                          case "full_specs":
-                            query = "show full specifications for these phones";
-                            break;
-                          case "chart_view":
-                            query = "compare these phones in chart view";
-                            break;
-                          case "detail_focus":
-                            query = `tell me more about the ${option.target || "features"} of these phones`;
-                            break;
-                          default:
-                            query = option.label || "show full specifications for these phones";
+                    fallback={
+                      <div className={`max-w-xs rounded-2xl px-5 py-3 shadow-md ${
+                        darkMode ? 'bg-red-900/20 text-red-200 border border-red-800' : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}>
+                        <p className="text-sm">Unable to display response. Please try asking again.</p>
+                        <button
+                          onClick={() => handleRetry()}
+                          className="mt-2 px-3 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 rounded-full hover:bg-red-200 dark:hover:bg-red-700 transition"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    }
+                  >
+                    <IntelligentResponseHandler
+                      response={chat.bot}
+                      darkMode={darkMode}
+                      originalQuery={chat.user || ""}
+                      onSuggestionClick={(suggestion) => {
+                        const queryToSend = suggestion.contextualQuery || suggestion.query;
+                        handleSendMessage(queryToSend);
+                      }}
+                      onDrillDownClick={(option) => {
+                        let query = option.contextualQuery || "";
+                        if (!query) {
+                          switch (option.command) {
+                            case "full_specs":
+                              query = "show full specifications for these phones";
+                              break;
+                            case "chart_view":
+                              query = "compare these phones in chart view";
+                              break;
+                            case "detail_focus":
+                              query = `tell me more about the ${option.target || "features"} of these phones`;
+                              break;
+                            default:
+                              query = option.label || "show full specifications for these phones";
+                          }
                         }
-                      }
-                      handleSendMessage(query);
-                    }}
-                    isLoading={isLoading}
-                  />
+                        handleSendMessage(query);
+                      }}
+                      isLoading={isLoading}
+                    />
+                  </ChatErrorBoundary>
                 </div>
 
                 {/* Welcome Suggestions */}
@@ -338,9 +652,31 @@ How can I help you today?`,
               </button>
             </div>
             {error && (
-              <p className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
-                {error}
-              </p>
+              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                <p className="text-red-600 dark:text-red-400 text-sm font-medium mb-2">
+                  {error}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleRetry()}
+                    className="px-3 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 rounded-full hover:bg-red-200 dark:hover:bg-red-700 transition"
+                  >
+                    Try Again
+                  </button>
+                  <button
+                    onClick={handleNewChat}
+                    className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                  >
+                    New Chat
+                  </button>
+                  <button
+                    onClick={() => handleRetry("Show me popular phones")}
+                    className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 rounded-full hover:bg-blue-200 dark:hover:bg-blue-700 transition"
+                  >
+                    Popular Phones
+                  </button>
+                </div>
+              </div>
             )}
             <div
               className={`text-xs text-center mt-2 ${
@@ -348,11 +684,17 @@ How can I help you today?`,
               }`}
             >
               Ask me about smartphones in Bangladesh
+              {sessionId && (
+                <div className="mt-1 opacity-75">
+                  Session: {sessionId.split('-')[1]} • {ragMessages.length} messages
+                </div>
+              )}
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </ChatErrorBoundary>
   );
 };
 

@@ -301,11 +301,14 @@ export class QueryEnhancer {
     context: PhoneRecommendationContext
   ): string {
     const phoneList = phoneNames.slice(0, 3).join(', ');
-    const priceRange = context.metadata.priceRange;
+    const priceRange = context.metadata?.priceRange;
     
     if (lowerQuery.includes('cheaper') || lowerQuery.includes('budget')) {
-      const maxPrice = Math.floor(priceRange.min * 0.8);
-      return `${originalQuery} to ${phoneList} under ${maxPrice} BDT`;
+      if (priceRange?.min) {
+        const maxPrice = Math.floor(priceRange.min * 0.8);
+        return `${originalQuery} to ${phoneList} under ${maxPrice} BDT`;
+      }
+      return `${originalQuery} to ${phoneList} at a lower price`;
     }
     
     if (lowerQuery.includes('similar') || lowerQuery.includes('like')) {
