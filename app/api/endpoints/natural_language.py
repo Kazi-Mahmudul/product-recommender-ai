@@ -630,25 +630,108 @@ async def handle_gemini_recommendation_response(gemini_response: dict, db: Sessi
     formatted_phones = []
     for phone in phones:
         phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
-        formatted_phones.append({
+        
+        # Create the formatted phone with all database fields directly accessible
+        formatted_phone = {
             "id": phone_dict.get("id"),
             "name": phone_dict.get("name"),
             "brand": phone_dict.get("brand"),
-            "price": phone_dict.get("price_original"),
-            "image": phone_dict.get("img_url"),
-            "key_specs": {
-                "ram": f"{phone_dict.get('ram_gb', 'N/A')}GB",
-                "storage": f"{phone_dict.get('storage_gb', 'N/A')}GB",
-                "camera": f"{phone_dict.get('primary_camera_mp', 'N/A')}MP",
-                "battery": f"{phone_dict.get('battery_capacity_numeric', 'N/A')}mAh"
-            },
+            "model": phone_dict.get("model"),
+            "slug": phone_dict.get("slug"),
+            "price": phone_dict.get("price"),  # Keep original price field
+            "price_original": phone_dict.get("price_original"),  # Use for filtering
+            "url": phone_dict.get("url"),
+            "img_url": phone_dict.get("img_url"),
+            
+            # Display fields
+            "display_type": phone_dict.get("display_type"),
+            "screen_size_inches": phone_dict.get("screen_size_inches"),
+            "display_resolution": phone_dict.get("display_resolution"),
+            "pixel_density_ppi": phone_dict.get("pixel_density_ppi"),
+            "refresh_rate_hz": phone_dict.get("refresh_rate_hz"),
+            "screen_protection": phone_dict.get("screen_protection"),
+            "display_brightness": phone_dict.get("display_brightness"),
+            "aspect_ratio": phone_dict.get("aspect_ratio"),
+            "hdr_support": phone_dict.get("hdr_support"),
+            
+            # Performance fields
+            "chipset": phone_dict.get("chipset"),
+            "cpu": phone_dict.get("cpu"),
+            "gpu": phone_dict.get("gpu"),
+            "ram": phone_dict.get("ram"),
+            "ram_type": phone_dict.get("ram_type"),
+            "internal_storage": phone_dict.get("internal_storage"),
+            "storage_type": phone_dict.get("storage_type"),
+            
+            # Camera fields
+            "camera_setup": phone_dict.get("camera_setup"),
+            "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
+            "selfie_camera_resolution": phone_dict.get("selfie_camera_resolution"),
+            "main_camera": phone_dict.get("main_camera"),
+            "front_camera": phone_dict.get("front_camera"),
+            "camera_features": phone_dict.get("camera_features"),
+            
+            # Battery fields
+            "battery_type": phone_dict.get("battery_type"),
+            "capacity": phone_dict.get("capacity"),
+            "quick_charging": phone_dict.get("quick_charging"),
+            "wireless_charging": phone_dict.get("wireless_charging"),
+            "reverse_charging": phone_dict.get("reverse_charging"),
+            
+            # Design fields
+            "build": phone_dict.get("build"),
+            "weight": phone_dict.get("weight"),
+            "thickness": phone_dict.get("thickness"),
+            "colors": phone_dict.get("colors"),
+            "waterproof": phone_dict.get("waterproof"),
+            "ip_rating": phone_dict.get("ip_rating"),
+            
+            # Connectivity fields
+            "network": phone_dict.get("network"),
+            "bluetooth": phone_dict.get("bluetooth"),
+            "wlan": phone_dict.get("wlan"),
+            "gps": phone_dict.get("gps"),
+            "nfc": phone_dict.get("nfc"),
+            "usb": phone_dict.get("usb"),
+            "fingerprint_sensor": phone_dict.get("fingerprint_sensor"),
+            "face_unlock": phone_dict.get("face_unlock"),
+            
+            # Operating system
+            "operating_system": phone_dict.get("operating_system"),
+            "os_version": phone_dict.get("os_version"),
+            "release_date": phone_dict.get("release_date"),
+            
+            # Derived/numeric fields
+            "storage_gb": phone_dict.get("storage_gb"),
+            "ram_gb": phone_dict.get("ram_gb"),
+            "screen_size_numeric": phone_dict.get("screen_size_numeric"),
+            "primary_camera_mp": phone_dict.get("primary_camera_mp"),
+            "selfie_camera_mp": phone_dict.get("selfie_camera_mp"),
+            "battery_capacity_numeric": phone_dict.get("battery_capacity_numeric"),
+            "has_fast_charging": phone_dict.get("has_fast_charging"),
+            "has_wireless_charging": phone_dict.get("has_wireless_charging"),
+            "charging_wattage": phone_dict.get("charging_wattage"),
+            
+            # Scores
+            "overall_device_score": phone_dict.get("overall_device_score"),
+            "performance_score": phone_dict.get("performance_score"),
+            "display_score": phone_dict.get("display_score"),
+            "camera_score": phone_dict.get("camera_score"),
+            "battery_score": phone_dict.get("battery_score"),
+            "security_score": phone_dict.get("security_score"),
+            "connectivity_score": phone_dict.get("connectivity_score"),
+            
+            # Scores object for backward compatibility (if needed)
             "scores": {
                 "overall": phone_dict.get("overall_device_score", 0),
                 "camera": phone_dict.get("camera_score", 0),
                 "battery": phone_dict.get("battery_score", 0),
-                "performance": phone_dict.get("performance_score", 0)
+                "performance": phone_dict.get("performance_score", 0),
+                "display": phone_dict.get("display_score", 0)
             }
-        })
+        }
+        
+        formatted_phones.append(formatted_phone)
     
     return IntelligentQueryResponse(
         response_type="recommendations",

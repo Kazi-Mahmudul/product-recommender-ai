@@ -129,7 +129,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         </div>
         
         <div className={`text-xl font-extrabold ${darkMode ? "text-white" : "text-brand"}`}>
-          ৳ {formatNumber(phone.price ? parseInt(phone.price, 10) : undefined)}
+          ৳ {formatNumber(phone.price_original || (phone.price ? parseInt(phone.price, 10) : undefined))}
         </div>
         
         <div className={`grid grid-cols-2 gap-x-4 gap-y-2 text-xs mt-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}>
@@ -329,7 +329,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         
         <div className="flex items-center justify-between">
           <div className="font-semibold text-xs text-brand dark:text-[#80EF80]">
-            <span className="text-brand dark:text-[#80EF80] font-normal text-base">৳</span> {formatNumber(phone.price ? parseInt(phone.price, 10) : undefined)}
+            <span className="text-brand dark:text-[#80EF80] font-normal text-base">৳</span> {formatNumber(phone.price_original || (phone.price ? parseInt(phone.price, 10) : undefined))}
           </div>
           <div>
           <button

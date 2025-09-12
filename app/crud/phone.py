@@ -830,7 +830,8 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
         # Map filter keys to get_phones parameters
         filter_mapping = {
             'brand': 'brand',
-            'price_original': 'max_price',  # Treat as max price
+            'max_price': 'max_price',  # Direct mapping for max_price
+            'min_price': 'min_price',  # Direct mapping for min_price
             'price_category': None,  # Handle separately
             'ram_gb': 'min_ram_gb',
             'storage_gb': 'min_storage_gb',

@@ -726,11 +726,6 @@ How can I help you today?`,
               }`}
             >
               Ask me about smartphones in Bangladesh
-              {sessionId && (
-                <div className="mt-1 opacity-75">
-                  Session: {sessionId.split('-')[1]} • {ragMessages.length} messages
-                </div>
-              )}
             </div>
           </div>
         </div>

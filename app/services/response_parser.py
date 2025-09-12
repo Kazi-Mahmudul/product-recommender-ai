@@ -377,25 +377,105 @@ class DynamicResponseParser:
         
         for phone in phones:
             if isinstance(phone, dict):
-                # Ensure consistent phone format
+                # Create the formatted phone with all database fields directly accessible
                 formatted_phone = {
                     "id": phone.get("id"),
                     "name": phone.get("name", "Unknown Phone"),
                     "brand": phone.get("brand", "Unknown"),
-                    "price": phone.get("price", phone.get("price_original")),
-                    "image": phone.get("image", phone.get("img_url")),
-                    "key_specs": phone.get("key_specs", {}),
-                    "scores": phone.get("scores", {})
+                    "model": phone.get("model"),
+                    "slug": phone.get("slug"),
+                    "price": phone.get("price"),  # Keep original price field
+                    "price_original": phone.get("price_original", phone.get("price")),  # Use for filtering
+                    "url": phone.get("url"),
+                    "img_url": phone.get("img_url", phone.get("image")),
+                    
+                    # Display fields
+                    "display_type": phone.get("display_type"),
+                    "screen_size_inches": phone.get("screen_size_inches"),
+                    "display_resolution": phone.get("display_resolution"),
+                    "pixel_density_ppi": phone.get("pixel_density_ppi"),
+                    "refresh_rate_hz": phone.get("refresh_rate_hz"),
+                    "screen_protection": phone.get("screen_protection"),
+                    "display_brightness": phone.get("display_brightness"),
+                    "aspect_ratio": phone.get("aspect_ratio"),
+                    "hdr_support": phone.get("hdr_support"),
+                    
+                    # Performance fields
+                    "chipset": phone.get("chipset"),
+                    "cpu": phone.get("cpu"),
+                    "gpu": phone.get("gpu"),
+                    "ram": phone.get("ram"),
+                    "ram_type": phone.get("ram_type"),
+                    "internal_storage": phone.get("internal_storage"),
+                    "storage_type": phone.get("storage_type"),
+                    
+                    # Camera fields
+                    "camera_setup": phone.get("camera_setup"),
+                    "primary_camera_resolution": phone.get("primary_camera_resolution"),
+                    "selfie_camera_resolution": phone.get("selfie_camera_resolution"),
+                    "main_camera": phone.get("main_camera"),
+                    "front_camera": phone.get("front_camera"),
+                    "camera_features": phone.get("camera_features"),
+                    
+                    # Battery fields
+                    "battery_type": phone.get("battery_type"),
+                    "capacity": phone.get("capacity"),
+                    "quick_charging": phone.get("quick_charging"),
+                    "wireless_charging": phone.get("wireless_charging"),
+                    "reverse_charging": phone.get("reverse_charging"),
+                    
+                    # Design fields
+                    "build": phone.get("build"),
+                    "weight": phone.get("weight"),
+                    "thickness": phone.get("thickness"),
+                    "colors": phone.get("colors"),
+                    "waterproof": phone.get("waterproof"),
+                    "ip_rating": phone.get("ip_rating"),
+                    
+                    # Connectivity fields
+                    "network": phone.get("network"),
+                    "bluetooth": phone.get("bluetooth"),
+                    "wlan": phone.get("wlan"),
+                    "gps": phone.get("gps"),
+                    "nfc": phone.get("nfc"),
+                    "usb": phone.get("usb"),
+                    "fingerprint_sensor": phone.get("fingerprint_sensor"),
+                    "face_unlock": phone.get("face_unlock"),
+                    
+                    # Operating system
+                    "operating_system": phone.get("operating_system"),
+                    "os_version": phone.get("os_version"),
+                    "release_date": phone.get("release_date"),
+                    
+                    # Derived/numeric fields
+                    "storage_gb": phone.get("storage_gb"),
+                    "ram_gb": phone.get("ram_gb"),
+                    "screen_size_numeric": phone.get("screen_size_numeric"),
+                    "primary_camera_mp": phone.get("primary_camera_mp"),
+                    "selfie_camera_mp": phone.get("selfie_camera_mp"),
+                    "battery_capacity_numeric": phone.get("battery_capacity_numeric"),
+                    "has_fast_charging": phone.get("has_fast_charging"),
+                    "has_wireless_charging": phone.get("has_wireless_charging"),
+                    "charging_wattage": phone.get("charging_wattage"),
+                    
+                    # Scores
+                    "overall_device_score": phone.get("overall_device_score"),
+                    "performance_score": phone.get("performance_score"),
+                    "display_score": phone.get("display_score"),
+                    "camera_score": phone.get("camera_score"),
+                    "battery_score": phone.get("battery_score"),
+                    "security_score": phone.get("security_score"),
+                    "connectivity_score": phone.get("connectivity_score"),
+                    
+                    # Scores object for backward compatibility (if needed)
+                    "scores": phone.get("scores", {
+                        "overall": phone.get("overall_device_score", 0),
+                        "camera": phone.get("camera_score", 0),
+                        "battery": phone.get("battery_score", 0),
+                        "performance": phone.get("performance_score", 0),
+                        "display": phone.get("display_score", 0)
+                    })
                 }
-                
-                # Fill in missing key specs if available
-                if not formatted_phone["key_specs"]:
-                    formatted_phone["key_specs"] = {
-                        "ram": f"{phone.get('ram_gb', 'N/A')}GB" if phone.get('ram_gb') else "N/A",
-                        "storage": f"{phone.get('storage_gb', 'N/A')}GB" if phone.get('storage_gb') else "N/A",
-                        "camera": f"{phone.get('primary_camera_mp', 'N/A')}MP" if phone.get('primary_camera_mp') else "N/A",
-                        "battery": f"{phone.get('battery_capacity_numeric', 'N/A')}mAh" if phone.get('battery_capacity_numeric') else "N/A"
-                    }
                 
                 formatted_phones.append(formatted_phone)
         
