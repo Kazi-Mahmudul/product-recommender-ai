@@ -576,537 +576,28 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
         "focus_area": focus_area
     }
 
-async def process_intelligent_query(
-    request: IntelligentQueryRequest,
-    db: Session
-) -> IntelligentQueryResponse:
-    """
-    Main intelligent query processing function that directly calls the Gemini AI service
-    for truly smart, contextual responses to any user query.
-    """
-    try:
-        # Call the Gemini AI service directly
-        ai_response = await call_gemini_ai_service(request.query)
-        
-        # Parse and format the AI response
-        formatted_response = await parse_gemini_response(ai_response, db)
-        
-        return formatted_response
-        
-    except Exception as e:
-        # Handle errors gracefully
-        logger.error(f"Error in intelligent query processing: {str(e)}")
-        return create_fallback_response(request.query, str(e))
-
-async def parse_gemini_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
-    """
-    Parse Gemini AI service response and format it for optimal frontend consumption.
-    """
-    response_type = gemini_response.get("type", "chat")
-    
-    if response_type == "recommendation":
-        return await handle_gemini_recommendation_response(gemini_response, db)
-    elif response_type == "qa":
-        return handle_gemini_qa_response(gemini_response)
-    elif response_type == "comparison":
-        return await handle_gemini_comparison_response(gemini_response, db)
-    elif response_type == "chat":
-        return handle_gemini_chat_response(gemini_response)
-    elif response_type == "drill_down":
-        return await handle_gemini_drill_down_response(gemini_response, db)
-    else:
-        # Handle unknown response types intelligently
-        return handle_gemini_unknown_response(gemini_response)
-
-async def handle_gemini_recommendation_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
-    """Handle recommendation responses from Gemini AI service"""
-    filters = gemini_response.get("filters", {})
-    reasoning = gemini_response.get("reasoning", "Here are some great phone recommendations based on your requirements:")
-    
-    # Get phone recommendations based on AI-determined filters
-    phones = phone_crud.get_phones_by_filters(db, filters, limit=10)
-    
-    # Format phones for frontend display
-    formatted_phones = []
-    for phone in phones:
-        phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
-        
-        # Create the formatted phone with all database fields directly accessible
-        formatted_phone = {
-            "id": phone_dict.get("id"),
-            "name": phone_dict.get("name"),
-            "brand": phone_dict.get("brand"),
-            "model": phone_dict.get("model"),
-            "slug": phone_dict.get("slug"),
-            "price": phone_dict.get("price"),  # Keep original price field
-            "price_original": phone_dict.get("price_original"),  # Use for filtering
-            "url": phone_dict.get("url"),
-            "img_url": phone_dict.get("img_url"),
-            
-            # Display fields
-            "display_type": phone_dict.get("display_type"),
-            "screen_size_inches": phone_dict.get("screen_size_inches"),
-            "display_resolution": phone_dict.get("display_resolution"),
-            "pixel_density_ppi": phone_dict.get("pixel_density_ppi"),
-            "refresh_rate_hz": phone_dict.get("refresh_rate_hz"),
-            "screen_protection": phone_dict.get("screen_protection"),
-            "display_brightness": phone_dict.get("display_brightness"),
-            "aspect_ratio": phone_dict.get("aspect_ratio"),
-            "hdr_support": phone_dict.get("hdr_support"),
-            
-            # Performance fields
-            "chipset": phone_dict.get("chipset"),
-            "cpu": phone_dict.get("cpu"),
-            "gpu": phone_dict.get("gpu"),
-            "ram": phone_dict.get("ram"),
-            "ram_type": phone_dict.get("ram_type"),
-            "internal_storage": phone_dict.get("internal_storage"),
-            "storage_type": phone_dict.get("storage_type"),
-            
-            # Camera fields
-            "camera_setup": phone_dict.get("camera_setup"),
-            "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
-            "selfie_camera_resolution": phone_dict.get("selfie_camera_resolution"),
-            "main_camera": phone_dict.get("main_camera"),
-            "front_camera": phone_dict.get("front_camera"),
-            "camera_features": phone_dict.get("camera_features"),
-            
-            # Battery fields
-            "battery_type": phone_dict.get("battery_type"),
-            "capacity": phone_dict.get("capacity"),
-            "quick_charging": phone_dict.get("quick_charging"),
-            "wireless_charging": phone_dict.get("wireless_charging"),
-            "reverse_charging": phone_dict.get("reverse_charging"),
-            
-            # Design fields
-            "build": phone_dict.get("build"),
-            "weight": phone_dict.get("weight"),
-            "thickness": phone_dict.get("thickness"),
-            "colors": phone_dict.get("colors"),
-            "waterproof": phone_dict.get("waterproof"),
-            "ip_rating": phone_dict.get("ip_rating"),
-            
-            # Connectivity fields
-            "network": phone_dict.get("network"),
-            "bluetooth": phone_dict.get("bluetooth"),
-            "wlan": phone_dict.get("wlan"),
-            "gps": phone_dict.get("gps"),
-            "nfc": phone_dict.get("nfc"),
-            "usb": phone_dict.get("usb"),
-            "fingerprint_sensor": phone_dict.get("fingerprint_sensor"),
-            "face_unlock": phone_dict.get("face_unlock"),
-            
-            # Operating system
-            "operating_system": phone_dict.get("operating_system"),
-            "os_version": phone_dict.get("os_version"),
-            "release_date": phone_dict.get("release_date"),
-            
-            # Derived/numeric fields
-            "storage_gb": phone_dict.get("storage_gb"),
-            "ram_gb": phone_dict.get("ram_gb"),
-            "screen_size_numeric": phone_dict.get("screen_size_numeric"),
-            "primary_camera_mp": phone_dict.get("primary_camera_mp"),
-            "selfie_camera_mp": phone_dict.get("selfie_camera_mp"),
-            "battery_capacity_numeric": phone_dict.get("battery_capacity_numeric"),
-            "has_fast_charging": phone_dict.get("has_fast_charging"),
-            "has_wireless_charging": phone_dict.get("has_wireless_charging"),
-            "charging_wattage": phone_dict.get("charging_wattage"),
-            
-            # Scores
-            "overall_device_score": phone_dict.get("overall_device_score"),
-            "performance_score": phone_dict.get("performance_score"),
-            "display_score": phone_dict.get("display_score"),
-            "camera_score": phone_dict.get("camera_score"),
-            "battery_score": phone_dict.get("battery_score"),
-            "security_score": phone_dict.get("security_score"),
-            "connectivity_score": phone_dict.get("connectivity_score"),
-            
-            # Scores object for backward compatibility (if needed)
-            "scores": {
-                "overall": phone_dict.get("overall_device_score", 0),
-                "camera": phone_dict.get("camera_score", 0),
-                "battery": phone_dict.get("battery_score", 0),
-                "performance": phone_dict.get("performance_score", 0),
-                "display": phone_dict.get("display_score", 0)
-            }
-        }
-        
-        formatted_phones.append(formatted_phone)
-    
-    return IntelligentQueryResponse(
-        response_type="recommendations",
-        content={
-            "text": reasoning,
-            "phones": formatted_phones,
-            "filters_applied": filters
-        },
-        formatting_hints={
-            "display_as": "cards",
-            "show_comparison": len(formatted_phones) > 1,
-            "highlight_specs": True
-        },
-        metadata={
-            "phone_count": len(formatted_phones)
-        }
-    )
-
-def handle_gemini_qa_response(gemini_response: dict) -> IntelligentQueryResponse:
-    """Handle Q&A responses from Gemini AI service"""
-    response_text = gemini_response.get("data") or gemini_response.get("reasoning") or "I'm here to help with your smartphone questions!"
-    suggestions = gemini_response.get("suggestions", [])
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": response_text,
-            "suggestions": suggestions
-        },
-        formatting_hints={
-            "text_style": "conversational",
-            "show_suggestions": bool(suggestions)
-        },
-        metadata={}
-    )
-
-async def handle_gemini_comparison_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
-    """Handle comparison responses from Gemini AI service"""
-    # Extract phone names from the response data
-    data = gemini_response.get("data", [])
-    phone_names = data if isinstance(data, list) else []
-    
-    if not phone_names:
-        return IntelligentQueryResponse(
-            response_type="text",
-            content={"text": "I couldn't identify specific phones to compare. Could you please mention the phone names?"},
-            formatting_hints={"text_style": "error"}
-        )
-    
-    # Generate comparison using existing logic
-    comparison_data = generate_comparison_response(db, "", phone_names=phone_names)
-    
-    if isinstance(comparison_data, dict) and comparison_data.get("error"):
-        return IntelligentQueryResponse(
-            response_type="text",
-            content={"text": comparison_data["error"]},
-            formatting_hints={"text_style": "error"}
-        )
-    
-    return IntelligentQueryResponse(
-        response_type="comparison",
-        content=comparison_data,
-        formatting_hints={
-            "display_as": "comparison_chart",
-            "show_summary": True
-        },
-        metadata={}
-    )
-
-def handle_gemini_chat_response(gemini_response: dict) -> IntelligentQueryResponse:
-    """Handle general chat responses from Gemini AI service"""
-    response_text = gemini_response.get("data") or gemini_response.get("reasoning") or "I'm here to help you with smartphone questions!"
-    suggestions = gemini_response.get("suggestions", [])
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": response_text,
-            "suggestions": suggestions
-        },
-        formatting_hints={
-            "text_style": "conversational",
-            "show_suggestions": bool(suggestions)
-        },
-        metadata={}
-    )
-
-async def handle_gemini_drill_down_response(gemini_response: dict, db: Session) -> IntelligentQueryResponse:
-    """Handle drill down responses from Gemini AI service"""
-    # Extract phone names from the response data
-    data = gemini_response.get("data", [])
-    phone_names = data if isinstance(data, list) else [data] if data else []
-    
-    if not phone_names:
-        return IntelligentQueryResponse(
-            response_type="text",
-            content={"text": "I couldn't identify which phone you'd like to know more about. Could you please specify the phone name?"},
-            formatting_hints={"text_style": "error"}
-        )
-    
-    # Get detailed specifications for the first phone
-    phone_name = phone_names[0]
-    try:
-        from app.services.knowledge_retrieval import KnowledgeRetrievalService
-        knowledge_service = KnowledgeRetrievalService()
-        phone_specs = await knowledge_service.retrieve_phone_specs(db, phone_name)
-        
-        if not phone_specs:
-            return IntelligentQueryResponse(
-                response_type="text",
-                content={"text": f"I couldn't find detailed information about {phone_name}. Please check the phone name and try again."},
-                formatting_hints={"text_style": "error"}
-            )
-        
-        return IntelligentQueryResponse(
-            response_type="specs",
-            content={
-                "phone": phone_specs.get("basic_info", {}),
-                "specifications": phone_specs,
-                "text": f"Here are the detailed specifications for the {phone_name}:"
-            },
-            formatting_hints={
-                "display_as": "specifications",
-                "show_detailed_specs": True
-            },
-            metadata={
-                "phone_name": phone_name
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Error retrieving phone specs for {phone_name}: {str(e)}")
-        return IntelligentQueryResponse(
-            response_type="text",
-            content={"text": f"I encountered an error while retrieving information about {phone_name}. Please try again."},
-            formatting_hints={"text_style": "error"}
-        )
-
-def handle_gemini_unknown_response(gemini_response: dict) -> IntelligentQueryResponse:
-    """Handle unknown response types from Gemini AI service"""
-    response_text = gemini_response.get("data") or gemini_response.get("reasoning") or "I'm here to help you with smartphone questions!"
-    
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": response_text,
-            "suggestions": [
-                "Ask for phone recommendations",
-                "Compare different phones",
-                "Get phone specifications",
-                "Ask about phone features"
-            ]
-        },
-        formatting_hints={
-            "text_style": "conversational",
-            "show_suggestions": True
-        },
-        metadata={
-            "original_response_type": gemini_response.get("type", "unknown")
-        }
-    )
-
-def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
-    """Create a fallback response when AI service is unavailable"""
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": f"I'm having trouble processing your request right now. {error_message}",
-            "suggestions": [
-                "Try asking about phone recommendations",
-                "Ask for phone comparisons",
-                "Request specific phone information"
-            ]
-        },
-        formatting_hints={
-            "text_style": "error",
-            "show_suggestions": True
-        },
-        metadata={
-            "fallback": True,
-            "error": error_message
-        }
-    )
-
-@router.post("/intelligent-query")
-async def intelligent_query_endpoint(
-    request: IntelligentQueryRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Enhanced intelligent query processing endpoint that leverages the AI service
-    for truly smart, contextual responses to any user query.
-    """
-    try:
-        response = await process_intelligent_query(request, db)
-        return response.dict()
-    except Exception as e:
-        logger.error(f"Error in intelligent query endpoint: {str(e)}")
-        fallback_response = create_fallback_response(request.query, str(e))
-        return fallback_response.dict()
-
-# Update the main query endpoint to use intelligent processing
-@router.post("/query")
-async def enhanced_natural_language_query(
-    request: Union[IntelligentQueryRequest, dict],
-    db: Session = Depends(get_db)
-):
-    """
-    Enhanced natural language query endpoint that directly integrates with Gemini AI service.
-    This provides smart, contextual responses to any user query.
-    """
-    try:
-        # Handle both new format and legacy format
-        if isinstance(request, dict):
-            query = request.get("query", "")
-        else:
-            query = request.query
-            
-        if not query or not query.strip():
-            return {
-                "type": "qa",
-                "data": "Please ask me a question about smartphones!",
-                "suggestions": ["Recommend phones under 30k", "Compare iPhone vs Samsung", "Best camera phones"]
-            }
-        
-        logger.info(f"Processing query: {query}")
-        
-        # Call Gemini AI service directly
-        gemini_response = await call_gemini_ai_service(query)
-        logger.info(f"Gemini response received: {gemini_response}")
-        
-        # Create intelligent request object for processing
-        intelligent_request = IntelligentQueryRequest(
-            query=query,
-            session_id=getattr(request, 'session_id', None) if hasattr(request, 'session_id') else request.get('session_id') if isinstance(request, dict) else None
-        )
-        
-        # Parse the Gemini response
-        parsed_response = await parse_gemini_response(gemini_response, db)
-        
-        # Convert to the expected format for backward compatibility
-        if parsed_response.response_type == "recommendations":
-            # Return phone recommendations in the expected format
-            phones = parsed_response.content.get("phones", [])
-            return [{"phone": phone} for phone in phones]
-        elif parsed_response.response_type == "comparison":
-            # Return comparison data directly
-            return parsed_response.content
-        elif parsed_response.response_type == "text":
-            # Return text responses
-            return {
-                "type": "qa",
-                "data": parsed_response.content.get("text", ""),
-                "suggestions": parsed_response.content.get("suggestions", [])
-            }
-        else:
-            # Return the full intelligent response
-            return parsed_response.dict()
-            
-    except Exception as e:
-        logger.error(f"Error in enhanced natural language query: {str(e)}")
-        # Fallback to basic error response
-        return {
-            "type": "qa",
-            "data": f"I'm having trouble processing your request right now. Please try rephrasing your question.",
-            "suggestions": ["Try asking about phone recommendations", "Ask for phone comparisons", "Request specific phone information"]
-        }
 
 
 
-def create_fallback_response(query: str, error_message: str) -> IntelligentQueryResponse:
-    """Create a fallback response when AI service is unavailable"""
-    return IntelligentQueryResponse(
-        response_type="text",
-        content={
-            "text": f"I'm having trouble processing your request right now. {error_message}",
-            "suggestions": [
-                "Try asking about phone recommendations",
-                "Ask for phone comparisons",
-                "Request specific phone information"
-            ]
-        },
-        formatting_hints={
-            "text_style": "error",
-            "show_suggestions": True
-        },
-        metadata={
-            "fallback": True,
-            "error": error_message
-        }
-    )
 
-@router.post("/intelligent-query")
-async def intelligent_query_endpoint(
-    request: IntelligentQueryRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Enhanced intelligent query processing endpoint that leverages the AI service
-    for truly smart, contextual responses to any user query.
-    """
-    try:
-        response = await process_intelligent_query(request, db)
-        return response.dict()
-    except Exception as e:
-        logger.error(f"Error in intelligent query endpoint: {str(e)}")
-        fallback_response = create_fallback_response(request.query, str(e))
-        return fallback_response.dict()
 
-# Update the main query endpoint to use intelligent processing
-@router.post("/query")
-async def enhanced_natural_language_query(
-    request: Union[IntelligentQueryRequest, dict],
-    db: Session = Depends(get_db)
-):
-    """
-    Enhanced natural language query endpoint that directly integrates with Gemini AI service.
-    This provides smart, contextual responses to any user query.
-    """
-    try:
-        # Handle both new format and legacy format
-        if isinstance(request, dict):
-            query = request.get("query", "")
-        else:
-            query = request.query
-            
-        if not query or not query.strip():
-            return {
-                "type": "qa",
-                "data": "Please ask me a question about smartphones!",
-                "suggestions": ["Recommend phones under 30k", "Compare iPhone vs Samsung", "Best camera phones"]
-            }
-        
-        logger.info(f"Processing query: {query}")
-        
-        # Call Gemini AI service directly
-        gemini_response = await call_gemini_ai_service(query)
-        logger.info(f"Gemini response received: {gemini_response}")
-        
-        # Create intelligent request object for processing
-        intelligent_request = IntelligentQueryRequest(
-            query=query,
-            session_id=getattr(request, 'session_id', None) if hasattr(request, 'session_id') else request.get('session_id') if isinstance(request, dict) else None
-        )
-        
-        # Parse the Gemini response
-        parsed_response = await parse_gemini_response(gemini_response, db)
-        
-        # Convert to the expected format for backward compatibility
-        if parsed_response.response_type == "recommendations":
-            # Return phone recommendations in the expected format
-            phones = parsed_response.content.get("phones", [])
-            return [{"phone": phone} for phone in phones]
-        elif parsed_response.response_type == "comparison":
-            # Return comparison data directly
-            return parsed_response.content
-        elif parsed_response.response_type == "text":
-            # Return text responses
-            return {
-                "type": "qa",
-                "data": parsed_response.content.get("text", ""),
-                "suggestions": parsed_response.content.get("suggestions", [])
-            }
-        else:
-            # Return the full intelligent response
-            return parsed_response.dict()
-            
-    except Exception as e:
-        logger.error(f"Error in enhanced natural language query: {str(e)}")
-        # Fallback to basic error response
-        return {
-            "type": "qa",
-            "data": f"I'm having trouble processing your request right now. Please try rephrasing your question.",
-            "suggestions": ["Try asking about phone recommendations", "Ask for phone comparisons", "Request specific phone information"]
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 async def process_legacy_query(request: ContextualQueryRequest, db: Session):
     """
@@ -1175,13 +666,134 @@ async def rag_enhanced_query(
             filters = gemini_response.get("filters", {})
             phones = await knowledge_retrieval_service.find_similar_phones(db, filters)
             
-            # Format recommendations
-            formatted_response = await response_formatter_service.format_recommendations(
-                phones=phones,
-                reasoning=gemini_response.get("reasoning", ""),
-                filters=filters,
-                original_query=request.query
-            )
+            # Format phones to include all database fields directly (not nested in key_specs)
+            formatted_phones = []
+            for phone in phones:
+                phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
+                
+                # Create flattened phone structure
+                formatted_phone = {
+                    "id": phone_dict.get("id"),
+                    "name": phone_dict.get("name"),
+                    "brand": phone_dict.get("brand"),
+                    "model": phone_dict.get("model"),
+                    "slug": phone_dict.get("slug"),
+                    "price": phone_dict.get("price_original") or phone_dict.get("price"),
+                    "url": phone_dict.get("url"),
+                    "img_url": phone_dict.get("img_url"),
+                    
+                    # Display fields
+                    "display_type": phone_dict.get("display_type"),
+                    "screen_size_inches": phone_dict.get("screen_size_inches"),
+                    "display_resolution": phone_dict.get("display_resolution"),
+                    "pixel_density_ppi": phone_dict.get("pixel_density_ppi"),
+                    "refresh_rate_hz": phone_dict.get("refresh_rate_hz"),
+                    "screen_protection": phone_dict.get("screen_protection"),
+                    "display_brightness": phone_dict.get("display_brightness"),
+                    "aspect_ratio": phone_dict.get("aspect_ratio"),
+                    "hdr_support": phone_dict.get("hdr_support"),
+                    
+                    # Performance fields
+                    "chipset": phone_dict.get("chipset"),
+                    "cpu": phone_dict.get("cpu"),
+                    "gpu": phone_dict.get("gpu"),
+                    "ram": phone_dict.get("ram"),
+                    "ram_type": phone_dict.get("ram_type"),
+                    "internal_storage": phone_dict.get("internal_storage"),
+                    "storage_type": phone_dict.get("storage_type"),
+                    
+                    # Camera fields
+                    "camera_setup": phone_dict.get("camera_setup"),
+                    "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
+                    "selfie_camera_resolution": phone_dict.get("selfie_camera_resolution"),
+                    "main_camera": phone_dict.get("main_camera"),
+                    "front_camera": phone_dict.get("front_camera"),
+                    "camera_features": phone_dict.get("camera_features"),
+                    
+                    # Battery fields
+                    "battery_type": phone_dict.get("battery_type"),
+                    "capacity": phone_dict.get("capacity"),
+                    "quick_charging": phone_dict.get("quick_charging"),
+                    "wireless_charging": phone_dict.get("wireless_charging"),
+                    "reverse_charging": phone_dict.get("reverse_charging"),
+                    
+                    # Design fields
+                    "build": phone_dict.get("build"),
+                    "weight": phone_dict.get("weight"),
+                    "thickness": phone_dict.get("thickness"),
+                    "colors": phone_dict.get("colors"),
+                    "waterproof": phone_dict.get("waterproof"),
+                    "ip_rating": phone_dict.get("ip_rating"),
+                    
+                    # Connectivity fields
+                    "network": phone_dict.get("network"),
+                    "bluetooth": phone_dict.get("bluetooth"),
+                    "wlan": phone_dict.get("wlan"),
+                    "gps": phone_dict.get("gps"),
+                    "nfc": phone_dict.get("nfc"),
+                    "usb": phone_dict.get("usb"),
+                    "fingerprint_sensor": phone_dict.get("fingerprint_sensor"),
+                    "face_unlock": phone_dict.get("face_unlock"),
+                    
+                    # Operating system
+                    "operating_system": phone_dict.get("operating_system"),
+                    "os_version": phone_dict.get("os_version"),
+                    "release_date": phone_dict.get("release_date"),
+                    
+                    # Derived/numeric fields
+                    "storage_gb": phone_dict.get("storage_gb"),
+                    "ram_gb": phone_dict.get("ram_gb"),
+                    "screen_size_numeric": phone_dict.get("screen_size_numeric"),
+                    "primary_camera_mp": phone_dict.get("primary_camera_mp"),
+                    "selfie_camera_mp": phone_dict.get("selfie_camera_mp"),
+                    "battery_capacity_numeric": phone_dict.get("battery_capacity_numeric"),
+                    "has_fast_charging": phone_dict.get("has_fast_charging"),
+                    "has_wireless_charging": phone_dict.get("has_wireless_charging"),
+                    "charging_wattage": phone_dict.get("charging_wattage"),
+                    "refresh_rate_numeric": phone_dict.get("refresh_rate_numeric"),
+                    "ppi_numeric": phone_dict.get("ppi_numeric"),
+                    
+                    # Scores
+                    "overall_device_score": phone_dict.get("overall_device_score"),
+                    "performance_score": phone_dict.get("performance_score"),
+                    "display_score": phone_dict.get("display_score"),
+                    "camera_score": phone_dict.get("camera_score"),
+                    "battery_score": phone_dict.get("battery_score"),
+                    "security_score": phone_dict.get("security_score"),
+                    "connectivity_score": phone_dict.get("connectivity_score"),
+                    
+                    # Additional metadata if available
+                    "relevance_score": getattr(phone, 'relevance_score', 0.9),
+                    "match_reasons": getattr(phone, 'match_reasons', [])
+                }
+                
+                formatted_phones.append(formatted_phone)
+            
+            # Create the response in the desired format
+            formatted_response = {
+                "response_type": "recommendations",
+                "content": {
+                    "text": gemini_response.get("reasoning", ""),
+                    "phones": formatted_phones,
+                    "filters_applied": filters,
+                    "total_found": len(formatted_phones)
+                },
+                "suggestions": gemini_response.get("suggestions", [
+                    "Find phones with excellent cameras",
+                    "Show phones with long battery life",
+                    "Compare these phones side by side",
+                    "Show me the detailed specs of the top phone",
+                    "Find similar phones from different brands"
+                ]),
+                "metadata": {
+                    "request_id": gemini_response.get("request_id", ""),
+                    "gemini_response_type": response_type,
+                    "data_sources": ["phone_database"],
+                    "confidence_score": gemini_response.get("confidence_score", 0.7)
+                },
+                "session_id": request.session_id or "default",
+                "processing_time": gemini_response.get("processing_time", 0.0)
+            }
             
         elif response_type == "comparison":
             # Get comparison data for specified phones
@@ -1241,9 +853,23 @@ async def rag_enhanced_query(
         
         # Fallback to existing intelligent query processing
         try:
-            logger.info("Falling back to existing intelligent query processing")
-            response = await process_intelligent_query(request, db)
-            return response.dict()
+            logger.info("Falling back to basic query processing")
+            # Basic fallback response
+            return {
+                "response_type": "text",
+                "content": {
+                    "text": "I'm having trouble processing your request right now. Please try rephrasing your question or try again in a moment.",
+                    "error": True
+                },
+                "suggestions": [
+                    "Try asking about a specific phone model",
+                    "Ask for phone recommendations with your budget",
+                    "Compare two phones directly"
+                ],
+                "metadata": {
+                    "error": str(e) if settings.DEBUG else "Service temporarily unavailable"
+                }
+            }
         except Exception as fallback_error:
             logger.error(f"Fallback also failed: {str(fallback_error)}")
             
