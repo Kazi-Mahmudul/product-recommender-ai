@@ -409,7 +409,7 @@ async def enhance_with_knowledge(
             # Format phones to include all database fields directly (not nested in key_specs)
             formatted_phones = []
             for phone_dict in phone_dicts:
-                # Create flattened phone structure
+                # Create flattened phone structure with all fields
                 formatted_phone = {
                     "id": phone_dict.get("id"),
                     "name": phone_dict.get("name"),
@@ -491,7 +491,7 @@ async def enhance_with_knowledge(
                     "refresh_rate_numeric": phone_dict.get("refresh_rate_numeric"),
                     "ppi_numeric": phone_dict.get("ppi_numeric"),
                     
-                    # Scores
+                    # Scores (database stores 0-100, convert to display format for consistency)
                     "overall_device_score": phone_dict.get("overall_device_score"),
                     "performance_score": phone_dict.get("performance_score"),
                     "display_score": phone_dict.get("display_score"),
@@ -500,6 +500,24 @@ async def enhance_with_knowledge(
                     "security_score": phone_dict.get("security_score"),
                     "connectivity_score": phone_dict.get("connectivity_score"),
                     
+                    # Additional metadata and features
+                    "is_popular_brand": phone_dict.get("is_popular_brand"),
+                    "is_new_release": phone_dict.get("is_new_release"),
+                    "is_upcoming": phone_dict.get("is_upcoming"),
+                    "age_in_months": phone_dict.get("age_in_months"),
+                    "price_category": phone_dict.get("price_category"),
+                    
+                    # Key specifications (formatted for display)
+                    "key_specs": {
+                        "display": f"{phone_dict.get('screen_size_inches', 'N/A')} {phone_dict.get('display_type', '')}".strip(),
+                        "processor": phone_dict.get("chipset", "N/A"),
+                        "memory": phone_dict.get("ram", "N/A"),
+                        "storage": phone_dict.get("internal_storage", "N/A"),
+                        "camera": phone_dict.get("primary_camera_resolution", "N/A"),
+                        "battery": phone_dict.get("capacity", "N/A"),
+                        "os": phone_dict.get("operating_system", "N/A")
+                    },
+                    
                     # Additional metadata if available
                     "relevance_score": phone_dict.get('relevance_score', 0.9),
                     "match_reasons": phone_dict.get('match_reasons', [])
@@ -507,13 +525,32 @@ async def enhance_with_knowledge(
                 
                 formatted_phones.append(formatted_phone)
             
-            return {
-                "type": "recommendations",
-                "phones": formatted_phones,
-                "reasoning": gemini_response.get("reasoning", ""),
-                "filters_applied": filters,
-                "total_found": len(formatted_phones)
-            }
+            # Use the same response formatter as the natural language endpoint
+            try:
+                formatted_response = await response_formatter_service.format_recommendations(
+                    phones=formatted_phones,
+                    reasoning=gemini_response.get("reasoning", ""),
+                    filters=filters,
+                    original_query="chat query"
+                )
+                
+                return {
+                    "type": "recommendations",
+                    "phones": formatted_phones,
+                    "reasoning": gemini_response.get("reasoning", ""),
+                    "filters_applied": filters,
+                    "total_found": len(formatted_phones),
+                    "formatted_response": formatted_response  # Include formatted response for consistency
+                }
+            except Exception as format_error:
+                logger.warning(f"[{request_id}] Response formatting failed: {str(format_error)}. Using basic structure.")
+                return {
+                    "type": "recommendations",
+                    "phones": formatted_phones,
+                    "reasoning": gemini_response.get("reasoning", ""),
+                    "filters_applied": filters,
+                    "total_found": len(formatted_phones)
+                }
             
         elif response_type == "comparison":
             # Get comparison data for specified phones with enhanced error handling
@@ -750,7 +787,18 @@ async def enhance_with_knowledge(
                         "camera_score": phone_dict.get("camera_score"),
                         "battery_score": phone_dict.get("battery_score"),
                         "performance_score": phone_dict.get("performance_score"),
-                        "display_score": phone_dict.get("display_score")
+                        "display_score": phone_dict.get("display_score"),
+                        
+                        # Key specifications for display
+                        "key_specs": {
+                            "display": f"{phone_dict.get('screen_size_inches', 'N/A')} {phone_dict.get('display_type', '')}".strip(),
+                            "processor": phone_dict.get("chipset", "N/A"),
+                            "memory": phone_dict.get("ram", "N/A"),
+                            "storage": phone_dict.get("internal_storage", "N/A"),
+                            "camera": phone_dict.get("primary_camera_resolution", "N/A"),
+                            "battery": phone_dict.get("capacity", "N/A"),
+                            "os": phone_dict.get("operating_system", "N/A")
+                        }
                     }
                     formatted_phones.append(formatted_phone)
                 

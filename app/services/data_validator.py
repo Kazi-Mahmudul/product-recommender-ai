@@ -75,7 +75,7 @@ class DataValidator:
             else:
                 validated_data[field] = DataValidator._validate_float(value, default)
         
-        # Score fields (0-10 range)
+        # Score fields (0-100 range)
         score_fields = {
             'overall_device_score': 0.0,
             'camera_score': 0.0,
@@ -89,8 +89,8 @@ class DataValidator:
         for field, default in score_fields.items():
             value = phone_data.get(field)
             validated_score = DataValidator._validate_float(value, default)
-            # Ensure score is within 0-10 range
-            validated_data[field] = max(0.0, min(10.0, validated_score))
+            # Ensure score is within 0-100 range
+            validated_data[field] = max(0.0, min(100.0, validated_score))
         
         # Boolean fields
         boolean_fields = {
@@ -298,7 +298,7 @@ class DataValidator:
                 if min_val <= value <= max_val:
                     validated_filters[key] = value
         
-        # Score filters (0-10)
+        # Score filters (0-100)
         score_filters = [
             'camera_score', 'battery_score', 'performance_score',
             'display_score', 'overall_device_score', 'connectivity_score',
@@ -308,7 +308,7 @@ class DataValidator:
         for key in score_filters:
             if key in filters:
                 value = DataValidator._validate_float(filters[key])
-                if 0 <= value <= 10:
+                if 0 <= value <= 100:
                     validated_filters[key] = value
         
         # String filters - expanded to include all possible filter keys

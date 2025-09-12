@@ -604,15 +604,15 @@ Each highlight should be on a new line with no additional text or explanation.
         # Scores
         scores = []
         if hasattr(phone, 'overall_device_score') and phone.overall_device_score:
-            scores.append(f"Overall {phone.overall_device_score}/10")
+            scores.append(f"Overall {phone.overall_device_score/10:.1f}/10")
         if hasattr(phone, 'camera_score') and phone.camera_score:
-            scores.append(f"Camera {phone.camera_score}/10")
+            scores.append(f"Camera {phone.camera_score/10:.1f}/10")
         if hasattr(phone, 'battery_score') and phone.battery_score:
-            scores.append(f"Battery {phone.battery_score}/10")
+            scores.append(f"Battery {phone.battery_score/10:.1f}/10")
         if hasattr(phone, 'performance_score') and phone.performance_score:
-            scores.append(f"Performance {phone.performance_score}/10")
+            scores.append(f"Performance {phone.performance_score/10:.1f}/10")
         if hasattr(phone, 'display_score') and phone.display_score:
-            scores.append(f"Display {phone.display_score}/10")
+            scores.append(f"Display {phone.display_score/10:.1f}/10")
         if scores:
             specs.append(f"- Scores: {', '.join(scores)}")
         

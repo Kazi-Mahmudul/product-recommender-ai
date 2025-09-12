@@ -514,7 +514,7 @@ class ContextualResponseFormatter:
         # Score highlights
         overall_score = phone.get("overall_device_score")
         if overall_score and overall_score >= 8.0:
-            highlights.append(f"excellent overall rating ({overall_score:.1f}/10)")
+            highlights.append(f"excellent overall rating ({overall_score/10:.1f}/10)")
         
         # Feature highlights
         camera_score = phone.get("camera_score")
@@ -545,6 +545,6 @@ class ContextualResponseFormatter:
         }
         
         if "score" in feature_key:
-            return "/10"
+            return "/100"
         
         return unit_mapping.get(feature_key, "")

@@ -76,9 +76,9 @@ class ScoreBasedMatcher:
         
         # Normalize scores to be between 0 and 1 if they aren't already
         if target_score > 1.0 or candidate_score > 1.0:
-            # Assuming scores are on a scale of 0-10
-            target_score = target_score / 10.0
-            candidate_score = candidate_score / 10.0
+            # Assuming scores are on a scale of 0-100
+            target_score = target_score / 100.0
+            candidate_score = candidate_score / 100.0
         
         # Calculate absolute difference and convert to similarity
         # The closer the scores, the higher the similarity

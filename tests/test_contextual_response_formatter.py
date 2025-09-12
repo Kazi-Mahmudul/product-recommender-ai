@@ -248,7 +248,7 @@ class TestContextualResponseFormatter:
         assert self.formatter._get_feature_unit("price_original") == "৳"
         assert self.formatter._get_feature_unit("ram_gb") == "GB"
         assert self.formatter._get_feature_unit("primary_camera_mp") == "MP"
-        assert self.formatter._get_feature_unit("camera_score") == "/10"
+        assert self.formatter._get_feature_unit("camera_score") == "/100"
         assert self.formatter._get_feature_unit("unknown_feature") == ""
     
     def test_feature_display_names(self):

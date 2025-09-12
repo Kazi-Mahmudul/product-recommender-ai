@@ -312,7 +312,7 @@ def generate_qa_response(db: Session, query: str) -> str:
     elif feature == "camera_count":
         response = f"The {phone_name} has {feature_value} cameras."
     elif feature == "camera_score":
-        response = f"The {phone_name} has a camera score of {feature_value:.1f}/10."
+        response = f"The {phone_name} has a camera score of {feature_value/10:.1f}/10."
     elif feature in ["ram_gb", "storage_gb"]:
         response = f"The {phone_name} has {feature_value}GB {display_name}."
     elif feature == "price_original":
@@ -320,7 +320,7 @@ def generate_qa_response(db: Session, query: str) -> str:
     elif feature == "price_category":
         response = f"The {phone_name} is in the {feature_value} price category."
     elif feature in ["display_score", "battery_score", "performance_score", "security_score", "connectivity_score", "overall_device_score"]:
-        response = f"The {phone_name} has a {display_name} of {feature_value:.1f}/10."
+        response = f"The {phone_name} has a {display_name} of {feature_value/10:.1f}/10."
     elif feature in ["has_fast_charging", "has_wireless_charging"]:
         response = f"The {phone_name} {'supports' if feature_value else 'does not support'} {display_name}."
     else:

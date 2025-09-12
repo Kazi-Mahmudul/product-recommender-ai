@@ -321,7 +321,7 @@ class ResponseValidator:
         for field in score_fields:
             if field in scores:
                 score = scores[field]
-                if isinstance(score, (int, float)) and 0 <= score <= 10:
+                if isinstance(score, (int, float)) and 0 <= score <= 100:
                     validated_scores[field] = float(score)
         
         return validated_scores

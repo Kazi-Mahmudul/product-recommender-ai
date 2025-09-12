@@ -55,11 +55,11 @@ class AISimilarityEngine:
         'selfie_camera_mp': (5, 60),
         'battery_capacity_numeric': (2000, 7000),
         'charging_wattage': (10, 120),
-        'camera_score': (0, 10),
-        'performance_score': (0, 10),
-        'battery_score': (0, 10),
-        'display_score': (0, 10),
-        'overall_device_score': (0, 10),
+        'camera_score': (0, 100),
+        'performance_score': (0, 100),
+        'battery_score': (0, 100),
+        'display_score': (0, 100),
+        'overall_device_score': (0, 100),
     }
     
     # Categorical feature mappings
