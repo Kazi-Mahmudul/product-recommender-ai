@@ -168,8 +168,8 @@ const MetricChart: React.FC<MetricChartProps> = ({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+      <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
           Performance Metrics
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -177,12 +177,12 @@ const MetricChart: React.FC<MetricChartProps> = ({
         </p>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Mobile-friendly chart container with horizontal scroll */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto touch-pan-x">
           <div 
-            className="h-96" 
-            style={{ minWidth: `${Math.max(600, phones.length * 120)}px` }}
+            className="h-80 sm:h-96" 
+            style={{ minWidth: `${Math.max(500, phones.length * 100)}px` }}
             role="img" 
             aria-label="Phone performance metrics comparison chart"
           >
@@ -191,8 +191,8 @@ const MetricChart: React.FC<MetricChartProps> = ({
                 data={chartData}
                 margin={{
                   top: 20,
-                  right: 30,
-                  left: 20,
+                  right: 20,
+                  left: 10,
                   bottom: 60,
                 }}
               >
@@ -232,9 +232,9 @@ const MetricChart: React.FC<MetricChartProps> = ({
         </div>
         
         {/* Mobile scroll hint */}
-        <div className="block sm:hidden mt-2 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            ← Scroll horizontally to view all data →
+        <div className="block sm:hidden mt-3 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg inline-block">
+            👈 Scroll horizontally to view all data 👉
           </p>
         </div>
 

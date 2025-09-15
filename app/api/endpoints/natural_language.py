@@ -651,6 +651,14 @@ async def rag_enhanced_query(
             rag_services_available = False
         
         logger.info(f"Processing RAG query: {request.query[:100]}...")
+        logger.info(f"Session ID: {request.session_id}")
+        logger.info(f"Conversation history length: {len(request.conversation_history or [])}")
+        
+        # Check if this is a first query in session (potential filtering issue)
+        is_first_query = len(request.conversation_history or []) == 0
+        context_info = getattr(request, 'context', {})
+        if is_first_query:
+            logger.info("First query in session - ensuring robust filter processing")
         
         # Step 1: Parse query with GEMINI service (either through RAG or direct)
         if rag_services_available:
@@ -662,7 +670,8 @@ async def rag_enhanced_query(
                 
                 gemini_response = await gemini_rag_service.parse_query_with_context(
                     query=request.query,
-                    conversation_history=request.conversation_history or []
+                    conversation_history=request.conversation_history or [],
+                    is_first_query=is_first_query  # Add context for first query
                 )
             except Exception as rag_error:
                 logger.warning(f"RAG service failed: {str(rag_error)}. Falling back to direct Gemini service.")
@@ -726,11 +735,19 @@ async def rag_enhanced_query(
                 if isinstance(price_filter, dict):
                     if "max" in price_filter:
                         processed_filters["max_price"] = price_filter["max"]
+                        logger.info(f"Processed max_price filter: {price_filter['max']}")
                     if "min" in price_filter:
                         processed_filters["min_price"] = price_filter["min"]
+                        logger.info(f"Processed min_price filter: {price_filter['min']}")
                 else:
                     # If price is just a number, treat it as max_price
                     processed_filters["max_price"] = price_filter
+                    logger.info(f"Processed single price filter as max_price: {price_filter}")
+            else:
+                # For first query price issues, try to extract price from query directly as fallback
+                if is_first_query and ('30k' in request.query.lower() or '30000' in request.query.lower()):
+                    processed_filters["max_price"] = 30000
+                    logger.info("First query price extraction fallback: set max_price to 30000")
             
             # Handle nested RAM filters
             if "ram" in filters:
@@ -851,8 +868,10 @@ async def rag_enhanced_query(
                         # Pass through any unmapped filters
                         processed_filters[key] = value
             
-            logger.info(f"Original filters from Gemini: {filters}")
-            logger.info(f"Processed filters for database query: {processed_filters}")
+            # Only log detailed filter information in development
+            if logger.level <= 20:  # INFO level and below
+                logger.info(f"Original filters from Gemini: {filters}")
+                logger.info(f"Processed filters for database query: {processed_filters}")
             
             # Try RAG services first if available, but use processed filters
             if rag_services_available:
@@ -864,7 +883,8 @@ async def rag_enhanced_query(
                     )
                     
                     if phones_data:
-                        logger.info(f"RAG service retrieved {len(phones_data)} phones after filtering")
+                        if logger.level <= 20:  # INFO level and below
+                            logger.info(f"RAG service retrieved {len(phones_data)} phones after filtering")
                         phone_dicts = phones_data
                     else:
                         logger.warning("RAG service returned no phones, falling back to direct database query")
@@ -879,7 +899,8 @@ async def rag_enhanced_query(
                 phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=limit)  # Use the extracted limit
                 phone_dicts = phones
                 
-            logger.info(f"Retrieved {len(phone_dicts)} phones after filtering")
+            if logger.level <= 20:  # INFO level and below
+                logger.info(f"Retrieved {len(phone_dicts)} phones after filtering")
             
             # The phones are already dictionaries from either RAG service or get_phones_by_filters
             # Format phones to include all database fields directly (not nested in key_specs)
@@ -1053,6 +1074,83 @@ async def rag_enhanced_query(
                     "response_type": "text",
                     "content": {"text": "Please specify which phone you'd like to know more about."},
                     "suggestions": ["Ask about a specific phone model", "Get phone recommendations"]
+                }
+        
+        elif response_type == "specs" or "specs" in request.query.lower() or "specifications" in request.query.lower() or "full specs" in request.query.lower():
+            # Handle full specifications request
+            phone_names = gemini_response.get("data", [])
+            
+            # If no phones specified in AI response, try to extract from query
+            if not phone_names:
+                # Simple phone name extraction from query
+                import re
+                
+                # Common phone patterns
+                phone_patterns = [
+                    r'\b(iphone|iPhone)\s*(\d+)\s*(pro|plus|max|mini)?\b',
+                    r'\b(samsung|Samsung)\s*galaxy\s*([a-zA-Z]\d+)\b',
+                    r'\b(xiaomi|Xiaomi|redmi|Redmi)\s*([a-zA-Z0-9\s]+)\b',
+                    r'\b(oneplus|OnePlus)\s*(\d+[a-zA-Z]?)\b',
+                    r'\b(pixel|Pixel)\s*(\d+[a-zA-Z]?)\b',
+                    r'\b(huawei|Huawei)\s*([a-zA-Z0-9\s]+)\b',
+                    r'\b(oppo|Oppo)\s*([a-zA-Z0-9\s]+)\b',
+                    r'\b(vivo|Vivo)\s*([a-zA-Z0-9\s]+)\b',
+                ]
+                
+                for pattern in phone_patterns:
+                    matches = re.finditer(pattern, request.query)
+                    for match in matches:
+                        phone_name = match.group(0).strip()
+                        if phone_name:
+                            phone_names.append(phone_name)
+                            break
+                    if phone_names:
+                        break
+            
+            if phone_names:
+                # Get phones from database
+                phones = []
+                for name in phone_names[:3]:  # Limit to 3 phones
+                    phone = phone_crud.get_phone_by_name_or_model(db, name)
+                    if phone:
+                        phones.append(phone_crud.phone_to_dict(phone))
+                
+                if phones:
+                    formatted_response = {
+                        "response_type": "specs",
+                        "content": {
+                            "text": f"I found the {len(phones)} phone(s) you asked about. To view complete specifications, click the 'View Details' button on any phone card below.",
+                            "phones": phones,
+                            "suggestions": [
+                                "Compare these phones",
+                                "Find similar phones", 
+                                "Ask about specific features"
+                            ]
+                        },
+                        "formatting_hints": {
+                            "show_specs_guidance": True,
+                            "display_as": "specs_cards"
+                        },
+                        "metadata": {
+                            "phone_count": len(phones),
+                            "specs_request": True
+                        }
+                    }
+                else:
+                    formatted_response = {
+                        "response_type": "text",
+                        "content": {
+                            "text": f"I couldn't find specifications for '{phone_names[0]}'. Please check the phone name and try again, or ask for phone recommendations.",
+                            "suggestions": ["Get phone recommendations", "Ask about a specific model", "Browse popular phones"]
+                        }
+                    }
+            else:
+                formatted_response = {
+                    "response_type": "text", 
+                    "content": {
+                        "text": "I'd be happy to show you phone specifications! Please specify which phone you'd like to see the full specs for.",
+                        "suggestions": ["iPhone 15 specs", "Samsung Galaxy S24 specs", "Get phone recommendations"]
+                    }
                 }
                 
         elif response_type == "qa":

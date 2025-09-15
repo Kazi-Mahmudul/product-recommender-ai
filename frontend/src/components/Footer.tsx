@@ -48,22 +48,22 @@ const contactInfo = [
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-peyechi-offWhite dark:bg-peyechi-black border-t border-peyechi-lightGray dark:border-peyechi-darkGray/30 pt-16 pb-8 mt-16">
-      <div className="max-w-6xl mx-auto px-4 md:px-8">
+    <footer className="w-full bg-peyechi-offWhite dark:bg-peyechi-black border-t border-peyechi-lightGray dark:border-peyechi-darkGray/30 pt-8 sm:pt-12 md:pt-16 pb-6 sm:pb-8 mt-8 sm:mt-12 md:mt-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8">
         {/* Footer Top Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 md:gap-10 mb-8 sm:mb-10 md:mb-12">
           {/* Brand Column */}
-          <div>
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-brand to-accent bg-clip-text text-transparent">
+          <div className="sm:col-span-2 md:col-span-1">
+            <div className="mb-3 sm:mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-brand to-accent bg-clip-text text-transparent">
                 Peyechi
               </h2>
             </div>
-            <p className="text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 text-sm mb-6 max-w-xs">
+            <p className="text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 text-sm sm:text-base mb-4 sm:mb-6 max-w-xs sm:max-w-sm leading-relaxed">
               Your trusted companion for discovering the perfect smartphone in Bangladesh. Get personalized recommendations based on your needs and budget.
             </p>
             {/* Social Links */}
-            <div className="flex space-x-4">
+            <div className="flex space-x-3 sm:space-x-4">
               {socialLinks.map(link => (
                 <a
                   key={link.label}
@@ -71,7 +71,7 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={link.label}
-                  className="w-9 h-9 rounded-full bg-brand/10 dark:bg-brand/5 flex items-center justify-center text-brand hover:bg-brand hover:text-white transition-colors duration-200"
+                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-brand/10 dark:bg-brand/5 flex items-center justify-center text-brand hover:bg-brand hover:text-white transition-colors duration-200 touch-manipulation"
                 >
                   {link.icon}
                 </a>
@@ -81,15 +81,15 @@ export default function Footer() {
           
           {/* Quick Links Column */}
           <div>
-            <h3 className="text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-4 sm:mb-6">
               Quick Links
             </h3>
-            <ul className="space-y-3">
+            <ul className="space-y-2 sm:space-y-3">
               {footerLinks.map(link => (
                 <li key={link.label}>
                   <a 
                     href={link.href} 
-                    className="text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200"
+                    className="text-sm sm:text-base text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200 py-1 block touch-manipulation"
                   >
                     {link.label}
                   </a>
@@ -100,18 +100,18 @@ export default function Footer() {
           
           {/* Contact Column */}
           <div>
-            <h3 className="text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-4 sm:mb-6">
               Contact Us
             </h3>
-            <ul className="space-y-4">
+            <ul className="space-y-3 sm:space-y-4">
               {contactInfo.map(item => (
-                <li key={item.label} className="flex items-start gap-3">
-                  <span className="text-brand mt-0.5">{item.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-peyechi-darkGray dark:text-peyechi-offWhite">
+                <li key={item.label} className="flex items-start gap-2 sm:gap-3">
+                  <span className="text-brand mt-0.5 flex-shrink-0">{item.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-peyechi-darkGray dark:text-peyechi-offWhite">
                       {item.label}
                     </p>
-                    <p className="text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80">
+                    <p className="text-xs sm:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 break-words">
                       {item.value}
                     </p>
                   </div>
@@ -122,18 +122,18 @@ export default function Footer() {
         </div>
         
         {/* Divider */}
-        <div className="h-px bg-peyechi-lightGray/70 dark:bg-peyechi-darkGray/30 my-8"></div>
+        <div className="h-px bg-peyechi-lightGray/70 dark:bg-peyechi-darkGray/30 my-6 sm:my-8"></div>
         
         {/* Footer Bottom */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
+          <div className="text-xs sm:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 text-center sm:text-left">
             &copy; {currentYear} Peyechi. All rights reserved.
           </div>
-          <div className="flex items-center gap-6">
-            <a href="/privacy-policy" className="text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <a href="/privacy-policy" className="text-xs sm:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200 py-1 touch-manipulation">
               Privacy Policy
             </a>
-            <a href="/terms" className="text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200">
+            <a href="/terms" className="text-xs sm:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200 py-1 touch-manipulation">
               Terms of Service
             </a>
           </div>

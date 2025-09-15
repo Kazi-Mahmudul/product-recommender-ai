@@ -30,7 +30,17 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
   const handleAskAIMore = () => {
     const phoneNames = phones.map((p) => `${p.brand} ${p.name}`).join(" vs ");
     const query = `Tell me more about comparing ${phoneNames}. Which one should I choose and why?`;
-    navigate("/chat", { state: { initialMessage: query } });
+    
+    // Generate a unique session ID for this navigation to prevent infinite loops
+    const navigationId = `compare-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    navigate("/chat", { 
+      state: { 
+        initialMessage: query,
+        navigationId: navigationId,
+        source: 'compare'
+      } 
+    });
   };
 
   
@@ -41,7 +51,7 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10"></div>
         <svg
-          className="absolute top-0 right-0 w-32 h-32 transform translate-x-8 -translate-y-8"
+          className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 transform translate-x-4 sm:translate-x-8 -translate-y-4 sm:-translate-y-8"
           viewBox="0 0 100 100"
         >
           <circle
@@ -75,12 +85,12 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
       </div>
 
       {/* Header */}
-      <div className="relative flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-750">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-750 gap-4 sm:gap-0">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
               <svg
-                className="w-6 h-6 text-white"
+                className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -93,9 +103,9 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
                 />
               </svg>
             </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+            <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
               <svg
-                className="w-2.5 h-2.5 text-white"
+                className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -103,11 +113,11 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
               </svg>
             </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">
               ✨ AI Verdict
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">
               Intelligent comparison insights
             </p>
           </div>
@@ -116,10 +126,10 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
         {verdict && (
           <button
             onClick={handleAskAIMore}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105"
+            className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center justify-center sm:justify-start space-x-2 shadow-md hover:shadow-lg transform hover:scale-105 touch-manipulation"
           >
             <svg
-              className="w-4 h-4"
+              className="w-4 h-4 flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -137,13 +147,13 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4 md:p-6">
         {/* Loading State */}
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400 mb-4">
+          <div className="flex flex-col items-center justify-center py-6 sm:py-8">
+            <div className="flex items-center space-x-2 sm:space-x-3 text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
               <svg
-                className="animate-spin w-5 h-5"
+                className="animate-spin w-4 h-4 sm:w-5 sm:h-5"
                 fill="none"
                 viewBox="0 0 24 24"
               >
@@ -161,12 +171,12 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span className="text-sm font-medium">
+              <span className="text-xs sm:text-sm font-medium">
                 {retryCount > 0 ? `Enhancing analysis... (Attempt ${retryCount + 1})` : 'Analyzing phones...'}
               </span>
             </div>
             {retryCount > 0 && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              <div className="text-xs text-gray-500 dark:text-gray-400 text-center px-4">
                 <p>Generating more comprehensive analysis</p>
               </div>
             )}
@@ -180,36 +190,49 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
 
         {/* Verdict Content */}
         {verdict && !isLoading && !error && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Decorative quote marks */}
             <div className="relative">
-              <div className="absolute -top-2 -left-2 text-4xl text-blue-200 dark:text-blue-800 font-serif">
+              <div className="absolute -top-1 sm:-top-2 -left-1 sm:-left-2 text-2xl sm:text-4xl text-blue-200 dark:text-blue-800 font-serif">
                 "
               </div>
-              <div className="absolute -bottom-4 -right-2 text-4xl text-purple-200 dark:text-purple-800 font-serif rotate-180">
+              <div className="absolute -bottom-2 sm:-bottom-4 -right-1 sm:-right-2 text-2xl sm:text-4xl text-purple-200 dark:text-purple-800 font-serif rotate-180">
                 "
               </div>
 
-              <div className="relative bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-900/10 dark:via-gray-800 dark:to-purple-900/10 rounded-xl p-6 border border-blue-100 dark:border-blue-800/30 shadow-inner">
-                <div className="absolute top-0 left-0 w-8 h-8">
-                  <div className="absolute top-2 left-2 w-4 h-0.5 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
-                  <div className="absolute top-2 left-2 w-0.5 h-4 bg-gradient-to-b from-blue-400 to-transparent rounded-full"></div>
+              <div className="relative bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-900/10 dark:via-gray-800 dark:to-purple-900/10 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-blue-100 dark:border-blue-800/30 shadow-inner">
+                <div className="absolute top-0 left-0 w-6 h-6 sm:w-8 sm:h-8">
+                  <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 w-3 sm:w-4 h-0.5 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
+                  <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 w-0.5 h-3 sm:h-4 bg-gradient-to-b from-blue-400 to-transparent rounded-full"></div>
                 </div>
-                <div className="absolute top-0 right-0 w-8 h-8">
-                  <div className="absolute top-2 right-2 w-4 h-0.5 bg-gradient-to-l from-purple-400 to-transparent rounded-full"></div>
-                  <div className="absolute top-2 right-2 w-0.5 h-4 bg-gradient-to-b from-purple-400 to-transparent rounded-full"></div>
+                <div className="absolute top-0 right-0 w-6 h-6 sm:w-8 sm:h-8">
+                  <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 w-3 sm:w-4 h-0.5 bg-gradient-to-l from-purple-400 to-transparent rounded-full"></div>
+                  <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 w-0.5 h-3 sm:h-4 bg-gradient-to-b from-purple-400 to-transparent rounded-full"></div>
                 </div>
-                <div className="absolute bottom-0 left-0 w-8 h-8">
-                  <div className="absolute bottom-2 left-2 w-4 h-0.5 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
-                  <div className="absolute bottom-2 left-2 w-0.5 h-4 bg-gradient-to-t from-blue-400 to-transparent rounded-full"></div>
+                <div className="absolute bottom-0 left-0 w-6 h-6 sm:w-8 sm:h-8">
+                  <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2 w-3 sm:w-4 h-0.5 bg-gradient-to-r from-blue-400 to-transparent rounded-full"></div>
+                  <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2 w-0.5 h-3 sm:h-4 bg-gradient-to-t from-blue-400 to-transparent rounded-full"></div>
                 </div>
-                <div className="absolute bottom-0 right-0 w-8 h-8">
-                  <div className="absolute bottom-2 right-2 w-4 h-0.5 bg-gradient-to-l from-purple-400 to-transparent rounded-full"></div>
-                  <div className="absolute bottom-2 right-2 w-0.5 h-4 bg-gradient-to-t from-purple-400 to-transparent rounded-full"></div>
+                <div className="absolute bottom-0 right-0 w-6 h-6 sm:w-8 sm:h-8">
+                  <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 w-3 sm:w-4 h-0.5 bg-gradient-to-l from-purple-400 to-transparent rounded-full"></div>
+                  <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 w-0.5 h-3 sm:h-4 bg-gradient-to-t from-purple-400 to-transparent rounded-full"></div>
                 </div>
 
-                <div className="relative text-base leading-relaxed">
-                  <ReactMarkdown>{verdict}</ReactMarkdown>
+                <div className="relative text-sm sm:text-base leading-relaxed text-gray-800 dark:text-gray-200">
+                  <ReactMarkdown 
+                    components={{
+                      p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
+                      ul: ({children}) => <ul className="list-disc pl-4 sm:pl-6 mb-3 space-y-1">{children}</ul>,
+                      ol: ({children}) => <ol className="list-decimal pl-4 sm:pl-6 mb-3 space-y-1">{children}</ol>,
+                      li: ({children}) => <li className="text-sm sm:text-base">{children}</li>,
+                      strong: ({children}) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                      h1: ({children}) => <h1 className="text-lg sm:text-xl font-bold mb-3 text-gray-900 dark:text-white">{children}</h1>,
+                      h2: ({children}) => <h2 className="text-base sm:text-lg font-semibold mb-2 text-gray-900 dark:text-white">{children}</h2>,
+                      h3: ({children}) => <h3 className="text-sm sm:text-base font-medium mb-2 text-gray-800 dark:text-gray-200">{children}</h3>,
+                    }}
+                  >
+                    {verdict}
+                  </ReactMarkdown>
                 </div>
               </div>
             </div>
@@ -345,17 +368,19 @@ const AIVerdictBlock: React.FC<AIVerdictBlockProps> = ({
                 </svg>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium leading-tight">
                 🤖 AI-generated insights • Please verify specifications before purchase
+              </p>
               </p>
             </div>
             {characterCount > 0 && (
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 {retryCount > 0 && (
                   <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                     Enhanced ({retryCount} retry)
                   </span>
                 )}
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
                   characterCount >= 800 
                     ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-200' 
                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-200'

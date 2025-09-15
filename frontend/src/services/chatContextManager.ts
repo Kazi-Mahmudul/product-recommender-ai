@@ -76,7 +76,10 @@ export class ChatContextManager {
 
   constructor() {
     this.currentSessionId = this.initializeSession();
+    // Load metadata after session ID is set
     this.sessionMetadata = this.loadSessionMetadata();
+    // Save the metadata to ensure consistency
+    this.saveSessionMetadata();
     this.cleanupExpiredSessions();
   }
 
@@ -87,16 +90,23 @@ export class ChatContextManager {
     const existingMetadata = this.loadSessionMetadata();
 
     // Check if existing session is still valid
-    if (existingMetadata && this.isSessionValid(existingMetadata)) {
-      console.log(
-        `📱 Restored existing chat session: ${existingMetadata.sessionId}`
-      );
+    if (existingMetadata && existingMetadata.sessionId && this.isSessionValid(existingMetadata)) {
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `📱 Restored existing chat session: ${existingMetadata.sessionId}`
+        );
+      }
       return existingMetadata.sessionId;
     }
 
     // Create new session
     const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    console.log(`🆕 Created new chat session: ${newSessionId}`);
+    
+    // Only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🆕 Created new chat session: ${newSessionId}`);
+    }
 
     // Clear any old data
     this.clearStorageData();
@@ -179,9 +189,12 @@ export class ChatContextManager {
       keysToRemove.forEach((key) => sessionStorage.removeItem(key));
 
       if (keysToRemove.length > 0) {
-        console.log(
-          `🧹 Cleaned up ${keysToRemove.length} old chat storage keys`
-        );
+        // Only log in development mode
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `🧹 Cleaned up ${keysToRemove.length} old chat storage keys`
+          );
+        }
       }
     } catch (error) {
       console.warn("Failed to cleanup expired sessions:", error);
@@ -254,9 +267,12 @@ export class ChatContextManager {
 
       this.saveSessionMetadata();
 
-      console.log(
-        `💬 Added ${message.type} message to session (${messages.length} total)`
-      );
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `💬 Added ${message.type} message to session (${messages.length} total)`
+        );
+      }
     } catch (error) {
       console.error("Failed to add message to conversation history:", error);
 

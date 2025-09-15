@@ -21,6 +21,7 @@ interface IntelligentResponse {
     show_comparison?: boolean;
     highlight_specs?: boolean;
     show_drill_down?: boolean;
+    show_specs_guidance?: boolean;
   };
   metadata?: {
     ai_confidence?: number;
@@ -51,6 +52,7 @@ interface IntelligentResponseHandlerProps {
   onSuggestionClick?: (suggestion: Suggestion) => void;
   onDrillDownClick?: (option: DrillDownOption) => void;
   isLoading?: boolean;
+  isWelcomeMessage?: boolean;
 }
 
 // Helper function to format response text
@@ -79,7 +81,8 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
   onContextUpdate,
   onSuggestionClick,
   onDrillDownClick,
-  isLoading = false
+  isLoading = false,
+  isWelcomeMessage = false
 }) => {
   const [parsedResponse, setParsedResponse] = useState<IntelligentResponse | null>(null);
 
@@ -173,6 +176,7 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
           formatting={parsedResponse.formatting_hints}
           darkMode={darkMode}
           onSuggestionClick={onSuggestionClick}
+          isWelcomeMessage={isWelcomeMessage}
         />
       );
 
@@ -196,6 +200,17 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
         />
       );
 
+    case 'specs':
+    case 'concise_specs':
+      return (
+        <SpecsResponse
+          content={parsedResponse.content}
+          formatting={parsedResponse.formatting_hints}
+          darkMode={darkMode}
+          onSuggestionClick={onSuggestionClick}
+        />
+      );
+
     default:
       return (
         <TextResponse
@@ -203,6 +218,7 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
           formatting={parsedResponse.formatting_hints}
           darkMode={darkMode}
           onSuggestionClick={onSuggestionClick}
+          isWelcomeMessage={isWelcomeMessage}
         />
       );
   }
@@ -235,7 +251,8 @@ const TextResponse: React.FC<{
   formatting?: any;
   darkMode: boolean;
   onSuggestionClick?: (suggestion: Suggestion) => void;
-}> = ({ content, formatting, darkMode, onSuggestionClick }) => {
+  isWelcomeMessage?: boolean;
+}> = ({ content, formatting, darkMode, onSuggestionClick, isWelcomeMessage = false }) => {
   const textStyle = formatting?.text_style || 'conversational';
   const showSuggestions = formatting?.show_suggestions && content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0;
   
@@ -365,7 +382,7 @@ const TextResponse: React.FC<{
       />
       
       {/* Actionable Items */}
-      {actionableItems.length > 0 && (
+      {!isWelcomeMessage && actionableItems.length > 0 && (
         <div className={`mt-3 p-3 rounded-lg border-l-4 border-brand ${
           darkMode ? 'bg-gray-800/50' : 'bg-blue-50'
         }`}>
@@ -716,6 +733,150 @@ const ComparisonResponse: React.FC<{
           >
             🔍 Detailed Analysis
           </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Specs response component with proper guidance to click details button
+const SpecsResponse: React.FC<{
+  content: any;
+  formatting?: any;
+  darkMode: boolean;
+  onSuggestionClick?: (suggestion: Suggestion) => void;
+}> = ({ content, formatting, darkMode, onSuggestionClick }) => {
+  const phones = Array.isArray(content?.phones) ? content.phones : [];
+  const displayText = (content?.text && typeof content.text === 'string') ? content.text : 'Here are the phones you asked about:';
+
+  if (!content || phones.length === 0) {
+    return (
+      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${
+        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+        <p className="text-sm sm:text-base leading-relaxed">No phone specifications available at the moment.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${
+      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+    }`}>
+      {/* Main message */}
+      <div 
+        className="text-sm sm:text-base leading-relaxed mb-4 break-words"
+        dangerouslySetInnerHTML={{ __html: formatResponseText(displayText) }}
+      />
+      
+      {/* Prominent guidance section */}
+      <div className={`mb-6 p-4 rounded-xl border-2 border-dashed ${
+        darkMode 
+          ? 'border-blue-400 bg-blue-900/20 text-blue-200' 
+          : 'border-blue-500 bg-blue-50 text-blue-800'
+      }`}>
+        <div className="flex items-center gap-3 mb-2">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+            darkMode ? 'bg-blue-400' : 'bg-blue-500'
+          }`}>
+            <span className="text-white text-lg">📱</span>
+          </div>
+          <h3 className="text-lg font-semibold">
+            💡 Want to see full specifications?
+          </h3>
+        </div>
+        <p className="text-sm leading-relaxed mb-3">
+          Click the <span className={`px-2 py-1 rounded-full font-semibold ${
+            darkMode ? 'bg-green-400 text-green-900' : 'bg-green-500 text-white'
+          }`}>"View Details"</span> button on any phone card below to see complete specifications, detailed features, and comprehensive reviews.
+        </p>
+        <div className="flex items-center gap-2 text-xs opacity-75">
+          <span>🔍</span>
+          <span>Each phone page contains all the technical details you need</span>
+        </div>
+      </div>
+      
+      {/* Phone Cards Grid */}
+      <div className="space-y-4">
+        {phones
+          .filter((phone: any) => phone && typeof phone === 'object')
+          .map((phone: any, index: number) => {
+            // Add pulsing animation to the first phone as an example
+            const isFirstPhone = index === 0;
+            return (
+              <div 
+                key={phone.id || phone.name || index}
+                className={`${isFirstPhone ? 'relative' : ''}`}
+              >
+                {isFirstPhone && (
+                  <div className={`absolute -inset-2 rounded-2xl animate-pulse ${
+                    darkMode ? 'bg-green-400/20' : 'bg-green-500/20'
+                  } -z-10`} />
+                )}
+                <div className="flex justify-center">
+                  <ChatPhoneCard
+                    phone={phone as Phone}
+                    darkMode={darkMode}
+                    isTopResult={true}
+                  />
+                </div>
+                {isFirstPhone && (
+                  <div className="flex justify-center mt-2">
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                      darkMode 
+                        ? 'bg-green-400/20 text-green-300 border border-green-400/30'
+                        : 'bg-green-100 text-green-700 border border-green-300'
+                    }`}>
+                      <span className="animate-bounce">👆</span>
+                      <span>Try clicking "View Details" here!</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        }
+      </div>
+      
+      {/* Additional guidance footer */}
+      <div className={`mt-6 p-3 rounded-lg border-l-4 ${
+        darkMode 
+          ? 'border-yellow-400 bg-yellow-900/20 text-yellow-200'
+          : 'border-yellow-500 bg-yellow-50 text-yellow-800'
+      }`}>
+        <div className="flex items-start gap-3">
+          <span className="text-lg">💡</span>
+          <div className="text-sm">
+            <p className="font-medium mb-1">Pro Tip:</p>
+            <p className="leading-relaxed">
+              Each phone's detail page includes comprehensive specifications, performance scores, 
+              user reviews, and comparison tools. You can also add phones to compare side-by-side!
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Suggestions */}
+      {content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">What would you like to do next?</h4>
+          <div className="flex flex-wrap gap-2">
+            {content.suggestions
+              .filter((suggestion: any) => suggestion && typeof suggestion === 'string' && suggestion.trim())
+              .map((suggestion: string, index: number) => (
+              <button
+                key={index}
+                onClick={() => onSuggestionClick?.({ query: suggestion })}
+                className={`px-3 py-1 rounded-full text-xs border transition ${
+                  darkMode
+                    ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                }`}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

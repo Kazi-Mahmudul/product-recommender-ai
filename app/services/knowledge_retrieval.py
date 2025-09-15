@@ -193,8 +193,25 @@ class KnowledgeRetrievalService:
             # Limit to max comparison phones
             phone_names = phone_names[:self.max_comparison_phones]
             
-            # Get phones using fuzzy matching
-            phones = phone_crud.get_phones_by_fuzzy_names(db, phone_names, limit=len(phone_names))
+            # Get phones using fuzzy matching with enhanced name normalization
+            phones = phone_crud.get_phones_by_fuzzy_names(db, phone_names, limit=len(phone_names), score_cutoff=50)
+            
+            # If fuzzy matching fails, try more flexible matching
+            if len(phones) < 2:
+                logger.warning(f"Fuzzy matching found only {len(phones)} phones, trying flexible matching")
+                # Try with individual brand/model extraction
+                fallback_phones = await self._flexible_phone_matching(db, phone_names)
+                phones.extend(fallback_phones)
+                
+                # Remove duplicates based on phone ID
+                seen_ids = set()
+                unique_phones = []
+                for phone in phones:
+                    phone_id = phone.get('id') if isinstance(phone, dict) else getattr(phone, 'id', None)
+                    if phone_id and phone_id not in seen_ids:
+                        seen_ids.add(phone_id)
+                        unique_phones.append(phone)
+                phones = unique_phones
             
             if len(phones) < 2:
                 return {"error": f"Could not find enough phones to compare. Found: {len(phones)}"}
@@ -582,3 +599,134 @@ class KnowledgeRetrievalService:
                 highlights.append(f"{chipset} processor")
         
         return highlights
+    
+    async def _flexible_phone_matching(self, db: Session, phone_names: List[str]) -> List[Dict[str, Any]]:
+        """
+        Try flexible phone matching using brand extraction and partial matching.
+        
+        Args:
+            db: Database session
+            phone_names: List of phone names to match
+            
+        Returns:
+            List of matched phone dictionaries
+        """
+        matched_phones = []
+        
+        for phone_name in phone_names:
+            try:
+                # Extract brand and model from the phone name
+                phone_name_lower = phone_name.lower()
+                
+                # Brand extraction patterns
+                brand_patterns = {
+                    'apple': ['iphone', 'apple'],
+                    'samsung': ['samsung', 'galaxy'],
+                    'xiaomi': ['xiaomi', 'redmi', 'mi', 'poco'],
+                    'oneplus': ['oneplus', 'one plus'],
+                    'google': ['google', 'pixel'],
+                    'huawei': ['huawei'],
+                    'oppo': ['oppo'],
+                    'vivo': ['vivo'],
+                    'realme': ['realme'],
+                    'motorola': ['motorola', 'moto'],
+                    'nokia': ['nokia'],
+                    'sony': ['sony'],
+                    'tecno': ['tecno'],
+                    'lg': ['lg'],
+                    'infinix': ['infinix'],
+                    'itel': ['itel'],
+                    'symphony': ['symphony'],
+                    'walton': ['walton'],
+                    'asus': ['asus'],
+                    'acer': ['acer']
+                }
+                
+                # Find the brand
+                detected_brand = None
+                for brand, patterns in brand_patterns.items():
+                    if any(pattern in phone_name_lower for pattern in patterns):
+                        detected_brand = brand.title()
+                        break
+                
+                if detected_brand:
+                    # Try to match phones from this brand with partial name matching
+                    from app.crud import phone as phone_crud
+                    
+                    # Get all phones from this brand
+                    brand_phones, _ = phone_crud.get_phones(
+                        db=db,
+                        brand=detected_brand,
+                        limit=20  # Get more phones to find better matches
+                    )
+                    
+                    # Find best match using similarity
+                    best_match = None
+                    best_score = 0
+                    
+                    for phone in brand_phones:
+                        phone_dict = phone_crud.phone_to_dict(phone)
+                        phone_name_db = phone_dict.get('name', '').lower()
+                        
+                        # Calculate similarity score
+                        score = self._calculate_name_similarity(phone_name_lower, phone_name_db)
+                        
+                        if score > best_score and score > 0.4:  # Lower threshold for flexible matching
+                            best_score = score
+                            best_match = phone_dict
+                    
+                    if best_match:
+                        logger.info(f"Flexible matching found: '{phone_name}' -> '{best_match.get('name')}' (score: {best_score:.2f})")
+                        matched_phones.append(best_match)
+                    else:
+                        logger.warning(f"No flexible match found for '{phone_name}' in brand '{detected_brand}'")
+                else:
+                    logger.warning(f"Could not detect brand for '{phone_name}'")
+                    
+            except Exception as e:
+                logger.error(f"Error in flexible phone matching for '{phone_name}': {str(e)}")
+                continue
+        
+        return matched_phones
+    
+    def _calculate_name_similarity(self, name1: str, name2: str) -> float:
+        """
+        Calculate similarity between two phone names.
+        
+        Args:
+            name1: First phone name (normalized to lowercase)
+            name2: Second phone name (normalized to lowercase)
+            
+        Returns:
+            Similarity score between 0 and 1
+        """
+        try:
+            from rapidfuzz import fuzz
+            
+            # Use multiple similarity measures and take the best
+            token_sort_score = fuzz.token_sort_ratio(name1, name2) / 100.0
+            partial_score = fuzz.partial_ratio(name1, name2) / 100.0
+            token_set_score = fuzz.token_set_ratio(name1, name2) / 100.0
+            
+            # Extract key terms (numbers, model names)
+            import re
+            
+            # Extract numbers from both names
+            numbers1 = set(re.findall(r'\d+', name1))
+            numbers2 = set(re.findall(r'\d+', name2))
+            
+            # Boost score if key numbers match
+            number_bonus = 0
+            if numbers1 and numbers2:
+                common_numbers = numbers1.intersection(numbers2)
+                if common_numbers:
+                    number_bonus = 0.2  # Boost for matching model numbers
+            
+            # Take the best score and add bonus
+            best_score = max(token_sort_score, partial_score, token_set_score) + number_bonus
+            
+            return min(best_score, 1.0)  # Cap at 1.0
+            
+        except Exception as e:
+            logger.error(f"Error calculating name similarity: {str(e)}")
+            return 0.0

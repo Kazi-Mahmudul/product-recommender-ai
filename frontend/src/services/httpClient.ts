@@ -132,7 +132,10 @@ class HTTPClient {
         requestOptions.body = JSON.stringify(data);
       }
 
-      console.log(`🚀 Making ${method} request to: ${url}`);
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚀 Making ${method} request to: ${url}`);
+      }
       
       const response = await fetch(url, requestOptions);
       
@@ -143,7 +146,12 @@ class HTTPClient {
       }
 
       const result = await response.json();
-      console.log(`✅ Request successful: ${method} ${url}`);
+      
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Request successful: ${method} ${url}`);
+      }
+      
       return result;
 
     } catch (error: any) {

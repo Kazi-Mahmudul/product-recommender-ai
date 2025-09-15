@@ -384,15 +384,15 @@ def get_phones(
             logger.debug("Applied price_low sorting")
         elif sort in ["price_high", "price_low"] and not column_validation.get('price_original', False):
             logger.warning(f"Price sorting requested but price_original column not available, using default sorting")
-            query = query.order_by(Phone.id.desc())
-        elif column_validation.get('overall_device_score', False):
-            # Default sorting
+            query = query.order_by(Phone.id.asc())
+        elif sort == "score_high" and column_validation.get('overall_device_score', False):
+            # Score-based sorting when explicitly requested
             query = query.order_by(Phone.overall_device_score.desc())
             logger.debug("Applied overall_device_score sorting")
         else:
-            # Fallback to ID ordering if no score column
-            query = query.order_by(Phone.id.desc())
-            logger.debug("Applied fallback ID sorting")
+            # Default sorting: ID ascending (newest phones first)
+            query = query.order_by(Phone.id.asc())
+            logger.debug("Applied default ID ascending sorting (newest phones first)")
         
         # Execute query with error handling
         try:
@@ -407,7 +407,7 @@ def get_phones(
             # Try a simpler query as fallback
             try:
                 logger.info("Attempting fallback query with basic columns only")
-                fallback_query = db.query(Phone).order_by(Phone.id.desc())
+                fallback_query = db.query(Phone).order_by(Phone.id.asc())
                 total = fallback_query.count()
                 phones = fallback_query.offset(skip).limit(limit).all()
                 logger.warning(f"Fallback query succeeded, returned {len(phones)} phones")

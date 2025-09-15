@@ -87,10 +87,14 @@ class DrillDownHandler:
             })
         
         return {
-            "type": "concise_specs",
+            "type": "specs",
             "phones": phone_info,
-            "message": f"Found {len(phones)} phone(s). Tap on any phone to view complete specifications:",
-            "back_to_simple": True
+            "message": f"Found {len(phones)} phone(s). To view complete specifications, click the 'View Details' button on any phone card below.",
+            "back_to_simple": True,
+            "formatting_hints": {
+                "show_specs_guidance": True,
+                "display_as": "specs_cards"
+            }
         }
     
     @staticmethod

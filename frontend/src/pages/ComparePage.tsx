@@ -172,23 +172,23 @@ const ComparePage: React.FC = () => {
     <ComparisonErrorBoundary>
       <ToastContainer />
       <div className="min-h-screen bg-[#fdfbf9] dark:bg-[#121212] pt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-2 sm:py-4 md:py-6 lg:py-8">
           {/* Page Header */}
-          <div className="text-center mb-8 sm:mb-10">
-            <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6">
+          <div className="text-center mb-6 sm:mb-8 lg:mb-10 px-2">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
               <div className="relative">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#377D5B] to-[#80EF80] bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-[#377D5B] to-[#80EF80] bg-clip-text text-transparent">
                   Compare Phones
                 </h1>
-                <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+                <div className="absolute -top-1 sm:-top-2 -right-1 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
               </div>
               <button
                 onClick={() => setIsHistoryOpen(true)}
-                className="p-3 bg-white dark:bg-gray-800 text-gray-500 hover:text-[#377D5B] dark:text-gray-400 dark:hover:text-[#80EF80] transition-all duration-200 rounded-full shadow-md hover:shadow-lg transform hover:scale-105"
+                className="p-2 sm:p-3 bg-white dark:bg-gray-800 text-gray-500 hover:text-[#377D5B] dark:text-gray-400 dark:hover:text-[#80EF80] transition-all duration-200 rounded-full shadow-md hover:shadow-lg transform hover:scale-105 touch-manipulation"
                 title="View comparison history"
               >
                 <svg
-                  className="w-6 h-6"
+                  className="w-5 h-5 sm:w-6 sm:h-6"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -202,7 +202,7 @@ const ComparePage: React.FC = () => {
                 </svg>
               </button>
             </div>
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-4 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-2 sm:px-4 leading-relaxed">
               Compare up to 5 smartphones side-by-side with detailed
               specifications,
               <span className="text-[#377D5B] dark:text-[#80EF80] font-semibold">
@@ -211,8 +211,8 @@ const ComparePage: React.FC = () => {
               </span>
               , and interactive visualizations.
             </p>
-            <div className="mt-6 flex justify-center">
-              <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+            <div className="mt-4 sm:mt-6 flex justify-center">
+              <div className="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex-wrap justify-center gap-2 sm:gap-0">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-[#377D5B] rounded-full"></div>
                   <span>Detailed Specs</span>
@@ -350,7 +350,7 @@ const ComparePage: React.FC = () => {
               />
 
               {/* Main Comparison Content */}
-              <div className="mt-8 space-y-8">
+              <div className="mt-6 sm:mt-8 space-y-6 sm:space-y-8">
                 {/* Comparison Table */}
                 <ComparisonTable
                   phones={comparisonState.phones}
