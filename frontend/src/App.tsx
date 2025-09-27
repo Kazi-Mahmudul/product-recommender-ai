@@ -21,6 +21,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ComparisonProvider } from "./context/ComparisonContext";
 import ComparisonWidget from "./components/ComparisonWidget";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { AdminRoutes } from "./routes/AdminRoutes";
 
 interface Message {
   id: string;
@@ -557,6 +558,8 @@ function App() {
           <Route path="/phones/:slug" element={<PhoneDetailsPage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
+          {/* Admin panel routes */}
+          <Route path="/admin/*" element={<AdminRoutes />} />
         </Routes>
         {location.pathname !== "/chat" && <Footer />}
 

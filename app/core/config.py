@@ -155,6 +155,12 @@ class Settings(BaseSettings):
     HTTPS_ENABLED: bool = os.getenv("HTTPS_ENABLED", "True").lower() == "true"
     FORCE_HTTPS: bool = os.getenv("FORCE_HTTPS", "False").lower() == "true"
     SECURE_COOKIES: bool = os.getenv("SECURE_COOKIES", "False").lower() == "true"
+    
+    # Admin panel settings
+    SUPER_ADMIN_EMAIL: str = os.getenv("SUPER_ADMIN_EMAIL", "admin@peyechi.com")
+    SUPER_ADMIN_PASSWORD: str = os.getenv("SUPER_ADMIN_PASSWORD", "SuperAdmin@123")
+    MODERATOR_EMAIL: str = os.getenv("MODERATOR_EMAIL", "moderator@peyechi.com")
+    MODERATOR_PASSWORD: str = os.getenv("MODERATOR_PASSWORD", "Moderator@123")
 
     class Config:
         case_sensitive = True
