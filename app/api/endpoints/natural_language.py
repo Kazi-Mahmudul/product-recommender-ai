@@ -533,20 +533,24 @@ def generate_contextual_comparison_summary(phones: List[Dict], features: List[Di
 
 def generate_comparison_response(db: Session, query: str, phone_names: list = None) -> Dict[str, Any]:
     """Generate a structured response for comparison queries (2-5 phones, normalized features for charting)"""
-    # Use provided phone_names or extract from query
+    # Use provided phone_names or extract from query using enhanced extraction
     if phone_names is None:
-        # Extract phone names (split by vs, comma, and, etc.)
-        query_clean = query.lower().replace(' vs ', ',').replace(' and ', ',').replace(' & ', ',')
-        phone_names = [n.strip() for n in re.split(r',|/|\\|\|', query_clean) if n.strip()]
-        phone_names = [n for n in phone_names if n and not n.isdigit()]
-        phone_names = phone_names[:5]
+        # Use our enhanced phone name extraction function
+        phone_names = extract_phone_names_from_query(query)
+        logger.info(f"Extracted phone names from query '{query}': {phone_names}")
     else:
         phone_names = [str(n).strip() for n in phone_names if n and not str(n).isdigit()][:5]
     
+    # Ensure we have valid phone names
+    if not phone_names:
+        return {"error": "I couldn't identify specific phone names in your query. Please mention the phone models you'd like to compare."}
+    
     # Fuzzy match phones
     phones = phone_crud.get_phones_by_fuzzy_names(db, phone_names, limit=5)
+    logger.info(f"Found {len(phones)} phones from fuzzy matching: {[p.get('name') for p in phones]}")
+    
     if len(phones) < 2:
-        return {"error": f"I couldn't find information about two or more phones: {', '.join(phone_names)}"}
+        return {"error": f"I need at least 2 phones for comparison, but I could only find {len(phones)} phone(s): {', '.join([p.get('name', 'Unknown') for p in phones])}. Please check the phone names and try again."}  
 
     # Determine focus area from query for contextual comparisons
     focus_area = None
@@ -1410,7 +1414,14 @@ async def rag_enhanced_query(
             
         elif response_type == "comparison":
             # Get comparison data for specified phones
-            phone_names = gemini_response.get("data", [])
+            phone_names = gemini_response.get("phone_names", gemini_response.get("data", []))
+            logger.info(f"Processing comparison for phones: {phone_names}")
+            
+            # If no phone names provided by Gemini, extract from query
+            if not phone_names:
+                phone_names = extract_phone_names_from_query(request.query)
+                logger.info(f"Extracted phone names from query: {phone_names}")
+            
             if rag_services_available:
                 try:
                     comparison_data = await knowledge_retrieval_service.get_comparison_data(db, phone_names)
