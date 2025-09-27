@@ -259,6 +259,7 @@ RESPONSE FORMATS:
 - "qa": For answering questions or providing information
 - "comparison": For comparing devices
 - "drill_down": For detailed technical information
+- "phone_search": For searching specific phones by name
 - "chat": For friendly conversation
 
 PHONE FEATURES YOU CAN FILTER ON:
@@ -275,8 +276,11 @@ PHONE FEATURES YOU CAN FILTER ON:
 
 JSON RESPONSE REQUIREMENTS:
 - Always return valid JSON with no markdown formatting
-- Include a "type" field (recommendation, qa, comparison, drill_down, chat)
+- Include a "type" field (recommendation, qa, comparison, drill_down, phone_search, chat)
 - For recommendation: include "filters", "reasoning", and optionally "limit" (number of phones requested)
+- For phone_search: include "phone_names" array and "reasoning"
+- For comparison: include "phone_names" array for phones to compare
+- For drill_down: include "phone_names" array for detailed specs
 - For other types: include "data" and "reasoning"
 - For queries requesting specific quantities ("show 3 phones", "best phone", etc.), include "limit" field
 
@@ -347,6 +351,50 @@ Your thinking: They want good thermal performance for gaming. → Recommendation
 User: "Recommend some good phones"
 Your thinking: General recommendation request. → Recommendation (no limit specified, system will default to 5)
 
+CRITICAL: When users mention specific phone models (iPhone 15, Galaxy S24, Redmi Note 12, etc.), ALWAYS use "phone_search" type with the exact phone names extracted.
+
+EXAMPLES OF PHONE_SEARCH QUERIES:
+User: "Show me iPhone 15 specs" or "Tell me about Samsung Galaxy S24"
+Your thinking: They want specific phone information. → phone_search with "phone_names": ["iPhone 15"] or ["Samsung Galaxy S24"]
+
+User: "Compare iPhone 15 vs Samsung Galaxy S24"
+Your thinking: They want to compare specific phones. → comparison with "phone_names": ["iPhone 15", "Samsung Galaxy S24"]
+
+User: "What's the price of OnePlus 12?"
+Your thinking: They want specific info about a phone. → phone_search with "phone_names": ["OnePlus 12"] for price inquiry
+
+User: "How good is the camera on Xiaomi 14 Pro?"
+Your thinking: They want specific camera info. → phone_search with "phone_names": ["Xiaomi 14 Pro"] for camera details
+
+User: "Find Redmi Note 12 Pro" or "Search for Galaxy A54"
+Your thinking: They want to find specific phones. → phone_search with "phone_names": ["Redmi Note 12 Pro"] or ["Galaxy A54"]
+
+User: "iPhone 14 review" or "Nokia G42 specifications"
+Your thinking: They want details about specific phones. → phone_search with exact phone names
+
+User: "Pixel 8 Pro features" or "Nothing Phone 2 price in Bangladesh"
+Your thinking: They want specific phone information. → phone_search with "phone_names": ["Pixel 8 Pro"] or ["Nothing Phone 2"]
+
+User: "Realme GT 3 vs OnePlus 11" or "Galaxy S24 Ultra compare with iPhone 15 Pro Max"
+Your thinking: They want to compare specific phones. → comparison with extracted phone names
+
+User: "Show me Mi 13 Pro specs" or "Vivo V29 Pro details"
+Your thinking: They want specific phone information. → phone_search with exact phone names
+
+User: "POCO X6 Pro review" or "Oppo Find X6 Pro price"
+Your thinking: They want specific phone information. → phone_search with exact phone names
+
+User: "Pixel 8 Pro features" or "Nothing Phone 2 price in Bangladesh"
+Your thinking: They want specific phone information. → phone_search with "phone_names": ["Pixel 8 Pro"] or ["Nothing Phone 2"]
+
+User: "Realme GT 3 vs OnePlus 11" or "Galaxy S24 Ultra compare with iPhone 15 Pro Max"
+Your thinking: They want to compare specific phones. → comparison with extracted phone names
+
+User: "Show me Mi 13 Pro specs" or "Vivo V29 Pro details"
+Your thinking: They want specific phone information. → phone_search with exact phone names
+
+CRITICAL: When users mention specific phone models (iPhone 15, Galaxy S24, Redmi Note 12, etc.), ALWAYS use "phone_search" type with the exact phone names extracted.
+
 Your main goal is to be genuinely helpful like a knowledgeable friend, not rigid like a computer program. Think through each query and respond in the most useful way possible.
 
 User query: ${query}`;
@@ -365,7 +413,7 @@ User query: ${query}`;
 
     // Parse and validate response
     const parsed = JSON.parse(cleanedText);
-    const allowedTypes = ["recommendation", "qa", "comparison", "drill_down", "chat"];
+    const allowedTypes = ["recommendation", "qa", "comparison", "drill_down", "phone_search", "chat"];
 
     if (!parsed.type || !allowedTypes.includes(parsed.type)) {
       throw new Error(`Unexpected response type: ${parsed.type}`);

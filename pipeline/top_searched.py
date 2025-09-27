@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Popular phone brands in Bangladesh
-POPULAR_BRANDS = ["samsung","apple","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia","symphony","honor","nothing","iqoo"]
+POPULAR_BRANDS = ["samsung","apple", "iphone", "xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia","symphony","honor","nothing","iqoo"]
 
 class TopSearchedPipeline:
     def __init__(self, database_url: Optional[str] = None):

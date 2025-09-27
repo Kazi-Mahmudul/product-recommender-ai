@@ -190,6 +190,18 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
         />
       );
 
+    case 'phone_details':
+    case 'phone_search_results':
+      return (
+        <PhoneSearchResponse
+          content={parsedResponse.content}
+          formatting={parsedResponse.formatting_hints}
+          darkMode={darkMode}
+          responseType={parsedResponse.response_type}
+          onSuggestionClick={onSuggestionClick}
+        />
+      );
+
     case 'comparison':
       return (
         <ComparisonResponse
@@ -207,7 +219,6 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
           content={parsedResponse.content}
           formatting={parsedResponse.formatting_hints}
           darkMode={darkMode}
-          onSuggestionClick={onSuggestionClick}
         />
       );
 
@@ -244,6 +255,134 @@ const ErrorDisplay: React.FC<{ darkMode: boolean; message: string }> = ({ darkMo
     <p className="text-sm">{message}</p>
   </div>
 );
+
+// Phone search response component for specific phone lookups
+const PhoneSearchResponse: React.FC<{
+  content: any;
+  formatting?: any;
+  darkMode: boolean;
+  responseType: string;
+  onSuggestionClick?: (suggestion: Suggestion) => void;
+}> = ({ content, formatting, darkMode, responseType, onSuggestionClick }) => {
+  
+  if (responseType === 'phone_details' && content.phone) {
+    // Single phone details view
+    const phone = content.phone;
+    
+    return (
+      <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
+        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+        {content.text && (
+          <div className="mb-4">
+            <div dangerouslySetInnerHTML={{ __html: formatResponseText(content.text) }} />
+          </div>
+        )}
+        
+        {/* Phone Card */}
+        <div className="mb-4">
+          <ChatPhoneCard
+            phone={phone}
+            darkMode={darkMode}
+            isTopResult={true}
+            compactMode={false}
+          />
+        </div>
+        
+        {/* Suggestions */}
+        {content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">What would you like to do next?</h4>
+            <div className="flex flex-wrap gap-2">
+              {content.suggestions.map((suggestion: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => onSuggestionClick?.({ query: suggestion })}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${
+                    darkMode
+                      ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                  }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if (responseType === 'phone_search_results' && content.phones) {
+    // Multiple phones search results
+    return (
+      <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
+        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+        {content.text && (
+          <div className="mb-4">
+            <div dangerouslySetInnerHTML={{ __html: formatResponseText(content.text) }} />
+          </div>
+        )}
+        
+        {/* Phone Results */}
+        <div className="space-y-3">
+          {content.phones.map((phone: any, index: number) => (
+            <ChatPhoneCard
+              key={phone.id || index}
+              phone={phone}
+              darkMode={darkMode}
+              isTopResult={false}
+              compactMode={true}
+            />
+          ))}
+        </div>
+        
+        {/* Not found phones */}
+        {content.not_found && content.not_found.length > 0 && (
+          <div className="mt-4 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+            <p className="text-sm text-orange-700 dark:text-orange-300">
+              Could not find: {content.not_found.join(', ')}
+            </p>
+          </div>
+        )}
+        
+        {/* Suggestions */}
+        {content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">What would you like to do next?</h4>
+            <div className="flex flex-wrap gap-2">
+              {content.suggestions.map((suggestion: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => onSuggestionClick?.({ query: suggestion })}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${
+                    darkMode
+                      ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                  }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  // Fallback to text response
+  return (
+    <TextResponse
+      content={content}
+      formatting={formatting}
+      darkMode={darkMode}
+      onSuggestionClick={onSuggestionClick}
+    />
+  );
+};
 
 // Text response component with rich formatting
 const TextResponse: React.FC<{

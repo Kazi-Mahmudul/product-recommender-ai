@@ -82,12 +82,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         chatContextManager.clearSession();
         currentSessionId = chatContextManager.getSessionId(); // This will generate a new one
         existingHistory = [];
-        console.log('🆕 Starting fresh session from homepage with initial message');
       } else {
         // Normal case - load existing session if any
         existingHistory = chatContextManager.getConversationHistory();
         currentSessionId = chatContextManager.getSessionId();
-        console.log('📁 Loading existing session with', existingHistory.length, 'messages');
       }
       
       setSessionId(currentSessionId);
@@ -385,22 +383,17 @@ How can I help you today?`,
         } else {
           // Fallback to existing smart chat service
           const response = await smartChatService.sendQuery(messageToSend);
-          console.log(`✅ Received response from Smart Chat Service:`, response);
         }
         
       } catch (err) {
-        console.error(`❌ ${useRAGPipeline ? 'RAG Pipeline' : 'Smart Chat'} Error:`, err);
-        
         // Remove loading message from UI
         const messagesWithoutLoading = ragMessages.concat([userMessage]);
         
         // Try fallback if RAG fails
         if (useRAGPipeline) {
-          console.log('🔄 Falling back to Smart Chat Service...');
           try {
             setLoadingStage('processing');
             const fallbackResponse = await smartChatService.sendQuery(messageToSend);
-            console.log(`✅ Fallback response received:`, fallbackResponse);
             
             // Create assistant message with fallback response
             const assistantMessage: RAGChatMessage = {
@@ -422,7 +415,6 @@ How can I help you today?`,
             setUseRAGPipeline(false); // Switch to fallback mode
             
           } catch (fallbackErr) {
-            console.error('❌ Fallback also failed:', fallbackErr);
             handleError(fallbackErr, messagesWithoutLoading, sessionId);
           }
         } else {

@@ -107,9 +107,9 @@ async def test_endpoint():
 
 
 def extract_phone_names_from_query(query: str) -> List[str]:
-    """Extract phone names from a query using regex patterns and a large brand dictionary"""
+    """Extract phone names from a query using refined regex patterns"""
 
-    # Full expanded brand list
+    # Enhanced brand list with variations
     brands = [
         "5star","Acer","Alcatel","Allview","Apple","Asus","Benco","Bengal","BlackBerry",
         "Blackview","Cat","Celkon","Coolpad","Cubot","Doogee","DOOGEE","Energizer","FreeYond",
@@ -119,36 +119,119 @@ def extract_phone_names_from_query(query: str) -> List[str]:
         "Nokia","Nothing","Okapia","Oneplus","OnePlus","OnePlus 2","Oppo","Oscal","Oukitel",
         "Panasonic","Philips","Proton","PROTON","Realme","Samsung","Sharp","Sonim","Sony",
         "Symphony","TCL","Tecno","TECNO","Thuraya","Ulefone","Umidigi","UMIDIGI","vivo","Vivo",
-        "Walton","We","WE","WE X2","Wiko","Xiaomi","ZTE"
+        "Walton","We","WE","WE X2","Wiko","Xiaomi","ZTE",
+        # Common variations
+        "Mi","Redmi","POCO","Pixel","Galaxy","Xperia","Nord"
     ]
 
     query_clean = query.strip()
     phone_names = []
+    
+    # Stop words that shouldn't be part of phone names
+    stop_words = {'specs', 'spec', 'review', 'price', 'features', 'feature', 'details', 'detail', 
+                  'camera', 'battery', 'display', 'performance', 'comparison', 'compare', 'vs', 'versus',
+                  'with', 'and', 'or', 'the', 'about', 'tell', 'show', 'find', 'search', 'what', 'how', 
+                  'specifications', 'specification', 'under', 'over', 'best', 'good', 'bad'}
 
-    # Build regex for all brands
-    brand_pattern = "|".join([re.escape(b) for b in brands])
+    # Split on common separators to handle multiple phones
+    phone_segments = re.split(r'\s+(?:vs|versus|compare|with|and|,)\s+', query_clean, flags=re.IGNORECASE)
+    
+    for segment in phone_segments:
+        segment = segment.strip()
+        if not segment:
+            continue
+            
+        # Function to clean extracted phone name
+        def clean_phone_name(name):
+            # Remove common stop words from the end
+            words = name.split()
+            while words and words[-1].lower() in stop_words:
+                words.pop()
+            return ' '.join(words) if words else ''
 
-    # Regex to capture "Brand + Model" (multi-word, allows +, -, numbers, Pro, Max, Ultra, 5G etc.)
-    phone_pattern = re.compile(
-        rf"\b({brand_pattern})\s+([A-Za-z0-9]+(?:[\s\-+]*[A-Za-z0-9]+)*)",
-        re.IGNORECASE
-    )
+        # Enhanced regex patterns for each segment
+        brand_pattern = "|".join([re.escape(b) for b in brands])
+        
+        # Primary comprehensive patterns for exact phone matching
+        comprehensive_patterns = [
+            # iPhone pattern (with or without Apple)
+            re.compile(rf"\b(?:Apple\s+)?(iPhone)\s+(\d+(?:\s+(?:Pro|Max|Ultra|Plus|Mini|SE|Air))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # Galaxy pattern (with or without Samsung)
+            re.compile(rf"\b(?:Samsung\s+)?(Galaxy)\s+([A-Z]\d+(?:\s+(?:Pro|Max|Ultra|Plus|Mini|SE|Air|Note|Edge))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # Pixel pattern (with or without Google)
+            re.compile(rf"\b(?:Google\s+)?(Pixel)\s+(\d+(?:\s+(?:Pro|Max|Ultra|Plus|XL|a))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # OnePlus pattern (handle various forms)
+            re.compile(rf"\b(OnePlus|One\s*Plus)\s+(\d+(?:\s+(?:Pro|T|R|RT|5G))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # Redmi pattern (with or without Xiaomi)
+            re.compile(rf"\b(?:Xiaomi\s+)?(Redmi)\s+((?:Note\s+)?\d+(?:\s+(?:Pro|Max|Ultra|Plus|S|C))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # Mi pattern (with or without Xiaomi)
+            re.compile(rf"\b(?:Xiaomi\s+)?(Mi)\s+(\d+(?:\s+(?:Pro|Max|Ultra|Plus|T|Lite))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # POCO pattern (with or without Xiaomi)
+            re.compile(rf"\b(?:Xiaomi\s+)?(POCO)\s+([A-Z]\d+(?:\s+(?:Pro|Max|Ultra|Plus))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # Nothing Phone pattern
+            re.compile(rf"\b(Nothing)\s+(Phone\s+\d+(?:[a-z])?(?:\s+(?:Pro|Max|Ultra|Plus))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+            # General brand + model pattern
+            re.compile(rf"\b({brand_pattern})\s+([A-Za-z0-9]+(?:[\s\-]*[A-Za-z0-9]+)*(?:\s+(?:Pro|Max|Ultra|Plus|Mini|SE|Air|5G|4G|Lite|Note|Edge|Prime|GT|Neo|Ace|Turbo|Racing))*?)(?=\s+(?:specs?|review|price|features?|details?|camera|battery|display|performance|comparison|vs|versus|with|and|or|\.|,|\?|!|$)|$)", re.IGNORECASE),
+        ]
+        
+        segment_phone_names = []
+        
+        for pattern in comprehensive_patterns:
+            for match in pattern.finditer(segment):
+                brand, model = match.group(1).strip(), match.group(2).strip()
+                phone_name = f"{brand} {model}"
+                cleaned_name = clean_phone_name(phone_name)
+                if cleaned_name and len(cleaned_name.split()) >= 2:
+                    segment_phone_names.append(cleaned_name)
+        
+        # Add valid phone names from this segment
+        phone_names.extend(segment_phone_names)
 
-    # Find brand + model matches
-    for match in phone_pattern.finditer(query_clean):
-        brand, model = match.group(1).strip(), match.group(2).strip()
-        phone_names.append(f"{brand} {model}")
+    # Clean and normalize phone names
+    cleaned_phone_names = []
+    for name in phone_names:
+        # Remove extra spaces and normalize
+        cleaned_name = re.sub(r'\s+', ' ', name.strip())
+        # Remove trailing punctuation
+        cleaned_name = re.sub(r'[.,;!?]+$', '', cleaned_name)
+        
+        # Validate phone name length and content
+        if (cleaned_name and 
+            len(cleaned_name) > 2 and 
+            len(cleaned_name.split()) >= 2 and  # At least brand + model
+            not all(word.lower() in stop_words for word in cleaned_name.split()) and
+            any(word.lower() in ['apple', 'samsung', 'google', 'oneplus', 'xiaomi', 'redmi', 'poco', 'nothing', 
+                                'nokia', 'sony', 'lg', 'huawei', 'oppo', 'vivo', 'realme', 'honor', 'motorola',
+                                'iphone', 'galaxy', 'pixel', 'mi', 'xperia'] or
+                word in brands for word in cleaned_name.lower().split())):
+            cleaned_phone_names.append(cleaned_name)
 
-    # Fallback: specific "Pixel" or "iPhone" style names without explicit brand
-    fallback_pattern = re.compile(r"\b(Pixel\s+\d+(?:\s+\w+)*|iPhone\s+\d+(?:\s+\w+)*)\b", re.IGNORECASE)
-    for match in fallback_pattern.finditer(query_clean):
-        phone_names.append(match.group(1).strip())
+    # Deduplicate - prefer longer/more specific names
+    final_phone_names = []
+    seen_lower = set()
+    
+    # Sort by length (longer first) to prefer more specific names
+    sorted_names = sorted(cleaned_phone_names, key=len, reverse=True)
+    
+    for name in sorted_names:
+        name_lower = name.lower()
+        
+        # Check if this name is a subset of an already added name
+        is_subset = any(name_lower in existing for existing in seen_lower)
+        
+        # Check if any existing name is a subset of this name
+        supersets = [existing for existing in seen_lower if existing in name_lower]
+        
+        if not is_subset:
+            # Remove any existing names that are subsets of this one
+            final_phone_names = [n for n in final_phone_names if n.lower() not in supersets]
+            seen_lower = {n.lower() for n in final_phone_names}  # Rebuild seen set
+            
+            final_phone_names.append(name)
+            seen_lower.add(name_lower)
 
-    # Deduplicate while preserving order
-    seen = set()
-    phone_names = [x for x in phone_names if not (x.lower() in seen or seen.add(x.lower()))]
-
-    return phone_names
+    # Limit to reasonable number of phones
+    return final_phone_names[:5]
 
 def extract_feature_from_query(query: str) -> str:
     """Extract feature name from query"""
@@ -576,29 +659,6 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
         "focus_area": focus_area
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 async def process_legacy_query(request: ContextualQueryRequest, db: Session):
     """
     Legacy query processing as fallback when intelligent processing fails
@@ -720,7 +780,7 @@ async def rag_enhanced_query(
             # Preprocess filters to match the expected format for get_phones_by_filters
             processed_filters = {}
             
-            # Handle nested price filters
+            # Enhanced price filter processing for Bangladesh context
             if "price" in filters:
                 price_filter = filters["price"]
                 if isinstance(price_filter, dict):
@@ -731,6 +791,147 @@ async def rag_enhanced_query(
                 else:
                     # If price is just a number, treat it as max_price
                     processed_filters["max_price"] = price_filter
+            
+            # Check for explicit price filters
+            if "max_price" in filters:
+                processed_filters["max_price"] = filters["max_price"]
+            if "min_price" in filters:
+                processed_filters["min_price"] = filters["min_price"]
+            
+            # Enhanced price extraction from query text as fallback
+            if "max_price" not in processed_filters and "min_price" not in processed_filters:
+                import re
+                query_text = request.query.lower()
+                
+                # Enhanced pattern for "under X", "below X", "less than X", "max X" with better taka support
+                under_patterns = [
+                    r'under[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'below[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'less\s+than[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'max[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'maximum[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'budget[\s]+(?:of[\s]+)?(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'within[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'up\s+to[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    # Bangladesh-specific patterns
+                    r'([0-9,]+)k?[\s]*(?:tk|taka|৳|bdt)[\s]*(?:er[\s]+)?(?:niche|under|below)',
+                    r'([0-9,]+)k?[\s]*(?:hazar|hajar)[\s]*(?:taka|tk|৳)?[\s]*(?:er[\s]+)?(?:niche|under|below)'
+                ]
+                
+                # Enhanced pattern for "above X", "over X", "more than X", "min X"
+                above_patterns = [
+                    r'above[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'over[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'more\s+than[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'min[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'minimum[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'starting[\s]+(?:from[\s]+)?(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    # Bangladesh-specific patterns
+                    r'([0-9,]+)k?[\s]*(?:tk|taka|৳|bdt)[\s]*(?:er[\s]+)?(?:upore|above|over)',
+                    r'([0-9,]+)k?[\s]*(?:hazar|hajar)[\s]*(?:taka|tk|৳)?[\s]*(?:er[\s]+)?(?:upore|above|over)'
+                ]
+                
+                # Enhanced pattern for "X to Y", "between X and Y"
+                range_patterns = [
+                    r'(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?[\s]*(?:to|-)[\s]*(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'between[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?[\s]+(?:and|to|-)[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    # Bangladesh range patterns
+                    r'([0-9,]+)k?[\s]*(?:heke|theke)[\s]*([0-9,]+)k?[\s]*(?:tk|taka|৳|bdt|hazar|hajar)'
+                ]
+                
+                # Enhanced simple number patterns
+                simple_patterns = [
+                    r'([0-9,]+)k[\s]*(?:taka|tk|৳|bdt)?[\s]*(?:phone|mobile|smartphone)',
+                    r'(?:tk[\s.]*|৳[\s]*|taka[\s]*)([0-9,]+)[\s]*(?:phone|mobile|smartphone)',
+                    r'([0-9,]+)[\s]*(?:taka|tk|৳|bdt)[\s]*(?:phone|mobile|smartphone)',
+                    r'([0-9,]+)[\s]*(?:hazar|hajar)[\s]*(?:taka|tk|৳)?[\s]*(?:phone|mobile|smartphone)',
+                    # Standalone price mentions
+                    r'(?:price|dam|cost)[\s]*(?:under|below|max)?[\s]*(?:tk[\s.]*|৳[\s]*|taka[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?'
+                ]
+                
+                # Check for max price patterns
+                for pattern in under_patterns:
+                    match = re.search(pattern, query_text)
+                    if match:
+                        price_str = match.group(1).replace(',', '')
+                        try:
+                            price = float(price_str)
+                            # Handle "k" suffix (thousands)
+                            if 'k' in match.group(0).lower():
+                                price *= 1000
+                            # If price is suspiciously low, assume it's in thousands
+                            elif price < 1000:
+                                price *= 1000
+                            processed_filters["max_price"] = price
+                            logger.info(f"Extracted max_price from query: {price}")
+                            break
+                        except ValueError:
+                            continue
+                
+                # Check for min price patterns (if max not found)
+                if "max_price" not in processed_filters:
+                    for pattern in above_patterns:
+                        match = re.search(pattern, query_text)
+                        if match:
+                            price_str = match.group(1).replace(',', '')
+                            try:
+                                price = float(price_str)
+                                # Handle "k" suffix (thousands)
+                                if 'k' in match.group(0).lower():
+                                    price *= 1000
+                                # If price is suspiciously low, assume it's in thousands
+                                elif price < 1000:
+                                    price *= 1000
+                                processed_filters["min_price"] = price
+                                logger.info(f"Extracted min_price from query: {price}")
+                                break
+                            except ValueError:
+                                continue
+                
+                # Check for range patterns (if neither max nor min found)
+                if "max_price" not in processed_filters and "min_price" not in processed_filters:
+                    for pattern in range_patterns:
+                        match = re.search(pattern, query_text)
+                        if match:
+                            try:
+                                price1_str = match.group(1).replace(',', '')
+                                price2_str = match.group(2).replace(',', '')
+                                price1 = float(price1_str)
+                                price2 = float(price2_str)
+                                
+                                # Handle "k" suffix
+                                if 'k' in match.group(0).lower():
+                                    price1 *= 1000
+                                    price2 *= 1000
+                                elif price1 < 1000 or price2 < 1000:
+                                    price1 *= 1000 if price1 < 1000 else 1
+                                    price2 *= 1000 if price2 < 1000 else 1
+                                
+                                processed_filters["min_price"] = min(price1, price2)
+                                processed_filters["max_price"] = max(price1, price2)
+                                logger.info(f"Extracted price range from query: {processed_filters['min_price']} - {processed_filters['max_price']}")
+                                break
+                            except ValueError:
+                                continue
+                
+                # Check for simple number patterns (if no other price found)
+                if "max_price" not in processed_filters and "min_price" not in processed_filters:
+                    for pattern in simple_patterns:
+                        match = re.search(pattern, query_text)
+                        if match:
+                            price_str = match.group(1).replace(',', '')
+                            try:
+                                price = float(price_str)
+                                # Handle "k" suffix or low numbers
+                                if 'k' in match.group(0).lower() or price < 1000:
+                                    if price < 1000:
+                                        price *= 1000
+                                # For simple patterns, assume it's a max price
+                                processed_filters["max_price"] = price
+                                logger.info(f"Extracted max_price from simple pattern: {price}")
+                                break
+                            except ValueError:
+                                continue
             
             # Handle nested RAM filters
             if "ram" in filters:
@@ -1009,6 +1210,203 @@ async def rag_enhanced_query(
                 "session_id": request.session_id or "default",
                 "processing_time": gemini_response.get("processing_time", 0.0)
             }
+            
+        elif response_type == "phone_search":
+            # Handle specific phone search requests
+            phone_names = gemini_response.get("phone_names", [])
+            reasoning = gemini_response.get("reasoning", "")
+            
+            if not phone_names:
+                formatted_response = {
+                    "response_type": "text",
+                    "content": {
+                        "text": "Please specify which phone you'd like to search for.",
+                        "error": False
+                    },
+                    "suggestions": [
+                        "Try: 'Show me iPhone 15 specs'",
+                        "Try: 'Tell me about Samsung Galaxy S24'",
+                        "Try: 'What's the price of OnePlus 12?'"
+                    ]
+                }
+            else:
+                # Search for the specific phones
+                found_phones = []
+                not_found_phones = []
+                
+                for phone_name in phone_names:
+                    # Try exact match first
+                    phone = phone_crud.get_phone_by_name_or_model(db, phone_name)
+                    
+                    if not phone:
+                        # Try fuzzy search as fallback
+                        try:
+                            fuzzy_matches = phone_crud.get_phones_by_fuzzy_names(db, [phone_name], limit=1, score_cutoff=50)
+                            if fuzzy_matches:
+                                found_phones.extend(fuzzy_matches)
+                            else:
+                                not_found_phones.append(phone_name)
+                        except Exception as e:
+                            logger.warning(f"Fuzzy search failed for '{phone_name}': {str(e)}")
+                            not_found_phones.append(phone_name)
+                    else:
+                        # Convert SQLAlchemy object to dict
+                        phone_dict = phone_crud.phone_to_dict(phone)
+                        found_phones.append(phone_dict)
+                
+                if found_phones:
+                    # Format the found phones for display
+                    formatted_phones = []
+                    for phone_dict in found_phones:
+                        formatted_phone = {
+                            "id": phone_dict.get("id"),
+                            "name": phone_dict.get("name"),
+                            "brand": phone_dict.get("brand"),
+                            "model": phone_dict.get("model"),
+                            "slug": phone_dict.get("slug"),
+                            "price": phone_dict.get("price_original") or phone_dict.get("price"),
+                            "url": phone_dict.get("url"),
+                            "img_url": phone_dict.get("img_url"),
+                            
+                            # Display fields
+                            "display_type": phone_dict.get("display_type"),
+                            "screen_size_inches": phone_dict.get("screen_size_inches"),
+                            "display_resolution": phone_dict.get("display_resolution"),
+                            "pixel_density_ppi": phone_dict.get("pixel_density_ppi"),
+                            "refresh_rate_hz": phone_dict.get("refresh_rate_hz"),
+                            
+                            # Performance fields
+                            "chipset": phone_dict.get("chipset"),
+                            "cpu": phone_dict.get("cpu"),
+                            "gpu": phone_dict.get("gpu"),
+                            "ram": phone_dict.get("ram"),
+                            "ram_type": phone_dict.get("ram_type"),
+                            "internal_storage": phone_dict.get("internal_storage"),
+                            "storage_type": phone_dict.get("storage_type"),
+                            
+                            # Camera fields
+                            "camera_setup": phone_dict.get("camera_setup"),
+                            "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
+                            "selfie_camera_resolution": phone_dict.get("selfie_camera_resolution"),
+                            "main_camera": phone_dict.get("main_camera"),
+                            "front_camera": phone_dict.get("front_camera"),
+                            "camera_features": phone_dict.get("camera_features"),
+                            
+                            # Battery fields
+                            "battery_type": phone_dict.get("battery_type"),
+                            "capacity": phone_dict.get("capacity"),
+                            "quick_charging": phone_dict.get("quick_charging"),
+                            "wireless_charging": phone_dict.get("wireless_charging"),
+                            "reverse_charging": phone_dict.get("reverse_charging"),
+                            
+                            # Design fields
+                            "build": phone_dict.get("build"),
+                            "weight": phone_dict.get("weight"),
+                            "thickness": phone_dict.get("thickness"),
+                            "colors": phone_dict.get("colors"),
+                            "waterproof": phone_dict.get("waterproof"),
+                            "ip_rating": phone_dict.get("ip_rating"),
+                            
+                            # Connectivity fields
+                            "network": phone_dict.get("network"),
+                            "bluetooth": phone_dict.get("bluetooth"),
+                            "wlan": phone_dict.get("wlan"),
+                            "gps": phone_dict.get("gps"),
+                            "nfc": phone_dict.get("nfc"),
+                            "usb": phone_dict.get("usb"),
+                            "fingerprint_sensor": phone_dict.get("fingerprint_sensor"),
+                            "face_unlock": phone_dict.get("face_unlock"),
+                            
+                            # Operating system
+                            "operating_system": phone_dict.get("operating_system"),
+                            "os_version": phone_dict.get("os_version"),
+                            "release_date": phone_dict.get("release_date"),
+                            
+                            # Derived/numeric fields
+                            "storage_gb": phone_dict.get("storage_gb"),
+                            "ram_gb": phone_dict.get("ram_gb"),
+                            "screen_size_numeric": phone_dict.get("screen_size_numeric"),
+                            "primary_camera_mp": phone_dict.get("primary_camera_mp"),
+                            "selfie_camera_mp": phone_dict.get("selfie_camera_mp"),
+                            "battery_capacity_numeric": phone_dict.get("battery_capacity_numeric"),
+                            "has_fast_charging": phone_dict.get("has_fast_charging"),
+                            "has_wireless_charging": phone_dict.get("has_wireless_charging"),
+                            "charging_wattage": phone_dict.get("charging_wattage"),
+                            "refresh_rate_numeric": phone_dict.get("refresh_rate_numeric"),
+                            "ppi_numeric": phone_dict.get("ppi_numeric"),
+                            
+                            # Scores
+                            "overall_device_score": phone_dict.get("overall_device_score"),
+                            "performance_score": phone_dict.get("performance_score"),
+                            "display_score": phone_dict.get("display_score"),
+                            "camera_score": phone_dict.get("camera_score"),
+                            "battery_score": phone_dict.get("battery_score"),
+                            "security_score": phone_dict.get("security_score"),
+                            "connectivity_score": phone_dict.get("connectivity_score"),
+                            
+                            # Search metadata
+                            "relevance_score": 1.0,
+                            "match_reasons": [f"Found exact match for '{phone_name}'"] if phone else [f"Found similar match for '{phone_name}'"]
+                        }
+                        formatted_phones.append(formatted_phone)
+                    
+                    # Determine response type based on number of phones and context
+                    if len(formatted_phones) == 1:
+                        # Single phone - return as detailed specs
+                        formatted_response = {
+                            "response_type": "phone_details",
+                            "content": {
+                                "text": reasoning or f"Here are the details for {formatted_phones[0]['name']}:",
+                                "phone": formatted_phones[0],
+                                "specifications": formatted_phones[0]  # Include full specs
+                            },
+                            "suggestions": [
+                                f"Compare {formatted_phones[0]['name']} with other phones",
+                                f"Find phones similar to {formatted_phones[0]['name']}",
+                                "Ask about specific features",
+                                "Get price information"
+                            ]
+                        }
+                    else:
+                        # Multiple phones - return as search results
+                        formatted_response = {
+                            "response_type": "phone_search_results",
+                            "content": {
+                                "text": reasoning or f"Found {len(formatted_phones)} phones matching your search:",
+                                "phones": formatted_phones,
+                                "total_found": len(formatted_phones)
+                            },
+                            "suggestions": [
+                                "Compare these phones",
+                                "Show detailed specs",
+                                "Ask about specific features",
+                                "Find similar alternatives"
+                            ]
+                        }
+                    
+                    # Add information about phones not found
+                    if not_found_phones:
+                        if "content" not in formatted_response:
+                            formatted_response["content"] = {}
+                        formatted_response["content"]["not_found"] = not_found_phones
+                        formatted_response["content"]["text"] += f" (Note: Could not find: {', '.join(not_found_phones)})"
+                        
+                else:
+                    # No phones found
+                    formatted_response = {
+                        "response_type": "text",
+                        "content": {
+                            "text": f"Sorry, I couldn't find any phones matching: {', '.join(phone_names)}. Please check the spelling or try different variations.",
+                            "error": False,
+                            "not_found": phone_names
+                        },
+                        "suggestions": [
+                            "Try simpler phone names (e.g., 'iPhone 15' instead of 'iPhone 15 Pro Max')",
+                            "Check the spelling of the phone name",
+                            "Ask for phone recommendations instead",
+                            "Browse popular phones"
+                        ]
+                    }
             
         elif response_type == "comparison":
             # Get comparison data for specified phones
