@@ -47,9 +47,9 @@ USER appuser
 # Expose port (Cloud Run sets PORT environment variable)
 EXPOSE 8080
 
-# Health check - use the PORT environment variable
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD sh -c 'curl -f http://localhost:${PORT:-8080}/health || exit 1'
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Default command
 CMD ["./start_server.sh"]
