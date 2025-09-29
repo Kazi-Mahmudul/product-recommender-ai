@@ -236,6 +236,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-brand text-white text-xs font-medium">
           {phone.brand}
         </div>
+        <div>
         {/* Show relevance score if available, otherwise show overall score */}
         {showRelevanceScore && relevanceScore ? (
           <div className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold text-white bg-brand backdrop-blur-sm`}>
@@ -248,6 +249,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
             {Math.round((phone.overall_device_score / 10) * 2) / 2}
           </div>
         )}
+        </div>
         </div>
         {/* Compare Button */}
         <div className="absolute top-4 right-4">
@@ -278,11 +280,11 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           {phone.name}
         </h3>
 
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1 mb-2 text-xs">
+        <div className="grid grid-cols-2 gap-x-1 gap-y-1 mb-2 text-xs">
           {phone.primary_camera_mp && (
             <div className="flex items-center gap-1">
               <Camera size={12} className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} />
-              <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.main_camera || "N/A"}/{phone.front_camera || "N/A"}</span>
+              <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.primary_camera_mp || "N/A"}</span>
             </div>
           )}
           {phone.battery_capacity_numeric && (

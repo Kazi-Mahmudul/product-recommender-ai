@@ -9,7 +9,7 @@ steps:
     args: ['push', 'gcr.io/$PROJECT_ID/product-recommender']
     
   # Deploy to Cloud Run
-  - name: 'gcr.io/google-cloud-sdk/cloud-sdk'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
     args:
       - 'run'
@@ -24,6 +24,10 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8000'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
 
 # Use CLOUD_LOGGING_ONLY to avoid the logs_bucket requirement
 options:

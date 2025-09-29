@@ -662,24 +662,25 @@ ANALYSIS GUIDELINES:
 5. Mention standout features that justify or exceed the price point
 6. Identify genuine weaknesses that users should know about before purchasing
 7. Consider the local market context and user preferences in Bangladesh
-8. Keep each point concise but informative (1-2 sentences maximum)
+8. Keep each point CONCISE AND COMPACT (1 sentence maximum)
 9. Prioritize points that would matter most to actual users making a purchase decision
+10. ONLY include scores for the overall phone quality and 1-2 most important features - not for every single point
+11. When scores are included, format them simply as "X/10" (e.g., "7/10") - round to single decimal place like {Math.round((phone.overall_device_score / 10) * 2) / 2}
 
 REQUIRED OUTPUT FORMAT (JSON only, no markdown or code blocks):
 {
   "pros": [
-    "Specific strength with context and real-world benefit",
-    "Value proposition highlighting price-to-performance ratio",
-    "Standout feature with technical details and user impact"
+    "Camera quality: 50MP sensor with OIS captures sharp photos even in low light",
+    "Battery life: 5000mAh capacity provides reliable all-day usage",
+    "Value proposition: Excellent features for the price point - overall score 8/10"
   ],
   "cons": [
-    "Genuine weakness with context and user impact",
-    "Missing feature relevant to price range and user expectations",
-    "Limitation that affects daily usage experience"
+    "Display quality: Basic 60Hz refresh rate compared to 90Hz/120Hz in competitors", 
+    "Build quality: Plastic back instead of glass for premium feel"
   ]
 }
 
-Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making a purchase decision.`;
+Provide 3-5 pros and 2-4 cons. Focus on what matters most to actual users making a purchase decision. Include scores for only the most important aspects (overall and 1-2 key features).`;
 
   try {
     const text = await fetchGeminiSummary(prompt);

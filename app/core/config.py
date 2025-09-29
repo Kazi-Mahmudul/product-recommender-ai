@@ -161,6 +161,13 @@ class Settings(BaseSettings):
     SUPER_ADMIN_PASSWORD: str = os.getenv("SUPER_ADMIN_PASSWORD", "SuperAdmin@123")
     MODERATOR_EMAIL: str = os.getenv("MODERATOR_EMAIL", "moderator@peyechi.com")
     MODERATOR_PASSWORD: str = os.getenv("MODERATOR_PASSWORD", "Moderator@123")
+    # List of admin emails (comma-separated)
+    ADMIN_EMAILS: str = os.getenv("ADMIN_EMAILS", "admin@peyechi.com")
+    
+    @property
+    def admin_emails_list(self) -> List[str]:
+        """Return list of admin emails from environment variable"""
+        return [email.strip() for email in self.ADMIN_EMAILS.split(",") if email.strip()]
 
     class Config:
         case_sensitive = True

@@ -106,6 +106,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
     
     - Validates email and password
     - Ensures user is verified
+    - Checks and updates admin status based on email
     - Returns JWT access token
     """
     # Get user by email
@@ -129,6 +130,16 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
+    
+    # Check if user should have admin status based on email
+    from app.core.config import settings
+    is_admin = user.email in settings.admin_emails_list
+    
+    # Update admin status in database if needed
+    if user.is_admin != is_admin:
+        user.is_admin = is_admin
+        db.commit()
+        db.refresh(user)
     
     # Create access token
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -252,16 +263,21 @@ async def google_auth(request: Request, response: Response, db: Session = Depend
             # Create user directly without schema validation for Google OAuth
             from app.models.user import User
             from app.utils.auth import get_password_hash
+            from app.core.config import settings
             
             # Use a secure random password for Google OAuth users
             google_oauth_password = get_password_hash("GoogleOAuth2024!")
             
+            # Check if user should have admin status based on email
+            is_admin = email in settings.admin_emails_list
+
             user = User(
                 email=email,
                 password_hash=google_oauth_password,
                 first_name=first_name,
                 last_name=last_name,
-                is_verified=True  # Google OAuth users are automatically verified
+                is_verified=True,  # Google OAuth users are automatically verified
+                is_admin=is_admin
             )
             db.add(user)
             db.commit()
@@ -269,8 +285,18 @@ async def google_auth(request: Request, response: Response, db: Session = Depend
         elif not user.is_verified:
             # Verify existing user if they authenticate via Google
             user.is_verified = True
+            # Check if user should have admin status based on email
+            from app.core.config import settings
+            user.is_admin = user.email in settings.admin_emails_list
             db.commit()
             db.refresh(user)
+        else:
+            # Update admin status if needed
+            from app.core.config import settings
+            if user.is_admin != (user.email in settings.admin_emails_list):
+                user.is_admin = user.email in settings.admin_emails_list
+                db.commit()
+                db.refresh(user)
 
         # Create JWT
         access_token = create_access_token(data={"sub": str(user.id)})

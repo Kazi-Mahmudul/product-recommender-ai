@@ -91,4 +91,8 @@ def get_verification_by_user_id(db: Session, user_id: int) -> Optional[EmailVeri
             EmailVerification.user_id == user_id,
             EmailVerification.expires_at > datetime.utcnow()
         )
-    ).first() 
+    ).first()
+
+def get_all_users(db: Session) -> list[User]:
+    """Get all users in the system."""
+    return db.query(User).all() 

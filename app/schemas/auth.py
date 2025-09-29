@@ -44,6 +44,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     is_verified: bool
+    is_admin: bool
     created_at: datetime
     first_name: Optional[str]
     last_name: Optional[str]

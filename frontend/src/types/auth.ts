@@ -21,6 +21,7 @@ export interface EnhancedUser {
   last_name?: string;
   profile_picture?: string;
   is_verified: boolean;
+  is_admin: boolean;
   created_at: string;
   last_login?: string;
   auth_provider: 'email' | 'google';

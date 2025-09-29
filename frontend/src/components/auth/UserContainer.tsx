@@ -148,13 +148,22 @@ export const UserContainer: React.FC<UserContainerProps> = ({
                 <UserIcon size={16} />
                 View Profile
               </button>
-              <button
-                onClick={handleLogoutClick}
-                className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
+            {user.is_admin && (
+              <a
+                href="/admin/status"
+                className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200"
               >
-                <LogOut size={16} />
-                Sign Out
-              </button>
+                <UserIcon size={16} />
+                Admin Panel
+              </a>
+            )}
+            <button
+              onClick={handleLogoutClick}
+              className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
+            >
+              <LogOut size={16} />
+              Sign Out
+            </button>
             </div>
           </div>
         )}
@@ -236,6 +245,16 @@ export const UserContainer: React.FC<UserContainerProps> = ({
               <UserIcon size={16} />
               View Profile
             </button>
+            <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
+            {user.is_admin && (
+              <a
+                href="/admin/status"
+                className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200"
+              >
+                <UserIcon size={16} />
+                Admin Panel
+              </a>
+            )}
             <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
             <button
               onClick={handleLogoutClick}

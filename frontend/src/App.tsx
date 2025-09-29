@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search } from "lucide-react";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import TrendingPhones from "./components/TrendingPhones";
 import TopSearchedPhones from "./components/TopSearchedPhones";
-import UpcomingPhones from "./components/UpcomingPhones";
 import WhyChoosePeyechi from "./components/WhyChoosePeyechi";
 
 import Footer from "./components/Footer";
 import LoginPage from "./pages/LoginPage";
+import AdminPage from "./pages/AdminPage";
 import SignupPage from "./pages/SignupPage";
 import VerifyPage from "./pages/VerifyPage";
 import ChatPage from "./pages/ChatPage";
@@ -21,7 +20,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ComparisonProvider } from "./context/ComparisonContext";
 import ComparisonWidget from "./components/ComparisonWidget";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { AdminRoutes } from "./routes/AdminRoutes";
+
 
 interface Message {
   id: string;
@@ -452,8 +451,6 @@ function App() {
           <div className="my-8" />
           <TrendingPhones darkMode={darkMode} />
           <div className="my-8" />
-          <UpcomingPhones darkMode={darkMode} />
-          <div className="my-8" />
           <WhyChoosePeyechi darkMode={darkMode} />
           {/* Chat/Message Section */}
           {messages.length > 0 && (
@@ -555,8 +552,8 @@ function App() {
           <Route path="/phones/:slug" element={<PhoneDetailsPage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
-          {/* Admin panel routes */}
-          <Route path="/admin/*" element={<AdminRoutes />} />
+          <Route path="/admin" element={<AdminPage />} />
+
         </Routes>
         {location.pathname !== "/chat" && <Footer />}
 
