@@ -21,6 +21,7 @@ export const validateUserData = (userData: any): EnhancedUser | null => {
     last_name: userData.last_name ? String(userData.last_name) : undefined,
     profile_picture: userData.profile_picture ? String(userData.profile_picture) : undefined,
     is_verified: Boolean(userData.is_verified),
+    is_admin: Boolean(userData.is_admin),
     created_at: String(userData.created_at),
     last_login: userData.last_login ? String(userData.last_login) : undefined,
     auth_provider: userData.auth_provider === 'google' ? 'google' : 'email',
