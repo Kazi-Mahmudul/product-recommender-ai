@@ -17,9 +17,7 @@ const specIcons: Record<string, React.ReactNode> = {
   MainCamera: <FaCamera className="inline mr-1 text-gray-400" />, // Main Camera
   FrontCamera: <FaCamera className="inline mr-1 text-gray-400 rotate-180" />, // Front Camera
   Display: <FaMobileAlt className="inline mr-1 text-gray-400" />, // Display size
-  BatteryType: <FaBatteryFull className="inline mr-1 text-gray-400" />, // Battery type
   BatteryCapacity: <FaBatteryFull className="inline mr-1 text-gray-400" />, // Battery capacity
-  QuickCharging: <FaBolt className="inline mr-1 text-gray-400" />, // Quick charging
 };
 
 const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCompare, tagline, loadingTagline }) => {
@@ -38,9 +36,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
     { label: "Main Camera", value: (phone as any).main_camera || ((phone as any).primary_camera_mp ? `${(phone as any).primary_camera_mp} MP` : (phone as any).camera_setup || "-"), icon: specIcons.MainCamera },
     { label: "Front Camera", value: (phone as any).front_camera || ((phone as any).selfie_camera_mp ? `${(phone as any).selfie_camera_mp} MP` : "-"), icon: specIcons.FrontCamera },
     { label: "Display", value: (typeof (phone as any).screen_size_numeric === "number" && (phone as any).screen_size_numeric > 0) ? `${(phone as any).screen_size_numeric}"` : ((phone as any).screen_size_inches ? `${(phone as any).screen_size_inches}"` : "-"), icon: specIcons.Display },
-    { label: "Battery Type", value: (phone as any).battery_type || "-", icon: specIcons.BatteryType },
-    { label: "Battery Capacity", value: (typeof (phone as any).battery_capacity_numeric === "number" && (phone as any).battery_capacity_numeric > 0) ? `${(phone as any).battery_capacity_numeric} mAh` : (phone as any).capacity || "-", icon: specIcons.BatteryCapacity },
-    { label: "Quick Charging", value: (phone as any).quick_charging || ((phone as any).has_fast_charging === true ? "Yes" : (phone as any).has_fast_charging === false ? "No" : "-"), icon: specIcons.QuickCharging },
+    { label: "Battery", value: (typeof (phone as any).battery_capacity_numeric === "number" && (phone as any).battery_capacity_numeric > 0) ? `${(phone as any).battery_capacity_numeric} mAh` : (phone as any).capacity || "-", icon: specIcons.BatteryCapacity },
   ];
 
   return (
@@ -98,7 +94,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
           <div className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1">Tk. {phone.price}</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-1">
             <span><FaUser className="inline mr-1 text-gray-400" />{phone.brand}</span>
-            {(phone as any).status && <span><FaCheckCircle className="inline mr-1 text-green-400" />{(phone as any).status}</span>}
             {(phone as any).release_date && <span><FaCalendarAlt className="inline mr-1 text-gray-400" />{(phone as any).release_date}</span>}
             {(phone as any).made_by && <span><FaUser className="inline mr-1 text-gray-400" />{(phone as any).made_by}</span>}
             {(phone as any).user_interface && <span><FaMicrochip className="inline mr-1 text-gray-400" />{(phone as any).user_interface}</span>}

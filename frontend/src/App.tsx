@@ -380,9 +380,6 @@ function App() {
                   <div
                     className={`relative w-full flex items-center bg-white dark:bg-[#232323] border ${darkMode ? "border-gray-700" : "border-[#eae4da]"} rounded-2xl shadow-lg p-2 md:p-4 transition-all duration-200 hover:shadow-xl`}
                   >
-                    <span className="pl-1 md:pr-2 text-brand flex items-center">
-                      <Search className="h-5 w-5" />
-                    </span>
                     <input
                       value={homeInput}
                       onChange={(e) => setHomeInput(e.target.value)}

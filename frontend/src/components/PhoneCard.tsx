@@ -90,9 +90,11 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
         {/* Key Specs */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
           {[
+            { label: "Main 📷", value: phone.main_camera || "N/A"},
+            { label: "Front 📷", value: phone.front_camera || "N/A"},
             { label: "RAM", value: phone.ram || "N/A" },
             { label: "Storage", value: phone.internal_storage || "N/A" },
-            { label: "Display", value: phone.screen_size_inches ? `${phone.screen_size_inches}"` : "N/A" },
+            { label: "Display", value: phone.screen_size_numeric ? `${phone.screen_size_numeric} inches"` : "N/A" },
             { label: "Battery", value: phone.capacity || "N/A" }
           ].map((spec, idx) => (
             <div key={idx} className="text-xs">

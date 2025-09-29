@@ -72,7 +72,7 @@ const adminHttpClient = {
     if (!response.ok) {
       if (response.status === 401) {
         AdminAuthManager.clearToken();
-        window.location.href = '/admin/login';
+        window.location.href = '/api/v1/admin/login';
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -99,7 +99,7 @@ const adminHttpClient = {
     if (!response.ok) {
       if (response.status === 401) {
         AdminAuthManager.clearToken();
-        window.location.href = '/admin/login';
+        window.location.href = '/api/v1/admin/login';
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -126,7 +126,7 @@ const adminHttpClient = {
     if (!response.ok) {
       if (response.status === 401) {
         AdminAuthManager.clearToken();
-        window.location.href = '/admin/login';
+        window.location.href = '/api/v1/admin/login';
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -152,7 +152,7 @@ const adminHttpClient = {
     if (!response.ok) {
       if (response.status === 401) {
         AdminAuthManager.clearToken();
-        window.location.href = '/admin/login';
+        window.location.href = '/api/v1/admin/login';
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -165,7 +165,7 @@ const adminHttpClient = {
 export const adminApi = {
   // Authentication
   async login(credentials: AdminLoginRequest): Promise<AdminTokenResponse> {
-    const response = await fetch(`${API_BASE}/admin/auth/login`, {
+    const response = await fetch(`${API_BASE}/api/v1/admin/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
@@ -182,43 +182,43 @@ export const adminApi = {
 
   async logout(): Promise<void> {
     try {
-      await adminHttpClient.post('/admin/auth/logout');
+      await adminHttpClient.post('/api/v1/admin/auth/logout');
     } finally {
       AdminAuthManager.clearToken();
     }
   },
 
   async getCurrentAdmin(): Promise<AdminUser> {
-    return adminHttpClient.get<AdminUser>('/admin/auth/me');
+    return adminHttpClient.get<AdminUser>('/api/v1/admin/auth/me');
   },
 
   async createAdmin(adminData: AdminCreateForm): Promise<AdminUser> {
-    return adminHttpClient.post<AdminUser>('/admin/auth/create', adminData);
+    return adminHttpClient.post<AdminUser>('/api/v1/admin/auth/create', adminData);
   },
 
   async listAdmins(skip = 0, limit = 100): Promise<AdminUser[]> {
-    return adminHttpClient.get<AdminUser[]>('/admin/auth/list', { skip, limit });
+    return adminHttpClient.get<AdminUser[]>('/api/v1/admin/auth/list', { skip, limit });
   },
 
   // Dashboard
   async getDashboardStats(): Promise<DashboardStats> {
-    return adminHttpClient.get<DashboardStats>('/admin/dashboard/stats');
+    return adminHttpClient.get<DashboardStats>('/api/v1/admin/dashboard/stats');
   },
 
   async getPhoneStats(): Promise<any> {
-    return adminHttpClient.get('/admin/dashboard/phone-stats');
+    return adminHttpClient.get('/api/v1/admin/dashboard/phone-stats');
   },
 
   async getUserStats(): Promise<any> {
-    return adminHttpClient.get('/admin/dashboard/user-stats');
+    return adminHttpClient.get('/api/v1/admin/dashboard/user-stats');
   },
 
   async getActivitySummary(hours = 24): Promise<any> {
-    return adminHttpClient.get('/admin/dashboard/activity-summary', { hours });
+    return adminHttpClient.get('/api/v1/admin/dashboard/activity-summary', { hours });
   },
 
   async getSystemHealth(): Promise<any> {
-    return adminHttpClient.get('/admin/dashboard/system-health');
+    return adminHttpClient.get('/api/v1/admin/dashboard/system-health');
   },
 
   // Phone Management
@@ -233,23 +233,23 @@ export const adminApi = {
     sort_by?: string;
     sort_order?: string;
   }): Promise<{ phones: PhoneManagement[]; total_count: number; skip: number; limit: number; has_more: boolean }> {
-    return adminHttpClient.get('/admin/phones/list', params);
+    return adminHttpClient.get('/api/v1/admin/phones/list', params);
   },
 
   async getPhoneDetails(phoneId: number): Promise<PhoneManagement> {
-    return adminHttpClient.get<PhoneManagement>(`/admin/phones/${phoneId}`);
+    return adminHttpClient.get<PhoneManagement>(`/api/v1/admin/phones/${phoneId}`);
   },
 
   async updatePhone(phoneId: number, updates: PhoneUpdateForm): Promise<ApiResponse<PhoneManagement>> {
-    return adminHttpClient.put(`/admin/phones/${phoneId}`, updates);
+    return adminHttpClient.put(`/api/v1/admin/phones/${phoneId}`, updates);
   },
 
   async deletePhone(phoneId: number): Promise<ApiResponse<void>> {
-    return adminHttpClient.delete(`/admin/phones/${phoneId}`);
+    return adminHttpClient.delete(`/api/v1/admin/phones/${phoneId}`);
   },
 
   async bulkUpdatePhones(phoneIds: number[], updates: PhoneUpdateForm): Promise<ApiResponse<void>> {
-    return adminHttpClient.post('/admin/phones/bulk-update', { phone_ids: phoneIds, updates });
+    return adminHttpClient.post('/api/v1/admin/phones/bulk-update', { phone_ids: phoneIds, updates });
   },
 
   async uploadPhonesCsv(file: File): Promise<ApiResponse<any>> {
@@ -257,7 +257,7 @@ export const adminApi = {
     formData.append('file', file);
 
     const token = AdminAuthManager.getToken();
-    const response = await fetch(`${API_BASE}/admin/phones/upload-csv`, {
+    const response = await fetch(`${API_BASE}/api/v1/admin/phones/upload-csv`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
@@ -274,7 +274,7 @@ export const adminApi = {
     const token = AdminAuthManager.getToken();
     const queryString = params ? '?' + new URLSearchParams(params as any).toString() : '';
     
-    const response = await fetch(`${API_BASE}/admin/phones/export/csv${queryString}`, {
+    const response = await fetch(`${API_BASE}/api/v1/admin/phones/export/csv${queryString}`, {
       method: 'GET',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
@@ -293,53 +293,53 @@ export const adminApi = {
     search?: string;
     is_verified?: boolean;
   }): Promise<UserManagement[]> {
-    return adminHttpClient.get('/admin/users', params);
+    return adminHttpClient.get('/api/v1/admin/users', params);
   },
 
   async getUserDetails(userId: number): Promise<any> {
-    return adminHttpClient.get(`/admin/users/${userId}`);
+    return adminHttpClient.get(`/api/v1/admin/users/${userId}`);
   },
 
   async blockUser(blockData: UserBlockForm): Promise<ApiResponse<void>> {
-    return adminHttpClient.post(`/admin/users/${blockData.user_id}/block`, blockData);
+    return adminHttpClient.post(`/api/v1/admin/users/${blockData.user_id}/block`, blockData);
   },
 
   async unblockUser(userId: number): Promise<ApiResponse<void>> {
-    return adminHttpClient.post(`/admin/users/${userId}/unblock`);
+    return adminHttpClient.post(`/api/v1/admin/users/${userId}/unblock`);
   },
 
   // Scraper Management
   async getScraperStatuses(limit = 20): Promise<ScraperStatus[]> {
-    return adminHttpClient.get('/admin/scrapers/status', { limit });
+    return adminHttpClient.get('/api/v1/admin/scrapers/status', { limit });
   },
 
   async getActiveScrapers(): Promise<any> {
-    return adminHttpClient.get('/admin/scrapers/active');
+    return adminHttpClient.get('/api/v1/admin/scrapers/active');
   },
 
   async triggerScraper(scraperName: string, force = false): Promise<ApiResponse<any>> {
-    return adminHttpClient.post(`/admin/scrapers/trigger/${scraperName}`, { force });
+    return adminHttpClient.post(`/api/v1/admin/scrapers/trigger/${scraperName}`, { force });
   },
 
   async stopScraper(scraperId: number): Promise<ApiResponse<void>> {
-    return adminHttpClient.post(`/admin/scrapers/stop/${scraperId}`);
+    return adminHttpClient.post(`/api/v1/admin/scrapers/stop/${scraperId}`);
   },
 
   async getScraperLogs(scraperId: number): Promise<any> {
-    return adminHttpClient.get(`/admin/scrapers/logs/${scraperId}`);
+    return adminHttpClient.get(`/api/v1/admin/scrapers/logs/${scraperId}`);
   },
 
   async getScraperSchedule(): Promise<any> {
-    return adminHttpClient.get('/admin/scrapers/schedule');
+    return adminHttpClient.get('/api/v1/admin/scrapers/schedule');
   },
 
   // Analytics
   async getAnalyticsOverview(days = 30): Promise<any> {
-    return adminHttpClient.get('/admin/analytics/overview', { days });
+    return adminHttpClient.get('/api/v1/admin/analytics/overview', { days });
   },
 
   async getComparisonAnalytics(): Promise<any> {
-    return adminHttpClient.get('/admin/analytics/comparisons');
+    return adminHttpClient.get('/api/v1/admin/analytics/comparisons');
   },
 
   // System Monitoring
@@ -348,11 +348,11 @@ export const adminApi = {
     hours?: number;
     limit?: number;
   }): Promise<any> {
-    return adminHttpClient.get('/admin/system/logs', params);
+    return adminHttpClient.get('/api/v1/admin/system/logs', params);
   },
 
   async getPerformanceMetrics(): Promise<any> {
-    return adminHttpClient.get('/admin/system/performance');
+    return adminHttpClient.get('/api/v1/admin/system/performance');
   },
 
   async getActivityLogs(params?: {
@@ -361,7 +361,7 @@ export const adminApi = {
     admin_id?: number;
     action?: string;
   }): Promise<ActivityLog[]> {
-    return adminHttpClient.get('/admin/system/activity', params);
+    return adminHttpClient.get('/api/v1/admin/system/activity', params);
   }
 };
 

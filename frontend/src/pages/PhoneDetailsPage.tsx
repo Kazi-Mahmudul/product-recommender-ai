@@ -165,70 +165,12 @@ Generate a similar tagline that captures this phone's unique strengths:`;
         />
       </div>
 
-      {/* 4. FULL SPECIFICATIONS SECTION */}
+      {/* 2. FULL SPECIFICATIONS SECTION */}
       <div className="mb-6">
         <FullSpecsAccordion phone={phone} />
       </div>
 
-      {/* 5. DEVICE SCORES TOGGLE SECTION */}
-      <div className="mb-6">
-        <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-2">
-                Device Performance Scores
-              </h3>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                View detailed performance metrics and scores for this device
-              </p>
-              {!showChart && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-xs bg-brand/10 text-brand px-2 py-1 rounded-full">
-                    Performance Score
-                  </span>
-                  <span className="text-xs bg-brand/10 text-brand px-2 py-1 rounded-full">
-                    Camera Score
-                  </span>
-                  <span className="text-xs bg-brand/10 text-brand px-2 py-1 rounded-full">
-                    Overall Rating
-                  </span>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => setShowChart(!showChart)}
-              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
-                showChart
-                  ? "bg-brand text-white hover:bg-brand/90"
-                  : "bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600"
-              }`}
-            >
-              {showChart ? (
-                <>
-                  <EyeOff size={16} />
-                  <span className="hidden sm:inline">Hide Chart</span>
-                  <span className="sm:hidden">Hide</span>
-                </>
-              ) : (
-                <>
-                  <BarChart3 size={16} />
-                  <span className="hidden sm:inline">Show Chart</span>
-                  <span className="sm:hidden">Show</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. DEVICE SCORES CHART (conditional) */}
-      {showChart && (
-        <div className="mb-8 animate-in slide-in-from-top-4 duration-300">
-          <DeviceScoresChart phone={phone} />
-        </div>
-      )}
-
-      {/* 7. PROS AND CONS SECTION */}
+      {/* 3. PROS AND CONS SECTION */}
       <div className="mb-6">
         <ProsCons
           pros={pros}
@@ -239,7 +181,7 @@ Generate a similar tagline that captures this phone's unique strengths:`;
         />
       </div>
 
-      {/* 8. SMART RECOMMENDATIONS SECTION */}
+      {/* 4. SMART RECOMMENDATIONS SECTION */}
       <div className="mb-6">
         {phone && <SmartRecommendations phoneSlug={phone.slug!} />}
       </div>

@@ -365,7 +365,6 @@ export class ChatContextManager {
    * Clear current session and start fresh
    */
   clearSession(): void {
-    console.log(`🗑️ Clearing chat session: ${this.currentSessionId}`);
 
     // Clear storage
     this.clearStorageData();
@@ -384,8 +383,6 @@ export class ChatContextManager {
     };
 
     this.saveSessionMetadata();
-
-    console.log(`🆕 Started new chat session: ${this.currentSessionId}`);
   }
 
   /**
@@ -572,10 +569,6 @@ export class ChatContextManager {
 
         this.sessionMetadata.messageCount = recentMessages.length;
         this.saveSessionMetadata();
-
-        console.log(
-          `✅ Cleaned up conversation history, kept ${recentMessages.length} recent messages`
-        );
       } catch (error) {
         console.error("Failed to cleanup after quota exceeded:", error);
         this.clearSession();
