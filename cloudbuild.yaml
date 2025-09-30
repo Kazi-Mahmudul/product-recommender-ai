@@ -2,11 +2,11 @@
 steps:
   # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/product-recommender', '.']
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/product-recommender-ai', '.']
     
   # Push the Docker image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/product-recommender']
+    args: ['push', 'gcr.io/$PROJECT_ID/product-recommender-ai']
     
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -14,11 +14,11 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'product-recommender'
+      - 'product-recommender-ai'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/product-recommender'
+      - 'gcr.io/$PROJECT_ID/product-recommender-ai'
       - '--region'
-      - 'us-central1'
+      - 'asia-southeast1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -28,6 +28,8 @@ steps:
       - '512Mi'
       - '--cpu'
       - '1'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production'
 
 # Use CLOUD_LOGGING_ONLY to avoid the logs_bucket requirement
 options:

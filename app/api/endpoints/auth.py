@@ -242,20 +242,49 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
 
 @router.post("/google", response_model=Token)
 async def google_auth(request: Request, response: Response, db: Session = Depends(get_db)):
-    data = await request.json()
-    token = data.get("credential") or data.get("token")
-    if not token:
-        raise HTTPException(status_code=400, detail="Missing Google token")
-
     try:
+        # Parse request data
+        data = await request.json()
+        token = data.get("credential") or data.get("token")
+        if not token:
+            raise HTTPException(status_code=400, detail="Missing Google token")
+
+        # Validate Google OAuth configuration
         CLIENT_ID = settings.GOOGLE_CLIENT_ID
-        if not CLIENT_ID:
-            raise HTTPException(status_code=500, detail="Google OAuth not configured")
+        if not CLIENT_ID or CLIENT_ID.strip() == "":
+            logger.error("Google OAuth is not configured: GOOGLE_CLIENT_ID is missing")
+            raise HTTPException(
+                status_code=500, 
+                detail="Google OAuth is not properly configured on the server. Please contact the administrator."
+            )
             
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
-        email = idinfo["email"]
+        # Verify the Google token
+        try:
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
+        except ValueError as e:
+            logger.error(f"Google token verification failed: {str(e)}")
+            if "Invalid Value" in str(e) or "Wrong recipient" in str(e):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Invalid Google token. This may be due to incorrect client ID configuration or unauthorized origin."
+                )
+            else:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Google token verification failed: {str(e)}"
+                )
+        
+        # Extract user information from the token
+        email = idinfo.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not found in Google token")
+        
         first_name = idinfo.get("given_name", "")
         last_name = idinfo.get("family_name", "")
+        
+        # Validate email format
+        if "@" not in email:
+            raise HTTPException(status_code=400, detail="Invalid email format from Google")
 
         # Check if user exists, else create
         user = get_user_by_email(db, email)
@@ -263,12 +292,12 @@ async def google_auth(request: Request, response: Response, db: Session = Depend
             # Create user directly without schema validation for Google OAuth
             from app.models.user import User
             from app.utils.auth import get_password_hash
-            from app.core.config import settings
             
             # Use a secure random password for Google OAuth users
             google_oauth_password = get_password_hash("GoogleOAuth2024!")
             
             # Check if user should have admin status based on email
+            from app.core.config import settings
             is_admin = email in settings.admin_emails_list
 
             user = User(
@@ -323,6 +352,12 @@ async def google_auth(request: Request, response: Response, db: Session = Depend
             token_type="bearer",
             expires_in=60
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions as they are
+        raise
     except Exception as e:
-        logger.error(f"Google authentication error: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}") 
+        logger.error(f"Unexpected error during Google authentication: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail="An unexpected error occurred during Google authentication. Please try again later."
+        ) 
