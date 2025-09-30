@@ -43,7 +43,7 @@ interface ChatPageProps {
 }
 
 const SUGGESTED_QUERIES = [
-  "30 hajar takay best phone?",
+  "20000 takay best phone?",
   "Compare Apple iPhone 17 Air vs Sony Xperia 1 VII",
   "Long battery life phones?",
   "5G phones under 40k in Bangladesh?",
