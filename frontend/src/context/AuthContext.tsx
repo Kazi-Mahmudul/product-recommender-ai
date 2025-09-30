@@ -21,7 +21,7 @@ interface AuthContextType {
   verify: (email: string, code: string) => Promise<void>;
   logout: () => void;
   setUser: (user: EnhancedUser | null) => void;
-  googleLogin: (credential: string) => Promise<void>;
+  googleLogin: () => Promise<void>;
   updateProfile: (profileData: { first_name?: string; last_name?: string }) => Promise<void>;
 }
 
@@ -33,9 +33,33 @@ export function useAuth() {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<EnhancedUser | null>(null);
-  const [token, setToken] = useState<string | null>(
-    () => localStorage.getItem('auth_token')
-  );
+  const [token, setToken] = useState<string | null>(null);
+
+  // Function to get token from both localStorage and cookies
+  const getToken = (): string | null => {
+    // Check localStorage first
+    const localStorageToken = localStorage.getItem('auth_token');
+    if (localStorageToken) {
+      return localStorageToken;
+    }
+    
+    // Check cookies
+    const cookieName = 'auth_token=';
+    const decodedCookie = decodeURIComponent(document.cookie);
+    const cookieArray = decodedCookie.split(';');
+    
+    for (let i = 0; i < cookieArray.length; i++) {
+      let cookie = cookieArray[i];
+      while (cookie.charAt(0) === ' ') {
+        cookie = cookie.substring(1);
+      }
+      if (cookie.indexOf(cookieName) === 0) {
+        return cookie.substring(cookieName.length, cookie.length);
+      }
+    }
+    
+    return null;
+  };
   const [loading, setLoading] = useState(true);
 
   // Helper function to enhance user data with additional fields
@@ -53,14 +77,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Fetch user info if token exists
   useEffect(() => {
     const fetchUser = async () => {
-      if (!token) {
+      const currentToken = getToken();
+      
+      if (!currentToken) {
         setUser(null);
         setLoading(false);
         return;
       }
+      
       setLoading(true);
       try {
-        const data = await authApi.getCurrentUser(token);
+        const data = await authApi.getCurrentUser(currentToken);
         if (data && data.email) {
           setUser(enhanceUserData(data));
         } else {
@@ -72,7 +99,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     };
     fetchUser();
-  }, [token]);
+    
+    // Set initial token state
+    const initialToken = getToken();
+    if (initialToken) {
+      setToken(initialToken);
+    }
+  }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -90,50 +123,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   };
 
-  const googleLogin = async (credential: string) => {
+  const googleLogin = async () => {
     setLoading(true);
     try {
-      // Extract Google profile data from JWT token
-      const payload = credential.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payload));
-      
-      // Ensure we always use HTTPS in production
-      let API_BASE = process.env.REACT_APP_API_BASE || "/api";
-      if (API_BASE.startsWith('http://')) {
-        API_BASE = API_BASE.replace('http://', 'https://');
-      }
-      
-      const response = await fetch(`${API_BASE}/api/v1/auth/google`, {
-        method: 'POST',
+      // Call the backend to get the Google OAuth URL
+      const API_BASE = process.env.REACT_APP_API_BASE || "/api";
+      const response = await fetch(`${API_BASE}/api/v1/auth/google/login`, {
+        method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential }),
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.access_token) {
-        setToken(data.access_token);
-        localStorage.setItem('auth_token', data.access_token);
-        
-        // Fetch complete user info and enhance with Google profile data
-        const userData = await authApi.getCurrentUser(data.access_token);
-        const enhancedUserData = {
-          ...userData,
-          auth_provider: 'google',
-          profile_picture: decodedPayload.picture || userData.profile_picture,
-          google_profile: {
-            picture: decodedPayload.picture || '',
-            given_name: decodedPayload.given_name || '',
-            family_name: decodedPayload.family_name || '',
-            email_verified: decodedPayload.email_verified || false
-          },
-          last_login: new Date().toISOString()
-        };
-        setUser(enhancedUserData);
-      } else {
-        setUser(null);
-        throw new Error(data.detail || 'Google authentication failed');
+      if (!response.ok) {
+        throw new Error('Failed to initiate Google OAuth');
       }
+
+      const data = await response.json();
+      const authUrl = data.auth_url;
+
+      // Redirect to Google OAuth URL
+      window.location.href = authUrl;
     } catch (error) {
       setUser(null);
       throw error;
@@ -188,6 +196,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth_token');
+    // Also remove the auth token from cookies
+    document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax;";
     authApi.logout();
   };
 

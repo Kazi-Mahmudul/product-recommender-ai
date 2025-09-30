@@ -362,4 +362,281 @@ async def google_auth(request: Request, response: Response, db: Session = Depend
         raise HTTPException(
             status_code=500, 
             detail="An unexpected error occurred during Google authentication. Please try again later."
-        ) 
+        )
+
+
+# Server-side OAuth flow endpoints
+@router.get("/google/login")
+async def google_login():
+    """
+    Initiates Google OAuth flow by redirecting to Google's OAuth endpoint.
+    This endpoint is called from the frontend to start the OAuth process.
+    """
+    from urllib.parse import urlencode
+    import secrets
+    
+    # Generate a state parameter to prevent CSRF
+    state = secrets.token_urlsafe(32)
+    
+    # Google OAuth URL - adjust scopes as needed
+    # Using the path that matches your Google Cloud Console configuration
+    google_auth_url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={settings.GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={settings.GOOGLE_REDIRECT_URI or 'https://peyechi.com/auth/google/callback'}"
+        f"&response_type=code"
+        f"&scope=openid email profile"
+        f"&state={state}"
+    )
+    
+    return {"auth_url": google_auth_url, "state": state}
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    code: str,
+    state: str = None,
+    db: Session = Depends(get_db),
+    response: Response = None
+):
+    """
+    Callback endpoint for Google OAuth. Google redirects here after authentication.
+    This endpoint exchanges the authorization code for an access token and user info.
+    """
+    import requests
+    import json
+    
+    # Exchange the authorization code for access token
+    token_url = "https://oauth2.googleapis.com/token"
+    
+    token_data = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI or "https://peyechi.com/auth/google/callback"
+    }
+    
+    token_response = requests.post(token_url, data=token_data)
+    
+    if token_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to exchange authorization code for access token: {token_response.text}"
+        )
+    
+    token_json = token_response.json()
+    access_token = token_json.get("access_token")
+    
+    if not access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Access token not found in Google response"
+        )
+    
+    # Get user info from Google
+    user_info_response = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    
+    if user_info_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to get user info from Google"
+        )
+    
+    user_info = user_info_response.json()
+    
+    # Extract user information
+    email = user_info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not found in Google response")
+    
+    first_name = user_info.get("given_name", "")
+    last_name = user_info.get("family_name", "")
+    
+    # Check if user exists, else create
+    user = get_user_by_email(db, email)
+    if not user:
+        from app.models.user import User
+        from app.utils.auth import get_password_hash
+        
+        # Use a secure random password for Google OAuth users
+        google_oauth_password = get_password_hash("GoogleOAuth2024!")
+        
+        # Check if user should have admin status based on email
+        is_admin = email in settings.admin_emails_list
+
+        user = User(
+            email=email,
+            password_hash=google_oauth_password,
+            first_name=first_name,
+            last_name=last_name,
+            is_verified=True,  # Google OAuth users are automatically verified
+            is_admin=is_admin
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    elif not user.is_verified:
+        # Verify existing user if they authenticate via Google
+        user.is_verified = True
+        # Check if user should have admin status based on email
+        user.is_admin = user.email in settings.admin_emails_list
+        db.commit()
+        db.refresh(user)
+    else:
+        # Update admin status if needed
+        if user.is_admin != (user.email in settings.admin_emails_list):
+            user.is_admin = user.email in settings.admin_emails_list
+            db.commit()
+            db.refresh(user)
+
+    # Create JWT
+    access_token_jwt = create_access_token(data={"sub": str(user.id)})
+    
+    # For the server-side flow, we can set the token in a cookie
+    # or redirect to the frontend with the token as a query parameter
+    from fastapi.responses import RedirectResponse
+    frontend_url = os.getenv("FRONTEND_URL", "https://peyechi.com")
+    
+    # Set the token in a secure cookie
+    is_production = settings.ENVIRONMENT == "production"
+    response.set_cookie(
+        key="auth_token",
+        value=access_token_jwt,
+        httponly=True,
+        secure=is_production,
+        samesite="lax" if is_production else "none",
+        max_age=3600  # 1 hour
+    )
+    
+    # Redirect to frontend success page
+    redirect_url = f"{frontend_url}/auth/success"
+    return RedirectResponse(url=redirect_url)
+
+
+# Alternative callback endpoint to match Google Cloud Console configuration
+@router.get("/auth/google/callback")
+async def google_auth_callback(
+    request: Request,
+    code: str,
+    state: str = None,
+    db: Session = Depends(get_db),
+    response: Response = None
+):
+    """
+    Alternative callback endpoint to match Google Cloud Console configuration.
+    This endpoint has the exact path registered in Google Cloud Console.
+    """
+    import requests
+    import json
+    
+    # Exchange the authorization code for access token
+    token_url = "https://oauth2.googleapis.com/token"
+    
+    token_data = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI or "https://peyechi.com/auth/google/callback"
+    }
+    
+    token_response = requests.post(token_url, data=token_data)
+    
+    if token_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to exchange authorization code for access token: {token_response.text}"
+        )
+    
+    token_json = token_response.json()
+    access_token = token_json.get("access_token")
+    
+    if not access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Access token not found in Google response"
+        )
+    
+    # Get user info from Google
+    user_info_response = requests.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    
+    if user_info_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to get user info from Google"
+        )
+    
+    user_info = user_info_response.json()
+    
+    # Extract user information
+    email = user_info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not found in Google response")
+    
+    first_name = user_info.get("given_name", "")
+    last_name = user_info.get("family_name", "")
+    
+    # Check if user exists, else create
+    user = get_user_by_email(db, email)
+    if not user:
+        from app.models.user import User
+        from app.utils.auth import get_password_hash
+        
+        # Use a secure random password for Google OAuth users
+        google_oauth_password = get_password_hash("GoogleOAuth2024!")
+        
+        # Check if user should have admin status based on email
+        is_admin = email in settings.admin_emails_list
+
+        user = User(
+            email=email,
+            password_hash=google_oauth_password,
+            first_name=first_name,
+            last_name=last_name,
+            is_verified=True,  # Google OAuth users are automatically verified
+            is_admin=is_admin
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    elif not user.is_verified:
+        # Verify existing user if they authenticate via Google
+        user.is_verified = True
+        # Check if user should have admin status based on email
+        user.is_admin = user.email in settings.admin_emails_list
+        db.commit()
+        db.refresh(user)
+    else:
+        # Update admin status if needed
+        if user.is_admin != (user.email in settings.admin_emails_list):
+            user.is_admin = user.email in settings.admin_emails_list
+            db.commit()
+            db.refresh(user)
+
+    # Create JWT
+    access_token_jwt = create_access_token(data={"sub": str(user.id)})
+    
+    # Set the token in a secure cookie
+    from fastapi.responses import RedirectResponse
+    is_production = settings.ENVIRONMENT == "production"
+    response.set_cookie(
+        key="auth_token",
+        value=access_token_jwt,
+        httponly=True,
+        secure=is_production,
+        samesite="lax" if is_production else "none",
+        max_age=3600  # 1 hour
+    )
+    
+    # Redirect to frontend success page
+    frontend_url = os.getenv("FRONTEND_URL", "https://peyechi.com")
+    redirect_url = f"{frontend_url}/auth/success"
+    return RedirectResponse(url=redirect_url) 

@@ -142,7 +142,7 @@ class Settings(BaseSettings):
     # Google OAuth settings
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "https://peyechi.com/api/v1/auth/google/callback")
     
     # Monitoring settings
     MONITORING_API_KEY: str = os.getenv("MONITORING_API_KEY", "")

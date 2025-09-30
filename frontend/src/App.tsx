@@ -15,6 +15,8 @@ import ChatPage from "./pages/ChatPage";
 import PhonesPage from "./pages/PhonesPage";
 import PhoneDetailsPage from "./pages/PhoneDetailsPage";
 import ComparePage from "./pages/ComparePage";
+import AuthSuccessPage from "./pages/AuthSuccessPage";
+import ErrorPage from "./pages/ErrorPage";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ComparisonProvider } from "./context/ComparisonContext";
@@ -553,6 +555,8 @@ function App() {
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/auth/success" element={<AuthSuccessPage />} />
+          <Route path="*" element={<ErrorPage />} />
 
         </Routes>
         {location.pathname !== "/chat" && <Footer />}

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 // You can swap these for your own icon components or SVGs
 import { FcGoogle } from 'react-icons/fc';
-import { GoogleLogin } from '@react-oauth/google';
 import { handleOAuthSuccess, handleOAuthError } from '../utils/oauthErrorHandler';
 import { useAuth } from '../context/AuthContext';
 import { useAuthAlerts } from '../hooks/useAuthAlerts';
@@ -111,16 +110,13 @@ export default function AuthModal({ mode, onClose, onSwitch, darkMode = false }:
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    setLoading(true);
+  const handleGoogleLogin = async () => {
     try {
-      await googleLogin(credentialResponse.credential);
-      await authAlerts.showGoogleLoginSuccess();
-      onClose();
+      await googleLogin();
+      // The function will redirect to Google OAuth page
+      // No need to close the modal here since the page will redirect
     } catch (error: any) {
       await authAlerts.showAuthError(error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -148,17 +144,14 @@ export default function AuthModal({ mode, onClose, onSwitch, darkMode = false }:
             <button type="submit" className="rounded-lg py-2 font-semibold text-white" style={{background: brandColor}} disabled={loading}>
               {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Sign Up'}
             </button>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={async () => {
-                await authAlerts.showAuthError("Google authentication failed");
-              }}
-              useOneTap={false}
-              theme="outline"
-              size="large"
-              text="continue_with"
-              shape="rectangular"
-            />
+            <button
+              onClick={handleGoogleLogin}
+              className="flex items-center justify-center gap-3 rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              style={{ width: '100%' }}
+            >
+              <FcGoogle size={24} />
+              <span>Continue with Google</span>
+            </button>
             <div className="text-center text-sm mt-2">
               {mode === 'login' ? (
                 <>Don't have an account? <button type="button" className="text-brand hover:underline" style={{color: brandColor}} onClick={() => onSwitch('signup')}>Sign Up</button></>
