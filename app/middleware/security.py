@@ -98,5 +98,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                     "font-src 'self' https:; "
                     "frame-ancestors 'none';"
                 )
+            
+            # Allow popups for Google OAuth
+            response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
         
         return response

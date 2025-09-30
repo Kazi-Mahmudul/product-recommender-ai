@@ -260,7 +260,9 @@ async def google_auth(request: Request, response: Response, db: Session = Depend
             
         # Verify the Google token
         try:
+            logger.info(f"Attempting to verify Google token: {token[:30]}...") # Log first 30 chars
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
+            logger.info("Google token verified successfully")
         except ValueError as e:
             logger.error(f"Google token verification failed: {str(e)}")
             if "Invalid Value" in str(e) or "Wrong recipient" in str(e):
