@@ -641,16 +641,83 @@ def generate_comparison_response(db: Session, query: str, phone_names: list = No
             "percent": norm
         })
     
-    # Prepare phone info with lighter colors
+    # Prepare phone info with lighter colors and include all phone details
     phone_infos = []
     brand_colors = ["#4A90E2", "#7ED321", "#F5A623", "#D0021B", "#9013FE"]  # Lighter, more vibrant colors
     for idx, p in enumerate(phones):
-        phone_infos.append({
+        phone_info = {
+            "id": p.get("id"),
             "name": p.get("name"),
             "brand": p.get("brand"),
+            "model": p.get("model"),
+            "slug": p.get("slug"),
+            "price": p.get("price_original") or p.get("price"),
+            "url": p.get("url"),
             "img_url": p.get("img_url"),
+            "display_type": p.get("display_type"),
+            "screen_size_inches": p.get("screen_size_inches"),
+            "display_resolution": p.get("display_resolution"),
+            "pixel_density_ppi": p.get("pixel_density_ppi"),
+            "refresh_rate_hz": p.get("refresh_rate_hz"),
+            "screen_protection": p.get("screen_protection"),
+            "chipset": p.get("chipset"),
+            "cpu": p.get("cpu"),
+            "gpu": p.get("gpu"),
+            "ram": p.get("ram"),
+            "ram_type": p.get("ram_type"),
+            "internal_storage": p.get("internal_storage"),
+            "storage_type": p.get("storage_type"),
+            "camera_setup": p.get("camera_setup"),
+            "primary_camera_resolution": p.get("primary_camera_resolution"),
+            "selfie_camera_resolution": p.get("selfie_camera_resolution"),
+            "main_camera": p.get("main_camera"),
+            "front_camera": p.get("front_camera"),
+            "camera_features": p.get("camera_features"),
+            "battery_type": p.get("battery_type"),
+            "capacity": p.get("capacity"),
+            "quick_charging": p.get("quick_charging"),
+            "wireless_charging": p.get("wireless_charging"),
+            "reverse_charging": p.get("reverse_charging"),
+            "build": p.get("build"),
+            "weight": p.get("weight"),
+            "thickness": p.get("thickness"),
+            "colors": p.get("colors"),
+            "waterproof": p.get("waterproof"),
+            "ip_rating": p.get("ip_rating"),
+            "network": p.get("network"),
+            "bluetooth": p.get("bluetooth"),
+            "wlan": p.get("wlan"),
+            "gps": p.get("gps"),
+            "nfc": p.get("nfc"),
+            "usb": p.get("usb"),
+            "fingerprint_sensor": p.get("fingerprint_sensor"),
+            "face_unlock": p.get("face_unlock"),
+            "operating_system": p.get("operating_system"),
+            "os_version": p.get("os_version"),
+            "release_date": p.get("release_date"),
+            "storage_gb": p.get("storage_gb"),
+            "ram_gb": p.get("ram_gb"),
+            "screen_size_numeric": p.get("screen_size_numeric"),
+            "primary_camera_mp": p.get("primary_camera_mp"),
+            "selfie_camera_mp": p.get("selfie_camera_mp"),
+            "battery_capacity_numeric": p.get("battery_capacity_numeric"),
+            "has_fast_charging": p.get("has_fast_charging"),
+            "has_wireless_charging": p.get("has_wireless_charging"),
+            "charging_wattage": p.get("charging_wattage"),
+            "refresh_rate_numeric": p.get("refresh_rate_numeric"),
+            "ppi_numeric": p.get("ppi_numeric"),
+            "overall_device_score": p.get("overall_device_score"),
+            "performance_score": p.get("performance_score"),
+            "display_score": p.get("display_score"),
+            "camera_score": p.get("camera_score"),
+            "battery_score": p.get("battery_score"),
+            "security_score": p.get("security_score"),
+            "connectivity_score": p.get("connectivity_score"),
+            "relevance_score": p.get("relevance_score", 0.9),
+            "match_reasons": p.get("match_reasons", []),
             "color": brand_colors[idx % len(brand_colors)]
-        })
+        }
+        phone_infos.append(phone_info)
     
     # Generate contextual comparison summary
     summary = generate_contextual_comparison_summary(phones, chart_features, focus_area)
