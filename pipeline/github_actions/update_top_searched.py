@@ -152,14 +152,37 @@ def create_sample_top_searched_data(pipeline_run_id: str, limit: int = 10) -> Di
         # Get phones from popular brands
         brand_placeholders = ','.join(['%s'] * len(popular_brands))
         cursor.execute(f"""
-            SELECT id, name, brand, model 
-            FROM phones 
-            WHERE brand IN ({brand_placeholders})
-            AND name IS NOT NULL 
-            AND brand IS NOT NULL
-            ORDER BY RANDOM()
+            (
+                SELECT id, name, brand, model, release_date, release_date_clean, created_at
+                FROM phones 
+                WHERE brand IN ({brand_placeholders})
+                AND name IS NOT NULL 
+                AND brand IS NOT NULL
+                AND (release_date_clean IS NULL OR release_date_clean >= CURRENT_DATE - INTERVAL '2 years')
+                ORDER BY 
+                    CASE 
+                        WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                        ELSE created_at 
+                    END DESC
+                LIMIT %s
+            )
+            UNION
+            (
+                SELECT id, name, brand, model, release_date, release_date_clean, created_at
+                FROM phones 
+                WHERE name IS NOT NULL 
+                AND brand IS NOT NULL
+                AND created_at >= CURRENT_DATE - INTERVAL '6 months'
+                ORDER BY created_at DESC
+                LIMIT %s
+            )
+            ORDER BY 
+                CASE 
+                    WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                    ELSE created_at 
+                END DESC
             LIMIT %s
-        """, popular_brands + [limit * 2])  # Get more phones to choose from
+        """, popular_brands + [limit, limit, limit])
         
         phones = cursor.fetchall()
         

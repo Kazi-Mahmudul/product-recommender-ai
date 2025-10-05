@@ -59,16 +59,42 @@ class TopSearchedPipeline:
             conn = psycopg2.connect(self.database_url)
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            # Get phones from popular brands (case-insensitive matching)
+            # Get phones from popular brands with preference for recently released phones
+            # Also include some recently added phones to capture trending new releases
+            # Use release_date_clean for proper date sorting
             brand_placeholders = ','.join(['%s'] * len(POPULAR_BRANDS))
             cursor.execute(f"""
-                SELECT id, name, brand, model 
-                FROM phones 
-                WHERE LOWER(brand) = ANY(ARRAY[{','.join(['LOWER(%s)'] * len(POPULAR_BRANDS))}])
-                AND name IS NOT NULL 
-                AND brand IS NOT NULL 
-                AND model IS NOT NULL
-                ORDER BY updated_at DESC, created_at DESC
+                (
+                    SELECT id, name, brand, model, release_date, release_date_clean, created_at
+                    FROM phones 
+                    WHERE LOWER(brand) = ANY(ARRAY[{','.join(['LOWER(%s)'] * len(POPULAR_BRANDS))}])
+                    AND name IS NOT NULL 
+                    AND brand IS NOT NULL 
+                    AND model IS NOT NULL
+                    AND (release_date_clean IS NULL OR release_date_clean >= CURRENT_DATE - INTERVAL '2 years')
+                    ORDER BY 
+                        CASE 
+                            WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                            ELSE created_at 
+                        END DESC
+                    LIMIT 70
+                )
+                UNION
+                (
+                    SELECT id, name, brand, model, release_date, release_date_clean, created_at
+                    FROM phones 
+                    WHERE name IS NOT NULL 
+                    AND brand IS NOT NULL 
+                    AND model IS NOT NULL
+                    AND created_at >= CURRENT_DATE - INTERVAL '6 months'
+                    ORDER BY created_at DESC
+                    LIMIT 30
+                )
+                ORDER BY 
+                    CASE 
+                        WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                        ELSE created_at 
+                    END DESC
                 LIMIT 100
             """, POPULAR_BRANDS)
             
@@ -114,7 +140,7 @@ class TopSearchedPipeline:
             self.pytrends.build_payload(
                 kw_list=chunk,
                 cat=0,  # All categories
-                timeframe='today 12-m',  # Last 12 months
+                timeframe='today 3-m',  # Last 3 months (more recent data)
                 geo='BD',  # Bangladesh
                 gprop=''  # Web search
             )
