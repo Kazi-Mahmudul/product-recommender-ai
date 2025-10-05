@@ -148,6 +148,11 @@ def get_db() -> Generator[Session, None, None]:
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error occurred")
     except Exception as e:
+        # Don't catch validation errors - let FastAPI handle them
+        # Check if this is a Pydantic validation error
+        if "validation" in str(type(e)).lower() or "pydantic" in str(type(e)).lower():
+            # Re-raise validation errors so FastAPI can handle them properly
+            raise
         logger.error(f"Unexpected error occurred: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Internal server error")

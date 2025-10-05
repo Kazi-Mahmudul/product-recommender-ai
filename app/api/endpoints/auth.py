@@ -118,7 +118,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
     - Checks and updates admin status based on email
     - Returns JWT access token
     """
-    # Validate input data
+    # Explicit validation to handle edge cases
     if not user_data.email or not user_data.email.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -131,7 +131,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
             detail="Password is required"
         )
     
-    # Validate email format
+    # Validate email format explicitly
     if "@" not in user_data.email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

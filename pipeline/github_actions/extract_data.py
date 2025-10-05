@@ -29,7 +29,7 @@ def setup_logging():
     
     # Reduce logging verbosity in production
     log_level = getattr(logging, config.log_level)
-    if config.environment == 'production':
+    if config.pipeline_env == 'production':
         log_level = logging.WARNING  # Only show warnings and errors in production
     
     logging.basicConfig(
