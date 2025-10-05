@@ -60,6 +60,10 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: Hashed password
     """
+    # Validate input
+    if not password:
+        raise ValueError("Password cannot be empty")
+    
     try:
         # Truncate password to 72 bytes for bcrypt compatibility
         if len(password.encode('utf-8')) > 72:
@@ -96,8 +100,12 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     Returns:
         str: JWT token
     """
+    # Validate input
+    if data is None:
+        raise ValueError("Token data cannot be None")
+    
     try:
-        to_encode = data.copy()
+        to_encode = data.copy() if data else {}
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:

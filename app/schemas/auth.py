@@ -81,6 +81,24 @@ class UserLogin(BaseModel):
     """
     email: EmailStr
     password: str
+    
+    @validator('email')
+    def validate_email(cls, v):
+        """
+        Validate email is not empty.
+        """
+        if not v or not v.strip():
+            raise ValueError('Email cannot be empty')
+        return v.strip()
+    
+    @validator('password')
+    def validate_password(cls, v):
+        """
+        Validate password is not empty.
+        """
+        if not v or not v.strip():
+            raise ValueError('Password cannot be empty')
+        return v
 
     class Config:
         schema_extra = {
