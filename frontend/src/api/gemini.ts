@@ -635,12 +635,6 @@ KEY SPECIFICATIONS:
 • OS: ${phone.operating_system || 'N/A'}${phone.os_version ? ` ${phone.os_version}` : ''}
 • Connectivity: ${phone.has_5g ? '5G, ' : ''}${phone.has_nfc ? 'NFC, ' : ''}WiFi ${phone.wifi_version || ''}, Bluetooth ${phone.bluetooth_version || ''}
 
-PERFORMANCE SCORES (if available):
-• Overall: ${phone.overall_device_score ? `${phone.overall_device_score}/10` : 'N/A'}
-• Performance: ${phone.performance_score ? `${phone.performance_score}/10` : 'N/A'}
-• Camera: ${phone.camera_score ? `${phone.camera_score}/10` : 'N/A'}
-• Display: ${phone.display_score ? `${phone.display_score}/10` : 'N/A'}
-• Battery: ${phone.battery_score ? `${phone.battery_score}/10` : 'N/A'}
 
 COMPETITIVE CONTEXT:
 ${competitorContext}
@@ -664,15 +658,13 @@ ANALYSIS GUIDELINES:
 7. Consider the local market context and user preferences in Bangladesh
 8. Keep each point CONCISE AND COMPACT (1 sentence maximum)
 9. Prioritize points that would matter most to actual users making a purchase decision
-10. ONLY include scores for the overall phone quality and 1-2 most important features - not for every single point
-11. When scores are included, format them simply as "X/10" (e.g., "7/10") - round to single decimal place like {Math.round((phone.overall_device_score / 10) * 2) / 2}
 
 REQUIRED OUTPUT FORMAT (JSON only, no markdown or code blocks):
 {
   "pros": [
     "Camera quality: 50MP sensor with OIS captures sharp photos even in low light",
     "Battery life: 5000mAh capacity provides reliable all-day usage",
-    "Value proposition: Excellent features for the price point - overall score 8/10"
+    "Value proposition: Excellent features for the price point"
   ],
   "cons": [
     "Display quality: Basic 60Hz refresh rate compared to 90Hz/120Hz in competitors", 

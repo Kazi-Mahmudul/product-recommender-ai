@@ -170,10 +170,10 @@ class ResponseValidator:
                 if isinstance(price, (int, float)) and price >= 0:
                     validated_phone["price"] = float(price)
             
-            if "image" in phone:
-                image = phone["image"]
+            if "img_url" in phone:
+                image = phone["img_url"]
                 if isinstance(image, str):
-                    validated_phone["image"] = ResponseValidator._sanitize_url(image)
+                    validated_phone["img_url"] = ResponseValidator._sanitize_url(image)
             
             if "key_specs" in phone:
                 key_specs = phone["key_specs"]

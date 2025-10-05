@@ -2,8 +2,8 @@ name: Main Data Pipeline
 
 on:
   schedule:
-    # Daily at 2 AM Bangladesh time (UTC+6, so 8 PM UTC previous day)
-    - cron: '0 20 * * *'
+    # Weekly at 2 AM Bangladesh time on Sunday (UTC+6, so 8 PM UTC previous day/Saturday)
+    - cron: '0 20 * * 6'
   workflow_dispatch:
     inputs:
       max_pages:
@@ -20,7 +20,7 @@ on:
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   PIPELINE_ENV: production
-  LOG_LEVEL: INFO
+  LOG_LEVEL: WARNING  # Reduced logging for production
   BATCH_SIZE: 50
 
 jobs:

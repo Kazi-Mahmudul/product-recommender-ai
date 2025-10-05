@@ -18,7 +18,7 @@ def setup_logging(level: str = 'INFO') -> logging.Logger:
     """Setup logging for the processor scraper"""
     logging.basicConfig(
         level=getattr(logging, level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(levelname)s - %(message)s'
     )
     return logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class SimpleProcessorScraper:
         """Scrape a single page using requests"""
         try:
             url = f"https://nanoreview.net/en/soc-list/rating?page={page_number}"
-            self.logger.info(f"🔍 Scraping page {page_number}: {url}")
+            self.logger.debug(f"🔍 Scraping page {page_number}")
             
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
@@ -84,13 +84,11 @@ class SimpleProcessorScraper:
             # Find the table
             table = soup.find('table', class_='table-list')
             if not table:
-                self.logger.info(f"   No table found on page {page_number}")
                 return []
             
             rows = table.find_all('tr')[1:]  # Skip header
             
             if not rows:
-                self.logger.info(f"   No data rows found on page {page_number}")
                 return []
             
             processors = []
@@ -138,19 +136,18 @@ class SimpleProcessorScraper:
                         processors.append(processor)
                         
                 except Exception as e:
-                    self.logger.warning(f"   Error processing row: {str(e)}")
+                    self.logger.debug(f"   Error processing row: {str(e)}")
                     continue
             
-            self.logger.info(f"   ✅ Extracted {len(processors)} processors from page {page_number}")
             return processors
             
         except Exception as e:
-            self.logger.error(f"   ❌ Error scraping page {page_number}: {str(e)}")
+            self.logger.warning(f"   Error scraping page {page_number}: {str(e)}")
             return []
     
     def scrape_all_pages(self, max_pages: Optional[int] = None) -> pd.DataFrame:
         """Scrape all pages"""
-        self.logger.info(f"🚀 Starting simple processor scraping (requests-only)")
+        self.logger.info(f"🚀 Starting processor scraping")
         self.logger.info(f"   Max pages: {max_pages or 'ALL'}")
         
         all_processors = []
@@ -170,7 +167,7 @@ class SimpleProcessorScraper:
                 
                 if not processors:
                     consecutive_empty_pages += 1
-                    self.logger.info(f"   Empty page {page}. Consecutive empty: {consecutive_empty_pages}/{max_consecutive_empty}")
+                    self.logger.debug(f"   Empty page {page}. Consecutive empty: {consecutive_empty_pages}/{max_consecutive_empty}")
                     
                     if page == 1:
                         self.logger.error("❌ First page is empty - website might be down")
@@ -182,7 +179,7 @@ class SimpleProcessorScraper:
                 else:
                     consecutive_empty_pages = 0
                     all_processors.extend(processors)
-                    self.logger.info(f"   Total processors collected: {len(all_processors)}")
+                    self.logger.debug(f"   Collected {len(processors)} processors from page {page}")
                 
                 page += 1
                 time.sleep(0.5)  # Small delay to be respectful
@@ -198,24 +195,9 @@ class SimpleProcessorScraper:
                 
                 return df
             else:
-                self.logger.warning("⚠️ No processors found")
+                self.logger.error("❌ No processors found")
                 return pd.DataFrame()
                 
         except Exception as e:
-            self.logger.error(f"❌ Scraping failed: {str(e)}")
+            self.logger.error(f"❌ Processor scraping failed: {str(e)}")
             return pd.DataFrame()
-
-def main():
-    """Test the simple scraper"""
-    scraper = SimpleProcessorScraper()
-    df = scraper.scrape_all_pages(max_pages=2)  # Test with 2 pages
-    
-    if not df.empty:
-        print(f"\\n📊 Sample data:")
-        for i, row in df.head(3).iterrows():
-            print(f"   {row['rank']}. {row['processor']} ({row['company']}) - {row['rating']}")
-    else:
-        print("❌ No data scraped")
-
-if __name__ == "__main__":
-    main()

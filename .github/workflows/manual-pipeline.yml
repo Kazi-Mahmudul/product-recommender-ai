@@ -22,7 +22,7 @@ on:
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   PIPELINE_ENV: testing
-  LOG_LEVEL: DEBUG
+  LOG_LEVEL: INFO  # Keep INFO level for manual testing
   BATCH_SIZE: 10
 
 jobs:

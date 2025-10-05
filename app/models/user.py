@@ -4,6 +4,19 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 
 class User(Base):
+    """
+    User model for authentication system.
+    
+    Attributes:
+        id: Unique user identifier
+        email: User email address (unique)
+        password_hash: Hashed user password
+        is_verified: Email verification status
+        is_admin: Admin privileges flag
+        created_at: Account creation timestamp
+        first_name: User's first name
+        last_name: User's last name
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -19,9 +32,18 @@ class User(Base):
     email_verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<User {self.email}>"
+        return f"<User(id={self.id}, email='{self.email}', is_verified={self.is_verified}, is_admin={self.is_admin})>"
 
 class EmailVerification(Base):
+    """
+    Email verification model for user registration.
+    
+    Attributes:
+        id: Unique verification identifier
+        user_id: Reference to user ID
+        code: Verification code (6 digits)
+        expires_at: Expiration timestamp
+    """
     __tablename__ = "email_verifications"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -33,4 +55,4 @@ class EmailVerification(Base):
     user = relationship("User", back_populates="email_verifications")
 
     def __repr__(self):
-        return f"<EmailVerification user_id={self.user_id} code={self.code}>" 
+        return f"<EmailVerification(user_id={self.user_id}, code='{self.code}', expires_at='{self.expires_at}')>"

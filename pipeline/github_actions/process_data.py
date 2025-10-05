@@ -29,9 +29,14 @@ def setup_logging():
     """Setup basic logging for the processing"""
     import logging
     
+    # Reduce logging verbosity in production
+    log_level = getattr(logging, config.log_level)
+    if config.environment == 'production':
+        log_level = logging.WARNING  # Only show warnings and errors in production
+    
     logging.basicConfig(
-        level=getattr(logging, config.log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=log_level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout)
         ]
@@ -77,50 +82,41 @@ def get_scraped_data_from_database(pipeline_run_id: str) -> Optional[object]:
         ORDER BY updated_at DESC, created_at DESC
         """
         
-        # Debug: Check total records and recent records
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM phones")
-        total_count = cursor.fetchone()[0]
-        
-        cursor.execute("""
-            SELECT COUNT(*) FROM phones 
-            WHERE updated_at >= NOW() - INTERVAL '1 day'
-            OR created_at >= NOW() - INTERVAL '1 day'
-        """)
-        recent_count = cursor.fetchone()[0]
-        
-        cursor.execute("""
-            SELECT MAX(updated_at) as max_updated, MAX(created_at) as max_created, 
-                   MIN(updated_at) as min_updated, MIN(created_at) as min_created
-            FROM phones
-        """)
-        timestamp_info = cursor.fetchone()
-        
-        logger.info(f"📊 Database stats: {total_count} total records, {recent_count} recent records")
-        if timestamp_info:
-            logger.info(f"   Timestamp range - Updated: {timestamp_info[2]} to {timestamp_info[0]}")
-            logger.info(f"   Timestamp range - Created: {timestamp_info[3]} to {timestamp_info[1]}")
+        # Only show detailed stats in debug mode
+        if config.log_level == 'DEBUG':
+            # Debug: Check total records and recent records
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM phones")
+            total_count = cursor.fetchone()[0]
+            
+            cursor.execute("""
+                SELECT COUNT(*) FROM phones 
+                WHERE updated_at >= NOW() - INTERVAL '1 day'
+                OR created_at >= NOW() - INTERVAL '1 day'
+            """)
+            recent_count = cursor.fetchone()[0]
+            
+            logger.debug(f"📊 Database stats: {total_count} total records, {recent_count} recent records")
         
         df = pd.read_sql_query(query, conn)
         
         # If no recent records found, try fallback query by pipeline_run_id
         if len(df) == 0:
-            logger.warning("⚠️ No records found with recent timestamps, trying fallback query by pipeline_run_id...")
+            logger.warning("⚠️ No records found with recent timestamps, trying fallback query...")
             fallback_query = """
             SELECT * FROM phones 
             WHERE pipeline_run_id = %s
             ORDER BY scraped_at DESC
             """
             df = pd.read_sql_query(fallback_query, conn, params=[pipeline_run_id])
-            logger.info(f"📊 Fallback query retrieved {len(df)} records for pipeline_run_id: {pipeline_run_id}")
         
         conn.close()
         
-        logger.info(f"✅ Retrieved {len(df)} records from database for processing")
+        logger.info(f"✅ Retrieved {len(df)} records for processing")
         return df
         
     except Exception as e:
-        logger.error(f"❌ Failed to retrieve data from database: {str(e)}")
+        logger.error(f"❌ Failed to retrieve data: {str(e)}")
         return None
 
 # Feature engineering functions (embedded from clean_transform_pipeline.py)
@@ -636,12 +632,10 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
         
         start_time = time.time()
         
-        logger.info("🔧 Starting integrated data processing...")
+        logger.info("🔧 Starting data processing...")
         
         # Apply feature engineering
-        logger.info("⚙️ Starting feature engineering...")
         processed_df = engineer_features(df, processor_df)
-        logger.info(f"   ✅ Feature engineering completed: {len(processed_df.columns)} total columns")
         
         # Basic quality estimation
         completeness = float(processed_df.notna().mean().mean())
@@ -661,7 +655,7 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
         
         # Load processed data directly to database (no intermediate CSV file)
         if not test_mode:
-            logger.info("💾 Loading processed data directly to database...")
+            logger.info("💾 Loading processed data to database...")
             try:
                 # Import DirectDatabaseLoader
                 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services'))
@@ -669,8 +663,6 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
                 
                 # Initialize database loader
                 loader = DirectDatabaseLoader(config.database_url, config.database_config['batch_size'])
-                
-                # Use the pipeline_run_id passed as parameter
                 
                 # Load data directly to database
                 loading_result = loader.load_processed_dataframe(processed_df, pipeline_run_id)
@@ -683,29 +675,28 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
                         'database_operations': loading_result['database_operations'],
                         'database_loading_time': loading_result['execution_time_seconds']
                     })
-                    logger.info(f"   ✅ Database loading completed: {loading_result['records_inserted']} inserted, {loading_result['records_updated']} updated")
+                    logger.info(f"   ✅ Database loading completed: {loading_result['records_inserted']} inserted")
                 else:
                     # If database loading fails, mark the entire operation as failed
-                    logger.error(f"   ❌ Database loading failed: {loading_result.get('error_message', 'Unknown error')}")
+                    logger.error(f"   ❌ Database loading failed")
                     result.update({
                         'status': 'failed',
-                        'error': f"Database loading failed: {loading_result.get('error_message', 'Unknown error')}",
+                        'error': f"Database loading failed",
                         'records_inserted': 0,
                         'records_updated': 0,
                         'database_loading_failed': True
                     })
                     
             except ImportError as e:
-                logger.warning(f"⚠️ DirectDatabaseLoader not available: {e}")
-                logger.info("   Skipping direct database loading - will rely on separate loading step")
+                logger.warning(f"⚠️ DirectDatabaseLoader not available")
                 # Don't fail the processing step if DirectDatabaseLoader is not available
                 result['database_loading_skipped'] = True
                 result['database_loading_skip_reason'] = str(e)
             except Exception as e:
-                logger.error(f"❌ Direct database loading failed: {str(e)}")
+                logger.error(f"❌ Direct database loading failed")
                 result.update({
                     'status': 'failed',
-                    'error': f"Direct database loading failed: {str(e)}",
+                    'error': f"Direct database loading failed",
                     'records_inserted': 0,
                     'records_updated': 0,
                     'database_loading_failed': True
@@ -714,24 +705,11 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
             logger.info("🧪 Test mode: Skipping database loading")
             result['test_mode'] = True
         
-        logger.info(f"✅ Data processing and loading completed successfully!")
-        logger.info(f"   Records processed: {result['records_processed']}")
-        logger.info(f"   Quality score: {result['quality_score']:.2f}")
-        logger.info(f"   Features generated: {result['features_generated']}")
-        logger.info(f"   Processing time: {result['execution_time_seconds']:.2f} seconds")
-        if 'records_inserted' in result:
-            logger.info(f"   Records inserted: {result['records_inserted']}")
-        if 'records_updated' in result:
-            logger.info(f"   Records updated: {result['records_updated']}")
-        if 'database_loading_time' in result:
-            logger.info(f"   Database loading time: {result['database_loading_time']:.2f} seconds")
-        
+        logger.info(f"✅ Data processing completed successfully!")
         return result
         
     except Exception as e:
         logger.error(f"❌ Data processing failed: {str(e)}")
-        import traceback
-        logger.error(f"   Error details: {traceback.format_exc()}")
         
         return {
             'status': 'failed',
@@ -764,10 +742,6 @@ def main():
     
     logger = setup_logging()
     logger.info(f"🔧 Starting data processing orchestrator")
-    logger.info(f"   Pipeline Run ID: {args.pipeline_run_id}")
-    logger.info(f"   Test mode: {test_mode}")
-    logger.info(f"   Scraping status: {scraping_result.get('status', 'unknown')}")
-    logger.info(f"   Processor status: {processor_result.get('status', 'unknown')}")
     
     try:
         # Check if we have data to process
@@ -800,7 +774,7 @@ def main():
         df = get_scraped_data_from_database(args.pipeline_run_id)
         
         if df is None or len(df) == 0:
-            logger.warning("⚠️ No data found in database, creating sample processing result")
+            logger.warning("⚠️ No data found in database")
             
             # Create a minimal success result for testing
             result = {
@@ -841,19 +815,16 @@ def main():
                 f.write(f"processing_result={json.dumps(json_safe_result)}\n")
         
         # Summary
-        logger.info(f"🎯 Data processing and loading completed with status: {result['status'].upper()}")
-        logger.info(f"   Records processed: {result.get('records_processed', 0)}")
-        logger.info(f"   Records inserted: {result.get('records_inserted', 0)}")
-        logger.info(f"   Records updated: {result.get('records_updated', 0)}")
-        logger.info(f"   Quality score: {result.get('quality_score', 0):.2f}")
+        logger.info(f"🎯 Data processing completed: {result['status'].upper()}")
+        logger.info(f"   Records: {result.get('records_processed', 0)}")
+        if 'records_inserted' in result:
+            logger.info(f"   Inserted: {result.get('records_inserted', 0)}")
         
         # Exit with appropriate code
         sys.exit(0 if result['status'] == 'success' else 1)
         
     except Exception as e:
         logger.error(f"❌ Data processing orchestrator failed: {str(e)}")
-        import traceback
-        logger.error(f"   Error details: {traceback.format_exc()}")
         
         # Set failed output for GitHub Actions
         failed_result = {

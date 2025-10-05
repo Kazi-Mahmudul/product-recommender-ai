@@ -516,76 +516,10 @@ class KnowledgeRetrievalService:
                 "unit": "mAh"
             },
             {
-                "key": "charging_wattage",
-                "label": "Charging",
-                "values": [p.get("charging_wattage") for p in phone_dicts],
-                "unit": "W"
-            },
-            {
-                "key": "display_type",
-                "label": "Display Type",
-                "values": [p.get("display_type") for p in phone_dicts],
-                "unit": ""
-            },
-            {
-                "key": "screen_size_numeric",
-                "label": "Screen Size",
-                "values": [p.get("screen_size_numeric") for p in phone_dicts],
-                "unit": "inch"
-            },
-            {
                 "key": "refresh_rate_numeric",
                 "label": "Refresh Rate",
                 "values": [p.get("refresh_rate_numeric") for p in phone_dicts],
                 "unit": "Hz"
-            },
-            {
-                "key": "chipset",
-                "label": "Chipset",
-                "values": [p.get("chipset") for p in phone_dicts],
-                "unit": ""
-            },
-            {
-                "key": "weight",
-                "label": "Weight",
-                "values": [p.get("weight") for p in phone_dicts],
-                "unit": "g"
-            },
-            {
-                "key": "thickness",
-                "label": "Thickness",
-                "values": [p.get("thickness") for p in phone_dicts],
-                "unit": "mm"
-            },
-            {
-                "key": "overall_device_score",
-                "label": "Overall Score",
-                "values": [p.get("overall_device_score") for p in phone_dicts],
-                "unit": "/10"
-            },
-            {
-                "key": "performance_score",
-                "label": "Performance",
-                "values": [p.get("performance_score") for p in phone_dicts],
-                "unit": "/10"
-            },
-            {
-                "key": "camera_score",
-                "label": "Camera",
-                "values": [p.get("camera_score") for p in phone_dicts],
-                "unit": "/10"
-            },
-            {
-                "key": "battery_score",
-                "label": "Battery",
-                "values": [p.get("battery_score") for p in phone_dicts],
-                "unit": "/10"
-            },
-            {
-                "key": "display_score",
-                "label": "Display",
-                "values": [p.get("display_score") for p in phone_dicts],
-                "unit": "/10"
             }
         ]
         

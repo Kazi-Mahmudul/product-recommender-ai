@@ -8,23 +8,6 @@ interface ProsConsProps {
   onGenerate: () => void;
 }
 
-// Helper function to extract score from text and return the text without score
-const extractScoreAndText = (text: string) => {
-  // Look for patterns like "X/10:" where X can be a decimal number (e.g., "7.5/10:", "8/10:")
-  const scorePattern = /(\d+\.?\d*)\/10:\s*/;
-  const match = text.match(scorePattern);
-  
-  if (match) {
-    const score = match[0].trim(); // e.g., "7.5/10: " or "8/10: "
-    // Remove the score part from the text
-    const description = text.replace(scorePattern, '').trim();
-    return { score: score.replace(':', ''), description };
-  }
-  
-  // If no score found, return the full text
-  return { score: null, description: text.trim() };
-};
-
 const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGenerate }) => (
   <section
     className="pros-cons-container rounded-2xl shadow-lg p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
@@ -86,19 +69,11 @@ const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGener
             <span role="img" aria-label="Pros">✅</span> PROS
           </div>
           <ul className="text-emerald-800 dark:text-emerald-100 text-sm space-y-2 list-disc ml-5">
-            {pros.length > 0 ? pros.map((p, i) => {
-              const { score, description } = extractScoreAndText(p);
-              return (
-                <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-emerald-100 dark:hover:bg-emerald-800 hover:scale-[1.02] rounded px-2 py-1 flex items-start justify-between">
-                  <span className="flex-1">{description}</span>
-                  {score && (
-                    <span className="ml-2 px-2 py-0.5 bg-emerald-200 dark:bg-emerald-700 text-emerald-800 dark:text-emerald-100 text-xs rounded font-medium">
-                      {score}
-                    </span>
-                  )}
-                </li>
-              );
-            }) : <li className="italic text-gray-400">No pros available.</li>}
+            {pros.length > 0 ? pros.map((p, i) => (
+              <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-emerald-100 dark:hover:bg-emerald-800 hover:scale-[1.02] rounded px-2 py-1">
+                {p}
+              </li>
+            )) : <li className="italic text-gray-400">No pros available.</li>}
           </ul>
         </div>
         {/* Cons */}
@@ -107,19 +82,11 @@ const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGener
             <span role="img" aria-label="Cons">❌</span> CONS
           </div>
           <ul className="text-red-800 dark:text-red-100 text-sm space-y-2 list-disc ml-5">
-            {cons.length > 0 ? cons.map((c, i) => {
-              const { score, description } = extractScoreAndText(c);
-              return (
-                <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-red-100 dark:hover:bg-red-800 hover:scale-[1.02] rounded px-2 py-1 flex items-start justify-between">
-                  <span className="flex-1">{description}</span>
-                  {score && (
-                    <span className="ml-2 px-2 py-0.5 bg-red-200 dark:bg-red-700 text-red-800 dark:text-red-100 text-xs rounded font-medium">
-                      {score}
-                    </span>
-                  )}
-                </li>
-              );
-            }) : <li className="italic text-gray-400">No cons available.</li>}
+            {cons.length > 0 ? cons.map((c, i) => (
+              <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-red-100 dark:hover:bg-red-800 hover:scale-[1.02] rounded px-2 py-1">
+                {c}
+              </li>
+            )) : <li className="italic text-gray-400">No cons available.</li>}
           </ul>
         </div>
       </div>
