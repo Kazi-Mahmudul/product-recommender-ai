@@ -222,18 +222,54 @@ class ResponseValidator:
                 "brand": ResponseValidator._sanitize_text(phone.get("brand", "Unknown"))
             }
             
-            if "id" in phone:
-                validated_phone["id"] = str(phone["id"])
+            # Include all relevant phone features for comparison
+            comparison_fields = [
+                "id", "model", "slug", "price", "image", "img_url", "url",
+                "display_type", "screen_size_inches", "display_resolution", 
+                "pixel_density_ppi", "refresh_rate_hz", "screen_protection",
+                "chipset", "cpu", "gpu", "ram", "ram_type", "internal_storage", 
+                "storage_type", "camera_setup", "primary_camera_resolution",
+                "selfie_camera_resolution", "main_camera", "front_camera",
+                "camera_features", "battery_type", "capacity", "quick_charging",
+                "wireless_charging", "reverse_charging", "build", "weight",
+                "thickness", "colors", "waterproof", "ip_rating", "network",
+                "bluetooth", "wlan", "gps", "nfc", "usb", "fingerprint_sensor",
+                "face_unlock", "operating_system", "os_version", "release_date",
+                "storage_gb", "ram_gb", "screen_size_numeric", "primary_camera_mp",
+                "selfie_camera_mp", "battery_capacity_numeric", "has_fast_charging",
+                "has_wireless_charging", "charging_wattage", "refresh_rate_numeric",
+                "ppi_numeric", "overall_device_score", "performance_score",
+                "display_score", "camera_score", "battery_score", "security_score",
+                "connectivity_score", "relevance_score", "match_reasons", "color"
+            ]
             
-            if "image" in phone:
-                image = phone["image"]
-                if isinstance(image, str):
-                    validated_phone["image"] = ResponseValidator._sanitize_url(image)
-            
-            if "price" in phone:
-                price = phone["price"]
-                if isinstance(price, (int, float)) and price >= 0:
-                    validated_phone["price"] = float(price)
+            for field in comparison_fields:
+                if field in phone:
+                    value = phone[field]
+                    # Handle different data types appropriately
+                    if field in ["price", "storage_gb", "ram_gb", "screen_size_numeric", 
+                                "primary_camera_mp", "selfie_camera_mp", "battery_capacity_numeric",
+                                "charging_wattage", "refresh_rate_numeric", "ppi_numeric",
+                                "overall_device_score", "performance_score", "display_score",
+                                "camera_score", "battery_score", "security_score", 
+                                "connectivity_score", "relevance_score"]:
+                        if isinstance(value, (int, float)) and value >= 0:
+                            validated_phone[field] = float(value)
+                    elif field == "match_reasons":
+                        if isinstance(value, list):
+                            validated_phone[field] = [
+                                ResponseValidator._sanitize_text(str(reason)) 
+                                for reason in value[:5]  # Limit to 5 reasons
+                                if reason
+                            ]
+                    elif field in ["has_fast_charging", "has_wireless_charging", 
+                                  "waterproof"]:
+                        validated_phone[field] = bool(value)
+                    elif isinstance(value, (str, int)):
+                        validated_phone[field] = ResponseValidator._sanitize_text(str(value))
+                    elif value is not None:
+                        # For other data types, convert to string and sanitize
+                        validated_phone[field] = ResponseValidator._sanitize_text(str(value))
             
             validated_phones.append(validated_phone)
         

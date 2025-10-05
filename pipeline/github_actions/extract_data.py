@@ -66,13 +66,13 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
             max_pages = 2
             logger.debug(f"   Test mode: Limited to {max_pages} pages")
         
-        # Start scraping
+        # Start scraping with optimized settings
         start_time = time.time()
         scraping_result = scraper.scrape_and_store(
             max_pages=max_pages,
             pipeline_run_id=pipeline_run_id,
             check_updates=True,
-            batch_size=config.batch_size
+            batch_size=100  # Increased from default to 100 for better performance
         )
         
         execution_time = time.time() - start_time
@@ -82,6 +82,7 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
             'status': 'success',
             'pipeline_run_id': pipeline_run_id,
             'execution_time_seconds': round(execution_time, 2),
+            'execution_time_minutes': round(execution_time / 60, 2),
             'timestamp': datetime.now().isoformat(),
             'test_mode': test_mode,
             'max_pages': max_pages,
@@ -94,12 +95,14 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
                 'products_processed': scraping_result.get('products_processed', 0),
                 'products_inserted': scraping_result.get('products_inserted', 0),
                 'products_updated': scraping_result.get('products_updated', 0),
-                'pages_scraped': scraping_result.get('pages_scraped', 0)
+                'pages_scraped': scraping_result.get('pages_scraped', 0),
+                'phones_collected': scraping_result.get('phones_collected', 0)
             })
         
         logger.info(f"✅ MobileDokan scraping completed!")
         logger.info(f"   Products: {result.get('products_processed', 0)} processed")
         logger.info(f"   Pages: {result.get('pages_scraped', 0)} scraped")
+        logger.info(f"   Execution time: {result.get('execution_time_minutes', 0)} minutes")
         
         return result
         

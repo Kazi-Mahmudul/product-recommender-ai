@@ -37,10 +37,10 @@ class PipelineConfig:
     def scraper_config(self) -> Dict[str, Any]:
         """Configuration for scrapers"""
         return {
-            'rate_limit_requests_per_minute': 30,
+            'rate_limit_requests_per_minute': 60,  # Increased from 30 to 60
             'timeout_seconds': 30,
             'max_retries': 3,
-            'retry_delay_seconds': 5,
+            'retry_delay_seconds': 2,  # Reduced from 5 to 2
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
         }
     

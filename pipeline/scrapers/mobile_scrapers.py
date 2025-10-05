@@ -311,18 +311,27 @@ def sanitize_key(key, prefix=''):
 
 
 class RateLimiter:
-    """Rate limiter (same as manual scraper)"""
-    def __init__(self, requests_per_minute=30):
+    """Rate limiter with improved performance"""
+    def __init__(self, requests_per_minute=60):
         self.requests_per_minute = requests_per_minute
         self.requests = []
+        self.last_cleanup = time.time()
     
     def wait(self):
         now = time.time()
-        self.requests = [req for req in self.requests if now - req < 60]
+        
+        # Cleanup old requests every 10 seconds to avoid frequent list operations
+        if now - self.last_cleanup > 10:
+            self.requests = [req for req in self.requests if now - req < 60]
+            self.last_cleanup = now
+        
+        # Check if we need to rate limit
         if len(self.requests) >= self.requests_per_minute:
+            # Calculate sleep time based on the oldest request
             sleep_time = 60 - (now - self.requests[0])
             if sleep_time > 0:
-                time.sleep(sleep_time)
+                time.sleep(min(sleep_time, 1))  # Don't sleep more than 1 second at a time
+        
         self.requests.append(now)
 
 
@@ -662,8 +671,8 @@ class MobileDokanScraper:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Extract phone data
-            phone_data = self._extract_phone_data(soup, phone_url, phone_name)
+            # Extract phone data with optimized parsing
+            phone_data = self._extract_phone_data_optimized(soup, phone_url, phone_name)
             
             # Log only summary information
             if phone_data:
@@ -673,6 +682,46 @@ class MobileDokanScraper:
             
         except Exception as e:
             logger.warning(f"⚠️ Failed to scrape {phone_name}: {str(e)}")
+            return None
+
+    def _extract_phone_data_optimized(self, soup: BeautifulSoup, phone_url: str, phone_name: str) -> Dict[str, Any]:
+        """
+        Optimized phone data extraction focusing on key information only.
+        """
+        try:
+            # Extract key specifications (faster than full extraction)
+            key_specs = extract_key_specs(soup)
+
+            # Get basic info
+            name_tag = soup.select_one('#product-specs h2')
+            name = name_tag.get_text(strip=True).replace('Full Specifications', '').strip() if name_tag else None
+
+            # Get Price
+            price_tag = soup.select_one('.price span.h3')
+            price = price_tag.get_text(strip=True) if price_tag else None
+
+            # Get Main Image URL
+            img_tag = soup.select_one('img[itemprop="image"].img-fluid')
+            image_url = img_tag.get('src') if img_tag else None
+
+            # Parse brand and model from name
+            brand, model = parse_phone_title(name) if name else ('Unknown', 'Unknown')
+
+            # Prepare the result with only essential data
+            result = {
+                'name': name,
+                'brand': brand,
+                'model': model,
+                'price': price,
+                'image_url': image_url,
+                'specs': key_specs,  # Only key specs for faster processing
+                'url': phone_url
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing {phone_url}: {str(e)}")
             return None
     
     def scrape_page(self, page_number: int) -> List[Dict[str, Any]]:
@@ -691,13 +740,17 @@ class MobileDokanScraper:
             
             logger.debug(f"   Found {len(product_links)} products on page {page_number}")
             
-            # Scrape details for each product
+            # Scrape details for each product with minimal delay
             phones = []
-            for url in product_links:
+            for i, url in enumerate(product_links):
                 phone_name = url.split('/')[-1]
                 phone_data = self.scrape_phone_details(url, phone_name)
                 if phone_data:
                     phones.append(phone_data)
+                
+                # Reduced delay between requests within the same page
+                if i < len(product_links) - 1:  # Don't sleep after the last request
+                    time.sleep(0.1)  # Reduced from 0.5 to 0.1 seconds
             
             return phones
             
@@ -706,13 +759,14 @@ class MobileDokanScraper:
             return []
     
     def scrape_and_store(self, max_pages: Optional[int] = None, pipeline_run_id: str = 'unknown', 
-                    check_updates: bool = True, batch_size: int = 50) -> Dict[str, Any]:
+                    check_updates: bool = True, batch_size: int = 100) -> Dict[str, Any]:
         """
         Scrape phones from multiple pages and store in database.
         """
         logger.info(f"🚀 Starting phone scraping")
         logger.info(f"   Max pages: {max_pages or 'ALL'}")
         logger.info(f"   Pipeline run ID: {pipeline_run_id}")
+        logger.info(f"   Batch size: {batch_size}")
         
         start_time = time.time()
         
@@ -760,13 +814,14 @@ class MobileDokanScraper:
                             all_phones.append(phone)
                             
                             # Log progress periodically
-                            if len(all_phones) % 20 == 0:
+                            if len(all_phones) % 50 == 0:  # Increased from 20 to 50
                                 logger.info(f"   Progress: {len(all_phones)} phones collected")
                     
                     logger.debug(f"   Page {page}: {len(phones_on_page)} phones")
                 
                 page += 1
-                time.sleep(0.5)  # Small delay to be respectful
+                # Reduced delay between pages
+                time.sleep(0.2)  # Reduced from 0.5 to 0.2 seconds
         
             # Summary of collection
             logger.info(f"📊 Collection completed: {len(all_phones)} phones from {pages_scraped} pages")
@@ -806,6 +861,7 @@ class MobileDokanScraper:
             logger.info(f"   Pages: {pages_scraped}")
             logger.info(f"   Phones: {len(all_phones)} collected")
             logger.info(f"   Database: {products_inserted} inserted, {products_updated} updated")
+            logger.info(f"   Execution time: {round(execution_time/60, 2)} minutes")
             
             return result
             
@@ -937,7 +993,7 @@ class MobileDokanScraper:
                         'model': row.get('model'),
                         'price': row.get('price'),
                         'url': row.get('url'),
-                        'image_url': row.get('img_url'),
+                        'image_url': row.get('image_url'),
                         'specs': {k: v for k, v in row.items() if k not in ['name', 'brand', 'model', 'price', 'url', 'img_url', 'scraped_at', 'pipeline_run_id', 'data_source', 'is_pipeline_managed']}
                     }
                     
@@ -1132,9 +1188,9 @@ class MobileDokanScraper:
             return 'error'
 
     def store_phones_in_database(self, phones: List[Dict[str, Any]], pipeline_run_id: str, 
-                                check_updates: bool = True, batch_size: int = 50) -> Dict[str, Any]:
+                                check_updates: bool = True, batch_size: int = 100) -> Dict[str, Any]:
         """
-        Store multiple phones in database using enhanced pipeline.
+        Store multiple phones in database using enhanced pipeline with batch operations.
         """
         try:
             logger.info(f"🔄 Storing {len(phones)} phones in database...")
@@ -1142,11 +1198,11 @@ class MobileDokanScraper:
             # Convert to DataFrame
             df = self.convert_scraped_data_to_dataframe(phones, pipeline_run_id)
             
-            # Process with enhanced pipeline
+            # Process with enhanced pipeline using batch operations
             if PIPELINE_AVAILABLE:
-                result = self.process_with_enhanced_pipeline(df, pipeline_run_id)
+                result = self.process_with_enhanced_pipeline_batch(df, pipeline_run_id, batch_size)
             else:
-                result = self.process_with_basic_pipeline(df, pipeline_run_id)
+                result = self.process_with_basic_pipeline_batch(df, pipeline_run_id, batch_size)
             
             return result
             
@@ -1157,6 +1213,166 @@ class MobileDokanScraper:
                 'products_inserted': 0,
                 'products_updated': 0,
                 'errors': [str(e)]
+            }
+
+    def process_with_enhanced_pipeline_batch(self, df: pd.DataFrame, pipeline_run_id: str, batch_size: int = 100) -> Dict[str, Any]:
+        """Process DataFrame through the enhanced pipeline with batch operations"""
+        try:
+            logger.info(f"🔄 Applying enhanced pipeline to {len(df)} products in batches of {batch_size}...")
+            
+            total_processed = 0
+            total_inserted = 0
+            total_updated = 0
+            total_errors = []
+            total_cleaning_issues = 0
+            
+            # Process in batches
+            for i in range(0, len(df), batch_size):
+                batch_df = df.iloc[i:i+batch_size]
+                logger.info(f"  Processing batch {i//batch_size + 1}/{(len(df)-1)//batch_size + 1} ({len(batch_df)} phones)")
+                
+                # Step 1: Data Cleaning
+                logger.info("    🧹 Step 1: Data cleaning...")
+                cleaned_df, cleaning_issues = self.data_cleaner.clean_dataframe(batch_df)
+                logger.info(f"       Cleaning completed: {len(cleaning_issues)} issues found")
+                total_cleaning_issues += len(cleaning_issues)
+                
+                # Step 2: Feature Engineering
+                logger.info("    ⚙️ Step 2: Feature engineering...")
+                enhanced_df = self.feature_engineer.engineer_features(cleaned_df)
+                logger.info(f"       Feature engineering completed: {len(enhanced_df.columns)} total columns")
+                
+                # Step 3: Quality Validation
+                logger.info("    ✅ Step 3: Quality validation...")
+                passed, quality_report = self.quality_validator.validate_pipeline_data(enhanced_df)
+                quality_score = quality_report['overall_quality_score']
+                logger.info(f"       Quality validation: {'PASSED' if passed else 'WARNING'} (Score: {quality_score:.2f})")
+                
+                # Step 4: Database Update
+                logger.info("    💾 Step 4: Database update...")
+                success, db_results = self.database_updater.update_with_transaction(enhanced_df, pipeline_run_id)
+                
+                if success:
+                    inserted = db_results['results']['inserted']
+                    updated = db_results['results']['updated']
+                    errors = db_results['results']['errors']
+                    
+                    total_processed += len(batch_df)
+                    total_inserted += inserted
+                    total_updated += updated
+                    total_errors.extend(errors)
+                    
+                    logger.info(f"       Database update completed: {inserted} inserted, {updated} updated, {len(errors)} errors")
+                else:
+                    error_msg = f"Database update failed: {db_results.get('error', 'Unknown error')}"
+                    logger.error(f"       {error_msg}")
+                    total_errors.append(error_msg)
+                
+                # Small delay between batches to avoid overwhelming the database
+                if i + batch_size < len(df):
+                    time.sleep(0.1)
+            
+            logger.info(f"✅ Enhanced pipeline batch processing completed!")
+            
+            return {
+                'processed': total_processed,
+                'inserted': total_inserted,
+                'updated': total_updated,
+                'errors': total_errors,
+                'quality_score': quality_score,
+                'cleaning_issues': total_cleaning_issues
+            }
+                
+        except Exception as e:
+            error_msg = f"Enhanced pipeline batch processing failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'processed': 0,
+                'inserted': 0,
+                'updated': 0,
+                'errors': [error_msg],
+                'quality_score': 0.0,
+                'cleaning_issues': 0
+            }
+
+    def process_with_basic_pipeline_batch(self, df: pd.DataFrame, pipeline_run_id: str, batch_size: int = 100) -> Dict[str, Any]:
+        """Fallback processing without enhanced pipeline using batch operations"""
+        try:
+            logger.info(f"🔄 Applying basic pipeline to {len(df)} products in batches of {batch_size}...")
+            
+            total_processed = 0
+            total_inserted = 0
+            total_updated = 0
+            total_errors = []
+            
+            # Process in batches
+            for i in range(0, len(df), batch_size):
+                batch_df = df.iloc[i:i+batch_size]
+                logger.info(f"  Processing batch {i//batch_size + 1}/{(len(df)-1)//batch_size + 1} ({len(batch_df)} phones)")
+                
+                processed = 0
+                inserted = 0
+                updated = 0
+                errors = []
+                
+                # Process each row in the batch
+                for _, row in batch_df.iterrows():
+                    try:
+                        product_data = {
+                            'name': row.get('name'),
+                            'brand': row.get('brand'),
+                            'model': row.get('model'),
+                            'price': row.get('price'),
+                            'url': row.get('url'),
+                            'image_url': row.get('image_url'),
+                            'specs': {k: v for k, v in row.items() if k not in ['name', 'brand', 'model', 'price', 'url', 'image_url', 'scraped_at', 'pipeline_run_id', 'data_source', 'is_pipeline_managed']}
+                        }
+                        
+                        result = self.store_product_in_database(product_data, pipeline_run_id)
+                        if result == 'inserted':
+                            inserted += 1
+                        elif result == 'updated':
+                            updated += 1
+                        
+                        processed += 1
+                        
+                    except Exception as e:
+                        error_msg = f"Error processing product {row.get('name', 'Unknown')}: {str(e)}"
+                        errors.append(error_msg)
+                        logger.error(error_msg)
+                
+                total_processed += processed
+                total_inserted += inserted
+                total_updated += updated
+                total_errors.extend(errors)
+                
+                logger.info(f"    Batch completed: {processed} processed, {inserted} inserted, {updated} updated")
+                
+                # Small delay between batches to avoid overwhelming the database
+                if i + batch_size < len(df):
+                    time.sleep(0.1)
+            
+            logger.info(f"✅ Basic pipeline batch processing completed!")
+            
+            return {
+                'processed': total_processed,
+                'inserted': total_inserted,
+                'updated': total_updated,
+                'errors': total_errors,
+                'quality_score': 0.8,  # Assume basic quality
+                'cleaning_issues': 0
+            }
+            
+        except Exception as e:
+            error_msg = f"Basic pipeline batch processing failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'processed': 0,
+                'inserted': 0,
+                'updated': 0,
+                'errors': [error_msg],
+                'quality_score': 0.0,
+                'cleaning_issues': 0
             }
     
     def _make_request(self, url: str) -> Optional[requests.Response]:
