@@ -941,8 +941,13 @@ def validate_database_schema(db: Session) -> Dict[str, Any]:
         }
 def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Get phones based on a dictionary of filters.
-    This method is used by the RAG system for flexible phone retrieval.
+    Get phones based on a dictionary of filters with enhanced multi-step filtering.
+    This method implements the proper recommendation logic:
+    1. Exact requirement matching
+    2. Closest to user specs (price, RAM, etc.)
+    3. Recent releases (within 6 months)
+    4. Overall score sorting
+    5. Popular brands filtering
     
     Args:
         db: Database session
@@ -1007,7 +1012,7 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
         params = {
             'db': db,
             'skip': 0,
-            'limit': limit
+            'limit': limit * 3  # Get more phones initially for better filtering
         }
         
         # Map simple filters
@@ -1018,7 +1023,7 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
         # Handle special filters
         if 'is_popular_brand' in filters and filters['is_popular_brand']:
             # Filter for popular brands
-            popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
+            popular_brands = ["samsung","apple","iphone","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia","symphony","iqoo","sony","lg","nokia"]
             if 'brand' not in params:
                 # If no specific brand filter, we'll handle this in the query
                 pass
@@ -1041,77 +1046,126 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
         phone_dicts = []
         for phone in phones:
             phone_dict = phone_to_dict(phone)
-            
-            # Apply additional filters that aren't handled by get_phones
-            if 'camera_score' in filters:
-                camera_score = phone_dict.get('camera_score', 0)
-                if camera_score < filters['camera_score']:
-                    continue
-            
-            if 'performance_score' in filters:
-                performance_score = phone_dict.get('performance_score', 0)
-                if performance_score < filters['performance_score']:
-                    continue
-            
-            if 'display_score' in filters:
-                display_score = phone_dict.get('display_score', 0)
-                if display_score < filters['display_score']:
-                    continue
-            
-            if 'battery_score' in filters:
-                battery_score = phone_dict.get('battery_score', 0)
-                if battery_score < filters['battery_score']:
-                    continue
-            
-            if 'security_score' in filters:
-                security_score = phone_dict.get('security_score', 0)
-                if security_score < filters['security_score']:
-                    continue
-            
-            if 'connectivity_score' in filters:
-                connectivity_score = phone_dict.get('connectivity_score', 0)
-                if connectivity_score < filters['connectivity_score']:
-                    continue
-            
-            if 'overall_device_score' in filters:
-                overall_score = phone_dict.get('overall_device_score', 0)
-                if overall_score < filters['overall_device_score']:
-                    continue
-            
-            if 'is_popular_brand' in filters and filters['is_popular_brand']:
-                brand = phone_dict.get('brand', '')
-                popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
-                if brand not in popular_brands:
-                    continue
-            
-            if 'has_fast_charging' in filters:
-                has_fast_charging = phone_dict.get('has_fast_charging', False)
-                if has_fast_charging != filters['has_fast_charging']:
-                    continue
-            
-            if 'has_wireless_charging' in filters:
-                has_wireless_charging = phone_dict.get('has_wireless_charging', False)
-                if has_wireless_charging != filters['has_wireless_charging']:
-                    continue
-            
-            if 'is_new_release' in filters:
-                is_new_release = phone_dict.get('is_new_release', False)
-                if is_new_release != filters['is_new_release']:
-                    continue
-            
-            if 'is_upcoming' in filters:
-                is_upcoming = phone_dict.get('is_upcoming', False)
-                if is_upcoming != filters['is_upcoming']:
-                    continue
-            
             phone_dicts.append(phone_dict)
-            
-            # Stop if we have enough phones
-            if len(phone_dicts) >= limit:
-                break
         
-        logger.info(f"Retrieved {len(phone_dicts)} phones with filters: {filters}")
-        return phone_dicts
+        # Apply enhanced multi-step filtering
+        filtered_phones = phone_dicts.copy()
+        
+        # Step 1: Exclude upcoming phones by default (unless explicitly requested)
+        if 'is_upcoming' not in filters:
+            # By default, exclude upcoming phones from recommendations
+            filtered_phones = [p for p in filtered_phones if p.get('is_upcoming') is not True]
+        elif filters['is_upcoming'] is False:
+            # Explicitly exclude upcoming phones
+            filtered_phones = [p for p in filtered_phones if p.get('is_upcoming') is not True]
+        # If is_upcoming is True, we'll include them (handled later)
+        
+        # Step 2: Apply additional filters that aren't handled by get_phones
+        if 'camera_score' in filters:
+            camera_score = filters['camera_score']
+            filtered_phones = [p for p in filtered_phones if p.get('camera_score') is not None and p.get('camera_score', 0) >= camera_score]
+        
+        if 'performance_score' in filters:
+            performance_score = filters['performance_score']
+            filtered_phones = [p for p in filtered_phones if p.get('performance_score') is not None and p.get('performance_score', 0) >= performance_score]
+        
+        if 'display_score' in filters:
+            display_score = filters['display_score']
+            filtered_phones = [p for p in filtered_phones if p.get('display_score') is not None and p.get('display_score', 0) >= display_score]
+        
+        if 'battery_score' in filters:
+            battery_score = filters['battery_score']
+            filtered_phones = [p for p in filtered_phones if p.get('battery_score') is not None and p.get('battery_score', 0) >= battery_score]
+        
+        if 'security_score' in filters:
+            security_score = filters['security_score']
+            filtered_phones = [p for p in filtered_phones if p.get('security_score') is not None and p.get('security_score', 0) >= security_score]
+        
+        if 'connectivity_score' in filters:
+            connectivity_score = filters['connectivity_score']
+            filtered_phones = [p for p in filtered_phones if p.get('connectivity_score') is not None and p.get('connectivity_score', 0) >= connectivity_score]
+        
+        if 'overall_device_score' in filters:
+            overall_score = filters['overall_device_score']
+            filtered_phones = [p for p in filtered_phones if p.get('overall_device_score') is not None and p.get('overall_device_score', 0) >= overall_score]
+        
+        if 'is_popular_brand' in filters and filters['is_popular_brand']:
+            popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
+            filtered_phones = [p for p in filtered_phones if p.get('brand', '') in popular_brands]
+        
+        if 'has_fast_charging' in filters:
+            has_fast_charging = filters['has_fast_charging']
+            filtered_phones = [p for p in filtered_phones if p.get('has_fast_charging') is not None and p.get('has_fast_charging', False) == has_fast_charging]
+        
+        if 'has_wireless_charging' in filters:
+            has_wireless_charging = filters['has_wireless_charging']
+            filtered_phones = [p for p in filtered_phones if p.get('has_wireless_charging') is not None and p.get('has_wireless_charging', False) == has_wireless_charging]
+        
+        if 'is_new_release' in filters:
+            is_new_release = filters['is_new_release']
+            filtered_phones = [p for p in filtered_phones if p.get('is_new_release') is not None and p.get('is_new_release', False) == is_new_release]
+        
+        if 'is_upcoming' in filters and filters['is_upcoming'] is True:
+            # Explicitly include upcoming phones
+            filtered_phones = [p for p in filtered_phones if p.get('is_upcoming') is True]
+        
+        # Step 3: Filter for recent releases (within 6 months) if not explicitly disabled
+        if 'max_age_in_months' not in filters:
+            # Default to 6 months for recent releases unless user specifically asked for older phones
+            filtered_phones = [p for p in filtered_phones if (p.get('age_in_months') is not None and p.get('age_in_months', 12) <= 6) or p.get('age_in_months') is None]
+        
+        # Step 4: Sort by closest to user requirements
+        # For price filtering, prioritize phones closest to the target price
+        if 'max_price' in filters and 'min_price' not in filters:
+            target_price = filters['max_price']
+            # Sort by how close to the target price (but still under)
+            filtered_phones.sort(key=lambda p: abs(p.get('price_original', target_price) - target_price) if (p.get('price_original') is not None and p.get('price_original', target_price) <= target_price) else float('inf'))
+        elif 'min_price' in filters and 'max_price' not in filters:
+            target_price = filters['min_price']
+            # Sort by how close to the target price (but still over)
+            filtered_phones.sort(key=lambda p: abs(p.get('price_original', target_price) - target_price) if p.get('price_original') is not None else float('inf'))
+        elif 'min_price' in filters and 'max_price' in filters:
+            min_price = filters['min_price']
+            max_price = filters['max_price']
+            # Sort by how close to the middle of the range
+            target_price = (min_price + max_price) / 2
+            filtered_phones.sort(key=lambda p: abs(p.get('price_original', target_price) - target_price) if (p.get('price_original') is not None and min_price <= p.get('price_original', 0) <= max_price) else float('inf'))
+        
+        # For RAM filtering, prioritize exact matches
+        if 'min_ram_gb' in filters and 'max_ram_gb' not in filters:
+            target_ram = filters['min_ram_gb']
+            # Sort by how close to the target RAM
+            filtered_phones.sort(key=lambda p: abs(p.get('ram_gb', target_ram) - target_ram) if p.get('ram_gb') is not None else float('inf'))
+        elif 'max_ram_gb' in filters and 'min_ram_gb' not in filters:
+            target_ram = filters['max_ram_gb']
+            # Sort by how close to the target RAM
+            filtered_phones.sort(key=lambda p: abs(p.get('ram_gb', target_ram) - target_ram) if p.get('ram_gb') is not None else float('inf'))
+        elif 'min_ram_gb' in filters and 'max_ram_gb' in filters:
+            min_ram = filters['min_ram_gb']
+            max_ram = filters['max_ram_gb']
+            # Sort by how close to the middle of the range
+            target_ram = (min_ram + max_ram) / 2
+            filtered_phones.sort(key=lambda p: abs(p.get('ram_gb', target_ram) - target_ram) if (p.get('ram_gb') is not None and min_ram <= p.get('ram_gb', 0) <= max_ram) else float('inf'))
+        
+        # For camera count filtering, prioritize exact matches
+        if 'camera_count' in filters:
+            target_camera_count = filters['camera_count']
+            filtered_phones.sort(key=lambda p: abs(p.get('camera_count', target_camera_count) - target_camera_count) if p.get('camera_count') is not None else float('inf'))
+        
+        # Step 5: Sort by overall device score (highest first)
+        filtered_phones.sort(key=lambda p: p.get('overall_device_score', 0) if p.get('overall_device_score') is not None else 0, reverse=True)
+        
+        # Step 6: Apply brand preference if no specific brand requested
+        if 'brand' not in filters and ('is_popular_brand' not in filters or filters['is_popular_brand']):
+            # Move popular brand phones to the front
+            popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
+            filtered_phones.sort(key=lambda p: 0 if p.get('brand', '') in popular_brands else 1)
+        
+        # Limit to requested number of phones
+        filtered_phones = filtered_phones[:limit]
+        
+        logger.info(f"Retrieved {len(filtered_phones)} phones with enhanced filtering. Original: {len(phone_dicts)}, Filters: {filters}")
+        return filtered_phones
         
     except Exception as e:
         logger.error(f"Error in get_phones_by_filters: {str(e)}", exc_info=True)

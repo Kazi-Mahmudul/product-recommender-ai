@@ -242,7 +242,7 @@ def is_popular_brand(name: str) -> bool:
     """Check if brand is popular"""
     if pd.isna(name): 
         return False
-    brands = ["samsung","apple","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia"]
+    brands = ["samsung","apple","iphone","xiaomi","redmi","poco","realme","oppo","vivo","oneplus","infinix","tecno","motorola","google","huawei","nokia","symphony","iqoo","sony","lg","nokia"]
     return any(b in str(name).lower() for b in brands)
 
 def get_processor_rank(proc_df, processor_name: str):

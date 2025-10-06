@@ -120,7 +120,7 @@ class KnowledgeRetrievalService:
                 logger.warning("No valid filters provided, using default popular phones")
                 sanitized_filters = {"is_popular_brand": True}
             
-            # Use existing phone_crud method with filters
+            # Use existing phone_crud method with filters - the enhanced version now handles all the logic
             try:
                 phones = phone_crud.get_phones_by_filters(db, sanitized_filters, limit=limit)
             except Exception as db_error:
@@ -132,12 +132,10 @@ class KnowledgeRetrievalService:
                     logger.error(f"Fallback query also failed: {str(fallback_error)}")
                     return []
             
-            # Convert to dicts and add RAG-specific metadata
+            # Add RAG-specific metadata to the already properly filtered and sorted phones
             result_phones = []
-            for i, phone in enumerate(phones):
+            for i, phone_dict in enumerate(phones):
                 try:
-                    phone_dict = phone_crud.phone_to_dict(phone) if hasattr(phone, '__table__') else phone
-                    
                     # Validate and sanitize phone data
                     phone_dict = DataValidator.validate_phone_data(phone_dict)
                     
@@ -146,8 +144,9 @@ class KnowledgeRetrievalService:
                         logger.warning(f"Skipping phone with incomplete data after validation: {phone_dict}")
                         continue
                     
-                    # Calculate relevance score based on position and filters
-                    relevance_score = max(0.9 - (i * 0.1), 0.1)
+                    # Calculate relevance score based on position (already sorted by our enhanced logic)
+                    # Higher scores for better matches that are sorted to the top
+                    relevance_score = max(1.0 - (i * 0.1), 0.1)
                     
                     # Generate match reasons based on filters
                     match_reasons = self._generate_match_reasons(phone_dict, sanitized_filters)

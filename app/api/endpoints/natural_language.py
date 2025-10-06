@@ -1147,7 +1147,7 @@ async def rag_enhanced_query(
                     phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=limit)  # Use the extracted limit
                     phone_dicts = phones
             else:
-                # Use direct database query
+                # Use direct database query with enhanced filtering
                 phones = phone_crud.get_phones_by_filters(db, processed_filters, limit=limit)  # Use the extracted limit
                 phone_dicts = phones
                 
@@ -1631,7 +1631,7 @@ async def rag_enhanced_query(
                     fallback_filters['brand'] = brand.title()
                     break
             
-            # Get basic recommendations
+            # Get basic recommendations using enhanced filtering
             phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)  # Use default 5 for fallback
             
             if phones:
