@@ -189,19 +189,8 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
                   </div>
                   
                   {/* Price and Action */}
-                  <div className="flex items-center justify-between">
                     <div className="font-bold text-sm md:text-base text-brand dark:text-white">
                       <span className="text-brand-darkGreen dark:text-brand-darkGreen font-normal text-xs mr-1">৳</span> {phone.price.toLocaleString()}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        phone.slug && navigate(generatePhoneDetailUrl(phone.slug));
-                      }}
-                      className="bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm"
-                    >
-                      Details
-                    </button>
                   </div>
                 </div>
               </div>

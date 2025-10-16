@@ -11,7 +11,7 @@ const sliderSettings = {
   dotsClass: "slick-dots custom-dots",
   infinite: true,
   speed: 500,
-  slidesToShow: 4,
+  slidesToShow: 3,
   slidesToScroll: 1,
   autoplay: true,
   autoplaySpeed: 4000,
@@ -20,11 +20,11 @@ const sliderSettings = {
   responsive: [
     {
       breakpoint: 1536, // 2xl screens
-      settings: { slidesToShow: 4 },
+      settings: { slidesToShow: 3 },
     },
     {
       breakpoint: 1280, // xl screens
-      settings: { slidesToShow: 3 },
+      settings: { slidesToShow: 2 },
     },
     {
       breakpoint: 1024, // lg screens
@@ -114,19 +114,19 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
       <div className="phone-slider-container relative">
         <Slider {...sliderSettings} className="phone-slider">
           {phones.map((phone, index) => (
-            <div key={phone.id} className="px-3 py-2">
+            <div key={phone.id} className="px-2 py-1">
               <div 
-                className="rounded-3xl bg-white dark:bg-card overflow-hidden transition-all duration-300 hover:shadow-soft-lg group cursor-pointer"
+                className="rounded-2xl bg-white dark:bg-card overflow-hidden transition-all duration-300 hover:shadow-soft-lg group cursor-pointer h-full"
                 onClick={() => phone.slug && navigate(generatePhoneDetailUrl(phone.slug))}
               >
                 {/* Card Header with Rank Badge */}
                 <div className="relative">
                   {/* Image Container with Gradient Background */}
-                  <div className="relative h-48 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-4">
+                  <div className="relative h-40 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-4">
                     <img
                       src={phone.img_url || "/no-image-placeholder.svg"}
                       alt={phone.name}
-                      className="h-40 object-contain transition-transform duration-500 group-hover:scale-105"
+                      className="h-32 object-contain transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
                         e.currentTarget.src = "/no-image-placeholder.svg";
                       }}
@@ -134,55 +134,31 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
                     />
                     
                     {/* Brand Badge */}
-                    <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-white/90 dark:bg-card/90 shadow-sm backdrop-blur-sm text-xs font-medium text-brand dark:text-white">
+                    <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-white/90 dark:bg-card/90 shadow-sm backdrop-blur-sm text-xs font-medium text-brand dark:text-white">
                       {phone.brand || "Brand"}
                     </div>
                     
                     {/* Rank Badge */}
-                    <div className="absolute top-4 right-4">
-                      <span className="inline-flex items-center px-2.5 py-1 bg-brand/10 text-brand text-xs font-bold rounded-full">
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center px-2 py-1 bg-brand/10 text-brand text-xs font-bold rounded-full">
                         #{index + 1}
                       </span>
                     </div>
                   </div>
                 </div>
                 
-                {/* Card Content */}
-                <div className="p-5">
+                {/* Card Content - Simplified */}
+                <div className="p-4">
                   {/* Phone Name */}
-                  <h3 className="font-medium text-base text-neutral-800 dark:text-white mb-1.5 line-clamp-2 h-12" title={phone.name}>
+                  <h3 className="font-medium text-sm text-neutral-800 dark:text-white mb-2 line-clamp-2 h-10" title={phone.name}>
                     {phone.name}
                   </h3>
                   
-                  {/* Key Specs */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
-                    {[
-                      { label: "RAM", value: phone.ram || "N/A" },
-                      { label: "Storage", value: phone.internal_storage || "N/A" },
-                      { label: "Display", value: phone.screen_size_inches ? `${phone.screen_size_inches}"` : "N/A" },
-                      { label: "Battery", value: phone.capacity || "N/A" }
-                    ].map((spec, idx) => (
-                      <div key={idx} className="text-xs">
-                        <span className="text-neutral-500 dark:text-neutral-400">{spec.label}: </span>
-                        <span className="text-neutral-800 dark:text-neutral-200 font-medium">{spec.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Price and Action */}
+                  {/* Price Only */}
                   <div className="flex items-center justify-between">
-                    <div className="font-bold text-sm md:text-base text-brand dark:text-white">
+                    <div className="font-bold text-base text-brand dark:text-white">
                       <span className="text-brand-darkGreen dark:text-brand-darkGreen font-normal text-xs mr-1">৳</span> {phone.price.toLocaleString()}
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        phone.slug && navigate(generatePhoneDetailUrl(phone.slug));
-                      }}
-                      className="bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm"
-                    >
-                      Details
-                    </button>
                   </div>
                 </div>
               </div>
