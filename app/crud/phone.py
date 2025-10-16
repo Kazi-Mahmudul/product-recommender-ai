@@ -1137,35 +1137,40 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
                 # Calculate price difference - we want phones reasonably close to the target
                 price_diff = abs(target_price - price)
                 
-                # Apply a penalty for phones more than 5000 Taka away from target
-                if price_diff > 5000:
-                    # For phones more than 5000 away, apply a significant penalty
-                    price_diff_penalty = (price_diff - 5000) / 500  # Stronger penalty increases with distance
-                else:
-                    price_diff_penalty = 0
+                # For 'under X' queries, we want to prioritize phones that are:
+                # 1. Close to the target price (but under it)
+                # 2. Have good overall scores
+                # 3. Have good performance scores
                 
                 # Normalize scores to 0-1 range (assuming scores are out of 100)
                 normalized_overall = overall_score / 100 if overall_score <= 100 else 1
                 normalized_performance = performance_score / 100 if performance_score <= 100 else 1
                 
-                # Weighted score:
-                # - Price difference (40% weight) - lower difference is better
-                # - Overall score (30% weight) - higher score is better  
-                # - Performance score (15% weight) - higher score is better
-                # - Price penalty for being too far from target (15% weight)
+                # Weighted score for 'under X' queries:
+                # - Price difference (60% weight) - lower difference is better (0.0 to 1.0, lower is better)
+                # - Overall score (25% weight) - higher score is better (0.0 to 1.0, higher is better)
+                # - Performance score (15% weight) - higher score is better (0.0 to 1.0, higher is better)
                 
-                # Normalize price difference to 0-1 range (assuming max reasonable difference is 10000)
-                normalized_price_diff = min(price_diff / 10000, 1.0)
+                # Normalize price difference to 0-1 range (assuming max reasonable difference is target_price)
+                normalized_price_diff = min(price_diff / target_price, 1.0)
                 
-                weighted_score = (normalized_price_diff * 0.40) + ((1 - normalized_overall) * 0.30) + ((1 - normalized_performance) * 0.15) + (price_diff_penalty * 0.15)
+                # For 'under X' queries, we want phones close to the target price
+                # but we don't want to penalize phones that are significantly under
+                # the target if they have excellent scores
+                # Note: Lower weighted_score is better (closer to 0)
+                # Price diff: lower is better (0.0 to 1.0)
+                # Scores: higher is better (0.0 to 1.0), so we use them directly
+                weighted_score = (normalized_price_diff * 0.60) + ((1 - normalized_overall) * 0.25) + ((1 - normalized_performance) * 0.15)
                 
                 return weighted_score
             
             # Sort by the enhanced scoring function
             filtered_phones.sort(key=price_proximity_score)
             
-            # Apply a stricter filter - exclude phones that are more than 5000 Taka difference from target
-            filtered_phones = [p for p in filtered_phones if p.get('price_original') is not None and abs(target_price - p.get('price_original')) <= 5000]
+            # For 'under X' queries, we want phones that are under the max price
+            # The sorting already prioritizes phones closer to the target
+            # We don't need an additional filter that excludes phones based on proximity
+            # as this can be too restrictive for the 'under X' use case
         elif 'min_price' in filters and 'max_price' not in filters:
             target_price = filters['min_price']
             # Sort by how close to the target price (but still over)
@@ -1198,16 +1203,17 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
             target_camera_count = filters['camera_count']
             filtered_phones.sort(key=lambda p: abs(p.get('camera_count', target_camera_count) - target_camera_count) if p.get('camera_count') is not None else float('inf'))
         
-        # Step 5: Sort by overall device score (highest first) for cases where we haven't already sorted by price proximity
+        # Step 5: Apply brand preference if no specific brand requested
         # Only apply this if we haven't already sorted by price proximity
-        if 'max_price' not in filters:
-            filtered_phones.sort(key=lambda p: p.get('overall_device_score', 0) if p.get('overall_device_score') is not None else 0, reverse=True)
-        
-        # Step 6: Apply brand preference if no specific brand requested
-        if 'brand' not in filters and ('is_popular_brand' not in filters or filters['is_popular_brand']):
+        if 'max_price' not in filters and 'brand' not in filters and ('is_popular_brand' not in filters or filters['is_popular_brand']):
             # Move popular brand phones to the front
             popular_brands = ['Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 'Sony', 'LG']
             filtered_phones.sort(key=lambda p: 0 if p.get('brand', '') in popular_brands else 1)
+        
+        # Step 6: Sort by overall device score (highest first) for cases where we haven't already sorted by price proximity
+        # Only apply this if we haven't already sorted by price proximity
+        if 'max_price' not in filters:
+            filtered_phones.sort(key=lambda p: p.get('overall_device_score', 0) if p.get('overall_device_score') is not None else 0, reverse=True)
         
         # For single phone requests, if we still don't have results, try a more relaxed approach
         if limit == 1 and len(filtered_phones) == 0 and phone_dicts:

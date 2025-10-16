@@ -61,6 +61,7 @@ class DatabaseValidator:
             'selfie_camera_mp', 'battery_capacity_numeric', 'refresh_rate_numeric',
             'screen_size_numeric', 'overall_device_score', 'display_score',
             'camera_score', 'battery_score', 'performance_score',
+            'charging_wattage',  # Add charging wattage column
             
             # String columns used in filtering
             'display_type', 'battery_type', 'chipset', 'operating_system',
