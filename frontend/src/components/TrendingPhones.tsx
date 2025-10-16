@@ -178,7 +178,7 @@ const TrendingPhones: React.FC<TrendingPhonesProps> = ({ darkMode }) => {
                     {[
                       { label: "RAM", value: phone.ram || "N/A" },
                       { label: "Storage", value: phone.internal_storage || "N/A" },
-                      { label: "Display", value: phone.screen_size_inches ? `${phone.screen_size_inches}"` : "N/A" },
+                      { label: "Display", value: phone.screen_size_numeric ? `${phone.screen_size_numeric} inches` : "N/A" },
                       { label: "Battery", value: phone.capacity || "N/A" }
                     ].map((spec, idx) => (
                       <div key={idx} className="text-xs">
