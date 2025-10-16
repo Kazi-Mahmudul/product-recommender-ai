@@ -22,6 +22,10 @@ from typing import Dict, Any, List, Optional, Set
 import logging
 import sys
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 # Add services to path for pipeline integration
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services', 'processor'))
 
@@ -69,7 +73,7 @@ STANDARD_COLUMNS = [
     'camera_setup', 'primary_camera_resolution', 'selfie_camera_resolution',
     'main_camera', 'front_camera',
     'primary_camera_video_recording', 'selfie_camera_video_recording', 'primary_camera_ois',
-    'primary_camera_aperture', 'image_resolution', 'selfie_camera_aperture',
+    'primary_camera_aperture', 'selfie_camera_aperture',  # Removed image_resolution
     'camera_features', 'autofocus', 'flash', 'settings', 'zoom', 'shooting_modes', 'video_fps',
     
     # Battery
@@ -126,8 +130,6 @@ def extract_camera_data(group, camera_type):
                             camera_data['primary_camera_ois'] = value
                         elif 'aperture' in key:
                             camera_data['primary_camera_aperture'] = value
-                        elif 'image' in key:
-                            camera_data['image_resolution'] = value
                         elif 'features' in key:
                             camera_data['camera_features'] = value
                             
@@ -197,10 +199,6 @@ def extract_camera_from_detailed_specs(soup):
 
 
 def extract_key_specs(soup):
-    """
-    Extract data from the Key Specifications section of a Mobiledokan product page.
-    (Same as manual scraper)
-    """
     key_specs = {}
     
     try:
@@ -550,8 +548,6 @@ def get_product_specs(url, rate_limiter=None):
                                     specs['primary_camera_ois'] = value
                                 elif 'aperture' in key:
                                     specs['primary_camera_aperture'] = value
-                                elif 'image' in key or 'Image Resolution' in key or 'Image' in key:
-                                    specs['image_resolution'] = value
                                 elif 'features' in key:
                                     specs['camera_features'] = value
                                 elif 'autofocus' in key:
@@ -639,15 +635,25 @@ class MobileDokanScraper:
     
     def get_database_connection(self):
         """Get database connection"""
+        # Load environment variables if not already loaded
         if not self.database_url:
-            # Fallback to environment variable or hardcoded URL
-            import os
+            # Try to get from environment
             self.database_url = os.getenv("DATABASE_URL")
             if not self.database_url:
-                self.database_url = os.getenv('DATABASE_URL')
+                # Load from .env file
+                from dotenv import load_dotenv
+                load_dotenv()
+                self.database_url = os.getenv("DATABASE_URL")
+        
+        # Fallback to local database URL if primary is not available
+        if not self.database_url:
+            self.database_url = os.getenv('LOCAL_DATABASE_URL')
         
         if self.database_url and self.database_url.startswith("postgres://"):
             self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+        
+        if not self.database_url:
+            raise ValueError("No database URL found. Please set DATABASE_URL or LOCAL_DATABASE_URL environment variable.")
         
         return psycopg2.connect(self.database_url)
     
@@ -1137,7 +1143,15 @@ class MobileDokanScraper:
                 'name', 'brand', 'model', 'price', 'url', 'img_url',
                 'scraped_at', 'pipeline_run_id', 'data_source', 'is_pipeline_managed',
                 'main_camera', 'front_camera', 'display_type', 'screen_size_inches',
-                'ram', 'internal_storage', 'capacity', 'chipset', 'operating_system'
+                'ram', 'internal_storage', 'capacity', 'chipset', 'operating_system',
+                'primary_camera_video_recording', 'selfie_camera_video_recording', 'primary_camera_ois', 
+                'primary_camera_aperture', 'selfie_camera_aperture','camera_features', 
+                'autofocus', 'flash', 'settings', 'zoom', 'shooting_modes', 'video_fps', 'battery_type', 
+                'quick_charging', 'wireless_charging', 'reverse_charging', 'build', 'weight', 
+                'thickness', 'colors', 'waterproof', 'ip_rating', 'ruggedness', 'network', 'speed', 
+                'sim_slot', 'volte', 'bluetooth', 'wlan', 'gps', 'nfc','usb', 'usb_otg', 'fingerprint_sensor', 
+                'finger_sensor_type', 'finger_sensor_position','face_unlock', 'light_sensor', 'infrared', 
+                'fm_radio', 'user_interface', 'status', 'made_by', 'release_date'
             }
     
     def store_product_in_database(self, product_data: Dict[str, Any], pipeline_run_id: str = None) -> str:
