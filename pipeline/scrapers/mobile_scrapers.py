@@ -33,14 +33,15 @@ try:
     from database_updater import DatabaseUpdater
     PIPELINE_AVAILABLE = True
     logger = logging.getLogger(__name__)
-    logger.debug("✅ Enhanced pipeline services loaded successfully")
+    logger.info("✅ Enhanced pipeline services loaded successfully")
 except ImportError as e:
     PIPELINE_AVAILABLE = False
     logger = logging.getLogger(__name__)
     logger.warning(f"⚠️ Enhanced pipeline services not available: {e}")
+    logger.warning("   Falling back to basic database operations")
 
-# Configure logging - reduced verbosity
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Headers for request (same as manual scraper)
@@ -311,27 +312,18 @@ def sanitize_key(key, prefix=''):
 
 
 class RateLimiter:
-    """Rate limiter with improved performance"""
-    def __init__(self, requests_per_minute=60):
+    """Rate limiter (same as manual scraper)"""
+    def __init__(self, requests_per_minute=30):
         self.requests_per_minute = requests_per_minute
         self.requests = []
-        self.last_cleanup = time.time()
     
     def wait(self):
         now = time.time()
-        
-        # Cleanup old requests every 10 seconds to avoid frequent list operations
-        if now - self.last_cleanup > 10:
-            self.requests = [req for req in self.requests if now - req < 60]
-            self.last_cleanup = now
-        
-        # Check if we need to rate limit
+        self.requests = [req for req in self.requests if now - req < 60]
         if len(self.requests) >= self.requests_per_minute:
-            # Calculate sleep time based on the oldest request
             sleep_time = 60 - (now - self.requests[0])
             if sleep_time > 0:
-                time.sleep(min(sleep_time, 1))  # Don't sleep more than 1 second at a time
-        
+                time.sleep(sleep_time)
         self.requests.append(now)
 
 
@@ -659,227 +651,277 @@ class MobileDokanScraper:
         
         return psycopg2.connect(self.database_url)
     
-    def scrape_phone_details(self, phone_url: str, phone_name: str) -> Optional[Dict[str, Any]]:
+    def scrape_and_store(self, max_pages: int = None, pipeline_run_id: str = None, check_updates: bool = True, batch_size: int = 50) -> Dict[str, Any]:
         """
-        Scrape detailed phone specifications from individual phone page.
+        Scrape mobile phones and store with enhanced pipeline processing
+        
+        Args:
+            max_pages: Maximum number of pages to scrape (None = scrape ALL pages)
+            pipeline_run_id: Pipeline run ID for tracking
+            check_updates: Whether to check existing products for updates
+            batch_size: Number of products to process in each batch
+            
+        Returns:
+            Dictionary with scraping results
         """
-        try:
-            # Make request with retries
-            response = self._make_request(phone_url)
-            if not response:
-                return None
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Extract phone data with optimized parsing
-            phone_data = self._extract_phone_data_optimized(soup, phone_url, phone_name)
-            
-            # Log only summary information
-            if phone_data:
-                logger.debug(f"📱 Scraped: {phone_data.get('name', 'Unknown')}")
-            
-            return phone_data
-            
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to scrape {phone_name}: {str(e)}")
-            return None
-
-    def _extract_phone_data_optimized(self, soup: BeautifulSoup, phone_url: str, phone_name: str) -> Dict[str, Any]:
-        """
-        Optimized phone data extraction focusing on key information only.
-        """
-        try:
-            # Extract key specifications (faster than full extraction)
-            key_specs = extract_key_specs(soup)
-
-            # Get basic info
-            name_tag = soup.select_one('#product-specs h2')
-            name = name_tag.get_text(strip=True).replace('Full Specifications', '').strip() if name_tag else None
-
-            # Get Price
-            price_tag = soup.select_one('.price span.h3')
-            price = price_tag.get_text(strip=True) if price_tag else None
-
-            # Get Main Image URL
-            img_tag = soup.select_one('img[itemprop="image"].img-fluid')
-            image_url = img_tag.get('src') if img_tag else None
-
-            # Parse brand and model from name
-            brand, model = parse_phone_title(name) if name else ('Unknown', 'Unknown')
-
-            # Prepare the result with only essential data
-            result = {
-                'name': name,
-                'brand': brand,
-                'model': model,
-                'price': price,
-                'image_url': image_url,
-                'specs': key_specs,  # Only key specs for faster processing
-                'url': phone_url
-            }
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error processing {phone_url}: {str(e)}")
-            return None
-    
-    def scrape_page(self, page_number: int) -> List[Dict[str, Any]]:
-        """
-        Scrape a single page of phones.
-        """
-        try:
-            logger.debug(f"Fetching page {page_number}...")
-            
-            # Get product links from page
-            product_links = get_product_links(page_number)
-            
-            if not product_links:
-                logger.debug(f"   No products found on page {page_number}")
-                return []
-            
-            logger.debug(f"   Found {len(product_links)} products on page {page_number}")
-            
-            # Scrape details for each product with minimal delay
-            phones = []
-            for i, url in enumerate(product_links):
-                phone_name = url.split('/')[-1]
-                phone_data = self.scrape_phone_details(url, phone_name)
-                if phone_data:
-                    phones.append(phone_data)
+        if pipeline_run_id is None:
+            from datetime import datetime
+            pipeline_run_id = f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        if max_pages is None:
+            logger.info(f"🚀 Starting COMPLETE MobileDokan scraping with ENHANCED PIPELINE")
+        else:
+            logger.info(f"🚀 Starting MobileDokan scraping (max_pages: {max_pages}) with ENHANCED PIPELINE")
+        
+        logger.info(f"   Pipeline Run ID: {pipeline_run_id}")
+        logger.info(f"   Enhanced Pipeline: {'✅ ENABLED' if PIPELINE_AVAILABLE else '❌ DISABLED (fallback mode)'}")
+        logger.info(f"   Batch Size: {batch_size}")
+        logger.info(f"   Check Updates: {check_updates}")
+        
+        # Collect all product links with dynamic page detection
+        all_product_links = []
+        page = 1
+        consecutive_empty_pages = 0
+        consecutive_low_pages = 0
+        
+        # Dynamic page detection thresholds
+        max_consecutive_empty = 3  # Stop after 3 consecutive empty pages
+        max_consecutive_low = 5   # Stop after 5 consecutive pages with ≤3 products
+        min_products_threshold = 3  # Pages with ≤3 products are considered "low"
+        
+        total_pages_scraped = 0
+        total_pages_checked = 0
+        expected_products_per_page = 20  # MobileDokan typically has 20 products per page
+        
+        while True:
+            if max_pages is not None and page > max_pages:
+                logger.info(f"Reached maximum page limit of {max_pages}")
+                break
                 
-                # Reduced delay between requests within the same page
-                if i < len(product_links) - 1:  # Don't sleep after the last request
-                    time.sleep(0.1)  # Reduced from 0.5 to 0.1 seconds
+            logger.info(f"📄 Checking page {page}...")
+            total_pages_checked += 1
+            links = get_product_links(page)
             
-            return phones
-            
-        except Exception as e:
-            logger.error(f"⚠️ Failed to scrape page {page_number}: {str(e)}")
-            return []
-    
-    def scrape_and_store(self, max_pages: Optional[int] = None, pipeline_run_id: str = 'unknown', 
-                    check_updates: bool = True, batch_size: int = 100) -> Dict[str, Any]:
-        """
-        Scrape phones from multiple pages and store in database.
-        """
-        logger.info(f"🚀 Starting phone scraping")
-        logger.info(f"   Max pages: {max_pages or 'ALL'}")
-        logger.info(f"   Pipeline run ID: {pipeline_run_id}")
-        logger.info(f"   Batch size: {batch_size}")
-        
-        start_time = time.time()
-        
-        all_phones = []
-        processed_urls = set()
-        pages_scraped = 0
-        products_processed = 0
-        products_inserted = 0
-        products_updated = 0
-        
-        try:
-            page = 1
-            consecutive_empty_pages = 0
-            max_consecutive_empty = 2
-            
-            while True:
-                # Check page limit
-                if max_pages and page > max_pages:
-                    logger.info(f"🏁 Reached maximum page limit: {max_pages}")
+            # Handle empty pages
+            if not links:
+                consecutive_empty_pages += 1
+                consecutive_low_pages += 1
+                logger.info(f"  📭 No products found on page {page}. Consecutive empty: {consecutive_empty_pages}/{max_consecutive_empty}")
+                
+                if consecutive_empty_pages >= max_consecutive_empty:
+                    logger.info(f"🏁 END OF CATALOG DETECTED: {consecutive_empty_pages} consecutive empty pages")
+                    logger.info(f"   📊 Final stats: {total_pages_scraped} pages with products, {total_pages_checked} total pages checked")
+                    logger.info(f"   📱 Total products found: {len(all_product_links)}")
                     break
-                
-                # Scrape page
-                phones_on_page = self.scrape_page(page)
-                
-                if not phones_on_page:
-                    consecutive_empty_pages += 1
-                    logger.debug(f"   Empty page {page}. Consecutive empty: {consecutive_empty_pages}/{max_consecutive_empty}")
                     
-                    if page == 1:
-                        logger.error("❌ First page is empty - website might be down")
-                        break
-                    
-                    if consecutive_empty_pages >= max_consecutive_empty:
-                        logger.info(f"🏁 Reached end: {consecutive_empty_pages} consecutive empty pages")
-                        break
-                else:
-                    consecutive_empty_pages = 0
-                    pages_scraped += 1
-                    
-                    # Process phones on this page
-                    for phone in phones_on_page:
-                        url = phone.get('url')
-                        if url and url not in processed_urls:
-                            processed_urls.add(url)
-                            all_phones.append(phone)
-                            
-                            # Log progress periodically
-                            if len(all_phones) % 50 == 0:  # Increased from 20 to 50
-                                logger.info(f"   Progress: {len(all_phones)} phones collected")
-                    
-                    logger.debug(f"   Page {page}: {len(phones_on_page)} phones")
-                
+                logger.info(f"   ⏭️ Continuing to page {page + 1}...")
                 page += 1
-                # Reduced delay between pages
-                time.sleep(0.2)  # Reduced from 0.5 to 0.2 seconds
+                time.sleep(1)
+                continue
+            
+            # Handle pages with very few products (likely end of catalog)
+            if len(links) <= min_products_threshold:
+                consecutive_low_pages += 1
+                logger.info(f"  ⚠️ Only {len(links)} products on page {page}. Consecutive low: {consecutive_low_pages}/{max_consecutive_low}")
+                
+                if consecutive_low_pages >= max_consecutive_low:
+                    logger.info(f"🏁 END OF CATALOG DETECTED: {consecutive_low_pages} consecutive pages with ≤{min_products_threshold} products")
+                    logger.info(f"   📊 Final stats: {total_pages_scraped} pages with products, {total_pages_checked} total pages checked")
+                    logger.info(f"   📱 Total products found: {len(all_product_links)}")
+                    
+                    # Add the current page's products before stopping
+                    all_product_links.extend(links)
+                    total_pages_scraped += 1
+                    break
+            else:
+                # Reset counters for normal pages
+                consecutive_low_pages = 0
+                consecutive_empty_pages = 0
+                
+                # Process normal pages with products
+                all_product_links.extend(links)
+                total_pages_scraped += 1
+            
+            # Dynamic progress reporting
+            if len(links) >= expected_products_per_page * 0.8:  # 80% of expected
+                status_icon = "✅"
+                status = "FULL"
+            elif len(links) >= expected_products_per_page * 0.5:  # 50% of expected
+                status_icon = "📊"
+                status = "PARTIAL"
+            else:
+                status_icon = "⚠️"
+                status = "LOW"
+            
+            logger.info(f"  {status_icon} Page {page}: {len(links)} products ({status}) | Total: {len(all_product_links)} products from {total_pages_scraped} pages")
+            
+            # Progress updates every 25 pages or when we detect potential end
+            if total_pages_scraped % 25 == 0 or len(links) <= min_products_threshold * 2:
+                avg_products = len(all_product_links) / total_pages_scraped if total_pages_scraped > 0 else 0
+                logger.info(f"📊 PROGRESS: {total_pages_scraped} pages processed | {len(all_product_links)} total products | Avg: {avg_products:.1f} products/page")
+            
+            page += 1
+            time.sleep(0.5)  # Balanced rate limiting
         
-            # Summary of collection
-            logger.info(f"📊 Collection completed: {len(all_phones)} phones from {pages_scraped} pages")
+        # Remove duplicates
+        unique_links = list(dict.fromkeys(all_product_links))
+        
+        # Calculate final statistics
+        avg_products_per_page = len(unique_links) / total_pages_scraped if total_pages_scraped > 0 else 0
+        detection_method = "Empty pages" if consecutive_empty_pages >= max_consecutive_empty else "Low product count"
+        
+        logger.info(f"🎯 DYNAMIC PAGE DISCOVERY COMPLETED!")
+        logger.info(f"   📄 Total pages checked: {total_pages_checked}")
+        logger.info(f"   ✅ Pages with products: {total_pages_scraped}")
+        logger.info(f"   🔗 Total product links: {len(all_product_links)}")
+        logger.info(f"   🔗 Unique products: {len(unique_links)}")
+        logger.info(f"   📊 Average products/page: {avg_products_per_page:.1f}")
+        logger.info(f"   🎯 Detection method: {detection_method}")
+        logger.info(f"   ⚡ Efficiency: Automatically detected catalog end!")
+        logger.info(f"   📱 Total product links found: {len(all_product_links)}")
+        logger.info(f"   🔗 Unique product links: {len(unique_links)}")
+        logger.info(f"   📊 Average products per page: {len(unique_links) / total_pages_scraped if total_pages_scraped > 0 else 0:.1f}")
+        
+        # Get existing URLs and their last update times
+        existing_data = self.get_existing_urls_with_dates()
+        existing_urls = set(existing_data.keys())
+        logger.info(f"Found {len(existing_urls)} existing URLs in database")
+        
+        # Separate new URLs and existing URLs to check for updates
+        new_urls = [url for url in unique_links if url not in existing_urls]
+        existing_urls_to_check = []
+        
+        if check_updates:
+            from datetime import datetime, timedelta
+            cutoff_time = datetime.now() - timedelta(hours=24)
             
-            # Store in database
-            if all_phones:
-                logger.info(f"💾 Storing {len(all_phones)} phones in database...")
-                
-                # Store phones in database
-                store_result = self.store_phones_in_database(
-                    all_phones, 
-                    pipeline_run_id=pipeline_run_id,
-                    check_updates=check_updates,
-                    batch_size=batch_size
-                )
-                
-                products_processed = store_result.get('products_processed', 0)
-                products_inserted = store_result.get('products_inserted', 0)
-                products_updated = store_result.get('products_updated', 0)
-                
-                logger.info(f"✅ Database storage completed")
+            for url in unique_links:
+                if url in existing_urls:
+                    last_update = existing_data[url]
+                    if last_update is None or last_update < cutoff_time:
+                        existing_urls_to_check.append(url)
             
-            execution_time = time.time() - start_time
+            logger.info(f"Will check {len(existing_urls_to_check)} existing URLs for updates")
+        
+        logger.info(f"Will process {len(new_urls)} new URLs and {len(existing_urls_to_check)} existing URLs")
+        
+        # Process products in batches with enhanced pipeline
+        all_urls_to_process = new_urls + existing_urls_to_check
+        total_processed = 0
+        total_inserted = 0
+        total_updated = 0
+        total_errors = []
+        
+        # Process in batches
+        for batch_start in range(0, len(all_urls_to_process), batch_size):
+            batch_end = min(batch_start + batch_size, len(all_urls_to_process))
+            batch_urls = all_urls_to_process[batch_start:batch_end]
             
-            result = {
-                'status': 'success',
-                'products_processed': products_processed,
-                'products_inserted': products_inserted,
-                'products_updated': products_updated,
-                'pages_scraped': pages_scraped,
-                'phones_collected': len(all_phones),
-                'execution_time_seconds': round(execution_time, 2),
-                'pipeline_run_id': pipeline_run_id
-            }
+            logger.info(f"🔄 Processing batch {batch_start//batch_size + 1}/{(len(all_urls_to_process) + batch_size - 1)//batch_size} ({len(batch_urls)} products)")
             
-            logger.info(f"🎯 Scraping completed successfully!")
-            logger.info(f"   Pages: {pages_scraped}")
-            logger.info(f"   Phones: {len(all_phones)} collected")
-            logger.info(f"   Database: {products_inserted} inserted, {products_updated} updated")
-            logger.info(f"   Execution time: {round(execution_time/60, 2)} minutes")
+            # Scrape batch data
+            batch_data = []
+            for i, url in enumerate(batch_urls):
+                try:
+                    product_data = get_product_specs(url, self.rate_limiter)
+                    if product_data:
+                        batch_data.append(product_data)
+                        
+                    if (i + 1) % 10 == 0:
+                        logger.info(f"  Scraped {i + 1}/{len(batch_urls)} products in current batch")
+                        
+                except Exception as e:
+                    error_msg = f"Error scraping {url}: {str(e)}"
+                    total_errors.append(error_msg)
+                    logger.error(error_msg)
             
-            return result
+            if not batch_data:
+                logger.warning(f"No valid data in batch {batch_start//batch_size + 1}")
+                continue
             
-        except Exception as e:
-            logger.error(f"❌ Scraping failed: {str(e)}")
-            execution_time = time.time() - start_time
+            # Convert to DataFrame for pipeline processing
+            batch_df = self.convert_scraped_data_to_dataframe(batch_data, pipeline_run_id)
             
-            return {
-                'status': 'failed',
-                'error': str(e),
-                'products_processed': 0,
-                'products_inserted': 0,
-                'products_updated': 0,
-                'pages_scraped': pages_scraped,
-                'phones_collected': len(all_phones),
-                'execution_time_seconds': round(execution_time, 2),
-                'pipeline_run_id': pipeline_run_id
-            }
+            if PIPELINE_AVAILABLE:
+                # Apply enhanced pipeline
+                result = self.process_with_enhanced_pipeline(batch_df, pipeline_run_id)
+                total_processed += result['processed']
+                total_inserted += result['inserted']
+                total_updated += result['updated']
+                total_errors.extend(result['errors'])
+            else:
+                # Fallback to basic processing
+                result = self.process_with_basic_pipeline(batch_df, pipeline_run_id)
+                total_processed += result['processed']
+                total_inserted += result['inserted']
+                total_updated += result['updated']
+                total_errors.extend(result['errors'])
+            
+            logger.info(f"  ✅ Batch {batch_start//batch_size + 1} completed: {result['processed']} processed, {result['inserted']} inserted, {result['updated']} updated")
+        
+        # Calculate efficiency metrics
+        total_phones_found = len(unique_links)
+        phones_processed = len(new_urls) + len(existing_urls_to_check)
+        phones_skipped = total_phones_found - phones_processed
+        efficiency_percentage = (phones_skipped / total_phones_found * 100) if total_phones_found > 0 else 0
+        
+        # Enhanced logging with efficiency metrics
+        logger.info(f"📊 SMART UPDATE SYSTEM RESULTS:")
+        logger.info(f"   📱 Total phones found: {total_phones_found}")
+        logger.info(f"   🆕 New phones processed: {len(new_urls)}")
+        logger.info(f"   🔄 Existing phones checked: {len(existing_urls_to_check)}")
+        logger.info(f"   ⏭️ Phones skipped (current): {phones_skipped}")
+        logger.info(f"   ⚡ Efficiency: {efficiency_percentage:.1f}% time saved")
+        logger.info(f"   ✅ Products inserted: {total_inserted}")
+        logger.info(f"   🔄 Products updated: {total_updated}")
+        
+        if efficiency_percentage > 80:
+            logger.info(f"   🚀 HIGH EFFICIENCY RUN - Most phones were already current!")
+        elif efficiency_percentage > 50:
+            logger.info(f"   ⚡ MODERATE EFFICIENCY RUN - Good time savings achieved!")
+        else:
+            logger.info(f"   🔄 FULL UPDATE RUN - Many phones needed updates!")
+
+        final_result = {
+            'status': 'success',
+            'pipeline_run_id': pipeline_run_id,
+            'enhanced_pipeline_used': PIPELINE_AVAILABLE,
+            
+            # Dynamic page detection results
+            'pages_checked': total_pages_checked,
+            'pages_with_products': total_pages_scraped,
+            'detection_method': detection_method,
+            'avg_products_per_page': round(avg_products_per_page, 1),
+            
+            # Product processing results
+            'total_links_found': len(unique_links),
+            'new_links_processed': len(new_urls),
+            'existing_links_checked': len(existing_urls_to_check),
+            'phones_skipped': phones_skipped,
+            'efficiency_percentage': round(efficiency_percentage, 1),
+            'products_processed': total_processed,
+            'products_inserted': total_inserted,
+            'products_updated': total_updated,
+            
+            # Error tracking
+            'errors': total_errors,
+            'error_count': len(total_errors),
+            'batch_size': batch_size,
+            'total_batches': (len(all_urls_to_process) + batch_size - 1) // batch_size
+        }
+        
+        logger.info(f"🎉 SCRAPING COMPLETED!")
+        logger.info(f"   📋 Pipeline Run ID: {pipeline_run_id}")
+        logger.info(f"   🔧 Enhanced Pipeline: {'✅ USED' if PIPELINE_AVAILABLE else '❌ FALLBACK USED'}")
+        logger.info(f"   📄 Pages checked: {total_pages_checked} (found {total_pages_scraped} with products)")
+        logger.info(f"   🎯 Detection method: {detection_method}")
+        logger.info(f"   📱 Products processed: {total_processed}")
+        logger.info(f"   ➕ Products inserted: {total_inserted}")
+        logger.info(f"   🔄 Products updated: {total_updated}")
+        logger.info(f"   ❌ Errors: {len(total_errors)}")
+        logger.info(f"   ⚡ Dynamic page detection: ✅ ENABLED (no hardcoded limits!)")
+        
+        return final_result
     
     def convert_scraped_data_to_dataframe(self, scraped_data: List[Dict[str, Any]], pipeline_run_id: str) -> pd.DataFrame:
         """Convert scraped product data to DataFrame format for pipeline processing"""
@@ -993,7 +1035,7 @@ class MobileDokanScraper:
                         'model': row.get('model'),
                         'price': row.get('price'),
                         'url': row.get('url'),
-                        'image_url': row.get('image_url'),
+                        'image_url': row.get('img_url'),
                         'specs': {k: v for k, v in row.items() if k not in ['name', 'brand', 'model', 'price', 'url', 'img_url', 'scraped_at', 'pipeline_run_id', 'data_source', 'is_pipeline_managed']}
                     }
                     
@@ -1186,379 +1228,6 @@ class MobileDokanScraper:
         except Exception as e:
             logger.error(f"Error storing product in database: {str(e)}")
             return 'error'
-
-    def store_phones_in_database(self, phones: List[Dict[str, Any]], pipeline_run_id: str, 
-                                check_updates: bool = True, batch_size: int = 100) -> Dict[str, Any]:
-        """
-        Store multiple phones in database using enhanced pipeline with batch operations.
-        """
-        try:
-            logger.info(f"🔄 Storing {len(phones)} phones in database...")
-            
-            # Convert to DataFrame
-            df = self.convert_scraped_data_to_dataframe(phones, pipeline_run_id)
-            
-            # Process with enhanced pipeline using batch operations
-            if PIPELINE_AVAILABLE:
-                result = self.process_with_enhanced_pipeline_batch(df, pipeline_run_id, batch_size)
-            else:
-                result = self.process_with_basic_pipeline_batch(df, pipeline_run_id, batch_size)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to store phones in database: {str(e)}")
-            return {
-                'products_processed': 0,
-                'products_inserted': 0,
-                'products_updated': 0,
-                'errors': [str(e)]
-            }
-
-    def process_with_enhanced_pipeline_batch(self, df: pd.DataFrame, pipeline_run_id: str, batch_size: int = 100) -> Dict[str, Any]:
-        """Process DataFrame through the enhanced pipeline with batch operations"""
-        try:
-            logger.info(f"🔄 Applying enhanced pipeline to {len(df)} products in batches of {batch_size}...")
-            
-            total_processed = 0
-            total_inserted = 0
-            total_updated = 0
-            total_errors = []
-            total_cleaning_issues = 0
-            
-            # Process in batches
-            for i in range(0, len(df), batch_size):
-                batch_df = df.iloc[i:i+batch_size]
-                logger.info(f"  Processing batch {i//batch_size + 1}/{(len(df)-1)//batch_size + 1} ({len(batch_df)} phones)")
-                
-                # Step 1: Data Cleaning
-                logger.info("    🧹 Step 1: Data cleaning...")
-                cleaned_df, cleaning_issues = self.data_cleaner.clean_dataframe(batch_df)
-                logger.info(f"       Cleaning completed: {len(cleaning_issues)} issues found")
-                total_cleaning_issues += len(cleaning_issues)
-                
-                # Step 2: Feature Engineering
-                logger.info("    ⚙️ Step 2: Feature engineering...")
-                enhanced_df = self.feature_engineer.engineer_features(cleaned_df)
-                logger.info(f"       Feature engineering completed: {len(enhanced_df.columns)} total columns")
-                
-                # Step 3: Quality Validation
-                logger.info("    ✅ Step 3: Quality validation...")
-                passed, quality_report = self.quality_validator.validate_pipeline_data(enhanced_df)
-                quality_score = quality_report['overall_quality_score']
-                logger.info(f"       Quality validation: {'PASSED' if passed else 'WARNING'} (Score: {quality_score:.2f})")
-                
-                # Step 4: Database Update
-                logger.info("    💾 Step 4: Database update...")
-                success, db_results = self.database_updater.update_with_transaction(enhanced_df, pipeline_run_id)
-                
-                if success:
-                    inserted = db_results['results']['inserted']
-                    updated = db_results['results']['updated']
-                    errors = db_results['results']['errors']
-                    
-                    total_processed += len(batch_df)
-                    total_inserted += inserted
-                    total_updated += updated
-                    total_errors.extend(errors)
-                    
-                    logger.info(f"       Database update completed: {inserted} inserted, {updated} updated, {len(errors)} errors")
-                else:
-                    error_msg = f"Database update failed: {db_results.get('error', 'Unknown error')}"
-                    logger.error(f"       {error_msg}")
-                    total_errors.append(error_msg)
-                
-                # Small delay between batches to avoid overwhelming the database
-                if i + batch_size < len(df):
-                    time.sleep(0.1)
-            
-            logger.info(f"✅ Enhanced pipeline batch processing completed!")
-            
-            return {
-                'processed': total_processed,
-                'inserted': total_inserted,
-                'updated': total_updated,
-                'errors': total_errors,
-                'quality_score': quality_score,
-                'cleaning_issues': total_cleaning_issues
-            }
-                
-        except Exception as e:
-            error_msg = f"Enhanced pipeline batch processing failed: {str(e)}"
-            logger.error(error_msg)
-            return {
-                'processed': 0,
-                'inserted': 0,
-                'updated': 0,
-                'errors': [error_msg],
-                'quality_score': 0.0,
-                'cleaning_issues': 0
-            }
-
-    def process_with_basic_pipeline_batch(self, df: pd.DataFrame, pipeline_run_id: str, batch_size: int = 100) -> Dict[str, Any]:
-        """Fallback processing without enhanced pipeline using batch operations"""
-        try:
-            logger.info(f"🔄 Applying basic pipeline to {len(df)} products in batches of {batch_size}...")
-            
-            total_processed = 0
-            total_inserted = 0
-            total_updated = 0
-            total_errors = []
-            
-            # Process in batches
-            for i in range(0, len(df), batch_size):
-                batch_df = df.iloc[i:i+batch_size]
-                logger.info(f"  Processing batch {i//batch_size + 1}/{(len(df)-1)//batch_size + 1} ({len(batch_df)} phones)")
-                
-                processed = 0
-                inserted = 0
-                updated = 0
-                errors = []
-                
-                # Process each row in the batch
-                for _, row in batch_df.iterrows():
-                    try:
-                        product_data = {
-                            'name': row.get('name'),
-                            'brand': row.get('brand'),
-                            'model': row.get('model'),
-                            'price': row.get('price'),
-                            'url': row.get('url'),
-                            'image_url': row.get('image_url'),
-                            'specs': {k: v for k, v in row.items() if k not in ['name', 'brand', 'model', 'price', 'url', 'image_url', 'scraped_at', 'pipeline_run_id', 'data_source', 'is_pipeline_managed']}
-                        }
-                        
-                        result = self.store_product_in_database(product_data, pipeline_run_id)
-                        if result == 'inserted':
-                            inserted += 1
-                        elif result == 'updated':
-                            updated += 1
-                        
-                        processed += 1
-                        
-                    except Exception as e:
-                        error_msg = f"Error processing product {row.get('name', 'Unknown')}: {str(e)}"
-                        errors.append(error_msg)
-                        logger.error(error_msg)
-                
-                total_processed += processed
-                total_inserted += inserted
-                total_updated += updated
-                total_errors.extend(errors)
-                
-                logger.info(f"    Batch completed: {processed} processed, {inserted} inserted, {updated} updated")
-                
-                # Small delay between batches to avoid overwhelming the database
-                if i + batch_size < len(df):
-                    time.sleep(0.1)
-            
-            logger.info(f"✅ Basic pipeline batch processing completed!")
-            
-            return {
-                'processed': total_processed,
-                'inserted': total_inserted,
-                'updated': total_updated,
-                'errors': total_errors,
-                'quality_score': 0.8,  # Assume basic quality
-                'cleaning_issues': 0
-            }
-            
-        except Exception as e:
-            error_msg = f"Basic pipeline batch processing failed: {str(e)}"
-            logger.error(error_msg)
-            return {
-                'processed': 0,
-                'inserted': 0,
-                'updated': 0,
-                'errors': [error_msg],
-                'quality_score': 0.0,
-                'cleaning_issues': 0
-            }
-    
-    def _make_request(self, url: str) -> Optional[requests.Response]:
-        """
-        Make HTTP request with retries.
-        """
-        try:
-            self.rate_limiter.wait()
-            response = requests.get(url, headers=headers, verify=False, timeout=30)
-            response.raise_for_status()
-            return response
-            
-        except requests.exceptions.Timeout:
-            logger.warning(f"⚠️ Timeout fetching {url}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"⚠️ Request error fetching {url}: {str(e)}")
-            return None
-        except Exception as e:
-            logger.error(f"❌ Unexpected error fetching {url}: {str(e)}")
-            return None
-    
-    def _extract_phone_data(self, soup: BeautifulSoup, phone_url: str, phone_name: str) -> Dict[str, Any]:
-        """
-        Extract phone data from BeautifulSoup object.
-        """
-        try:
-            # Extract key specifications
-            key_specs = extract_key_specs(soup)
-
-            # Get Model Name and Brand
-            name_tag = soup.select_one('#product-specs h2')
-            name = name_tag.get_text(strip=True).replace('Full Specifications', '').strip() if name_tag else None
-
-            # Get Price
-            price_tag = soup.select_one('.price span.h3')
-            price = price_tag.get_text(strip=True) if price_tag else None
-
-            # Get Main Image URL
-            img_tag = soup.select_one('img[itemprop="image"].img-fluid')
-            image_url = img_tag.get('src') if img_tag else None
-
-            # Initialize specs dictionary with all standard columns
-            specs = {col: None for col in STANDARD_COLUMNS if col not in ['url', 'name', 'price', 'img_url']}
-
-            # Merge key specs with other specs
-            for key, value in key_specs.items():
-                if key in STANDARD_COLUMNS:
-                    # Only set the value if it's not None and the current value is None or empty
-                    if value is not None and (specs.get(key) is None or specs.get(key) == ''):
-                        specs[key] = value
-            
-            # Process each specification group
-            for group in soup.select('.row.mb-2.pb-2.border-bottom'):
-                group_title = group.select_one('h3.text-bold')
-                if not group_title:
-                    continue
-                    
-                group_name = group_title.get_text(strip=True).lower()
-                
-                # Handle display group
-                if 'display' in group_name:
-                    for row in group.select('table.spec-grp-tbl tr'):
-                        tds = row.find_all('td')
-                        if len(tds) == 2:
-                            key = sanitize_key(tds[0].text)
-                            value = tds[1].get_text(strip=True)
-                            
-                            # Map display keys to standard columns
-                            if 'type' in key:
-                                specs['display_type'] = value
-                            elif 'size' in key:
-                                specs['screen_size_inches'] = value
-                            elif 'resolution' in key:
-                                specs['display_resolution'] = value
-                            elif 'pixel' in key or 'ppi' in key:
-                                specs['pixel_density_ppi'] = value
-                            elif 'refresh' in key:
-                                specs['refresh_rate_hz'] = value
-                            elif 'protection' in key:
-                                specs['screen_protection'] = value
-                            elif 'brightness' in key:
-                                specs['display_brightness'] = value
-                            elif 'aspect' in key:
-                                specs['aspect_ratio'] = value
-                            elif 'hdr' in key:
-                                specs['hdr_support'] = value
-                                
-                # Handle camera groups
-                elif 'camera' in group_name or 'cameras' in group_name:
-                    # Find all camera subgroups
-                    camera_subgroups = group.select('.subgroup')
-                    camera_tables = group.select('table.spec-grp-tbl')
-                    
-                    for i, subgroup in enumerate(camera_subgroups):
-                        header = subgroup.get_text(strip=True).lower()
-                        table = camera_tables[i] if i < len(camera_tables) else None
-                        
-                        if not table:
-                            continue
-                            
-                        if 'primary' in header:
-                            # Process primary camera specifications
-                            for row in table.select('tr'):
-                                tds = row.find_all('td')
-                                if len(tds) == 2:
-                                    key = sanitize_key(tds[0].text)
-                                    value = tds[1].get_text(strip=True)
-                                    
-                                    # Map primary camera keys to standard columns
-                                    if 'resolution' in key:
-                                        specs['primary_camera_resolution'] = value
-                                    elif 'setup' in key:
-                                        specs['camera_setup'] = value
-                                    elif 'video' in key:
-                                        specs['primary_camera_video_recording'] = value
-                                    elif 'ois' in key:
-                                        specs['primary_camera_ois'] = value
-                                    elif 'aperture' in key:
-                                        specs['primary_camera_aperture'] = value
-                                    elif 'image' in key or 'Image Resolution' in key or 'Image' in key:
-                                        specs['image_resolution'] = value
-                                    elif 'features' in key:
-                                        specs['camera_features'] = value
-                                    elif 'autofocus' in key:
-                                        specs['autofocus'] = value
-                                    elif 'flash' in key:
-                                        specs['flash'] = value
-                                    elif 'settings' in key:
-                                        specs['settings'] = value
-                                    elif 'zoom' in key:
-                                        specs['zoom'] = value
-                                    elif 'shooting' in key:
-                                        specs['shooting_modes'] = value
-                                    elif 'fps' in key:
-                                        specs['video_fps'] = value
-                                        
-                        elif 'selfie' in header or 'front' in header:
-                            # Process selfie camera specifications
-                            for row in table.select('tr'):
-                                tds = row.find_all('td')
-                                if len(tds) == 2:
-                                    key = sanitize_key(tds[0].text)
-                                    value = tds[1].get_text(strip=True)
-                                    
-                                    # Map selfie camera keys to standard columns
-                                    if 'resolution' in key:
-                                        specs['selfie_camera_resolution'] = value
-                                    elif 'video' in key:
-                                        specs['selfie_camera_video_recording'] = value
-                                    elif 'aperture' in key:
-                                        specs['selfie_camera_aperture'] = value
-                                        
-                else:
-                    # For other groups, process normally
-                    for row in group.select('table.spec-grp-tbl tr'):
-                        tds = row.find_all('td')
-                        if len(tds) == 2:
-                            key = sanitize_key(tds[0].text)
-                            value = tds[1].get_text(strip=True)
-                            
-                            # Map other keys to standard columns
-                            if key in specs:
-                                specs[key] = value
-
-            # Parse brand and model from name
-            brand, model = parse_phone_title(name) if name else ('Unknown', 'Unknown')
-            specs['brand'] = brand
-            specs['model'] = model
-
-            # Prepare the result
-            result = {
-                'name': name,
-                'brand': brand,
-                'model': model,
-                'price': price,
-                'image_url': image_url,
-                'specs': specs,
-                'url': phone_url
-            }
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"⚠️ Failed to extract data for {phone_name}: {str(e)}")
-            return {}
 
 
 # Test function

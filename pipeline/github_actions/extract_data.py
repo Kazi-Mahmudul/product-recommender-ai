@@ -27,14 +27,9 @@ def setup_logging():
     """Setup basic logging for the extraction process"""
     import logging
     
-    # Reduce logging verbosity in production
-    log_level = getattr(logging, config.log_level)
-    if config.pipeline_env == 'production':
-        log_level = logging.WARNING  # Only show warnings and errors in production
-    
     logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=getattr(logging, config.log_level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout)
         ]
@@ -57,6 +52,8 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
     
     try:
         logger.info(f"🚀 Starting MobileDokan scraping (Run ID: {pipeline_run_id})")
+        logger.info(f"   Max pages: {max_pages or 'ALL'}")
+        logger.info(f"   Test mode: {test_mode}")
         
         # Initialize scraper
         scraper = MobileDokanScraper(database_url=config.database_url)
@@ -64,15 +61,15 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
         # Adjust max_pages for test mode
         if test_mode and max_pages is None:
             max_pages = 2
-            logger.debug(f"   Test mode: Limited to {max_pages} pages")
+            logger.info(f"   Test mode: Limited to {max_pages} pages")
         
-        # Start scraping with optimized settings
+        # Start scraping
         start_time = time.time()
         scraping_result = scraper.scrape_and_store(
             max_pages=max_pages,
             pipeline_run_id=pipeline_run_id,
             check_updates=True,
-            batch_size=100  # Increased from default to 100 for better performance
+            batch_size=config.batch_size
         )
         
         execution_time = time.time() - start_time
@@ -82,7 +79,6 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
             'status': 'success',
             'pipeline_run_id': pipeline_run_id,
             'execution_time_seconds': round(execution_time, 2),
-            'execution_time_minutes': round(execution_time / 60, 2),
             'timestamp': datetime.now().isoformat(),
             'test_mode': test_mode,
             'max_pages': max_pages,
@@ -95,19 +91,22 @@ def scrape_mobile_data(pipeline_run_id: str, max_pages: Optional[int] = None, te
                 'products_processed': scraping_result.get('products_processed', 0),
                 'products_inserted': scraping_result.get('products_inserted', 0),
                 'products_updated': scraping_result.get('products_updated', 0),
-                'pages_scraped': scraping_result.get('pages_scraped', 0),
-                'phones_collected': scraping_result.get('phones_collected', 0)
+                'pages_scraped': scraping_result.get('pages_scraped', 0)
             })
         
-        logger.info(f"✅ MobileDokan scraping completed!")
-        logger.info(f"   Products: {result.get('products_processed', 0)} processed")
-        logger.info(f"   Pages: {result.get('pages_scraped', 0)} scraped")
-        logger.info(f"   Execution time: {result.get('execution_time_minutes', 0)} minutes")
+        logger.info(f"✅ MobileDokan scraping completed successfully!")
+        logger.info(f"   Products processed: {result.get('products_processed', 0)}")
+        logger.info(f"   Products inserted: {result.get('products_inserted', 0)}")
+        logger.info(f"   Products updated: {result.get('products_updated', 0)}")
+        logger.info(f"   Pages scraped: {result.get('pages_scraped', 0)}")
+        logger.info(f"   Execution time: {execution_time:.2f} seconds")
         
         return result
         
     except Exception as e:
         logger.error(f"❌ MobileDokan scraping failed: {str(e)}")
+        import traceback
+        logger.error(f"   Error details: {traceback.format_exc()}")
         
         return {
             'status': 'failed',
@@ -138,6 +137,9 @@ def scrape_processor_rankings(pipeline_run_id: str, force_update: bool = False, 
     
     try:
         logger.info(f"🔧 Starting processor rankings with cache-first strategy (Run ID: {pipeline_run_id})")
+        logger.info(f"   Force update: {force_update}")
+        logger.info(f"   Test mode: {test_mode}")
+        logger.info(f"   Cache strategy: 20-day intelligent caching")
         
         start_time = time.time()
         
@@ -174,136 +176,211 @@ def scrape_processor_rankings(pipeline_run_id: str, force_update: bool = False, 
                     'test_mode': test_mode,
                     'cache_age_days': round(cache_info.cache_age_days, 1),
                     'cache_valid': cache_info.is_cache_valid,
-                    'fallback_used': response.fallback_used
+                    'fallback_used': response.fallback_used,
+                    'next_refresh_due': cache_info.next_refresh_due.isoformat() if cache_info.next_refresh_due else None
                 }
                 
                 # Log success details
                 logger.info(f"✅ Processor rankings loaded successfully!")
                 logger.info(f"   Source: {cache_info.data_source}")
                 logger.info(f"   Processors: {len(df)}")
+                logger.info(f"   Cache age: {cache_info.cache_age_days:.1f} days")
+                logger.info(f"   Execution time: {execution_time:.2f} seconds")
                 
                 if response.fallback_used:
-                    logger.warning(f"⚠️ Fallback used")
+                    logger.warning(f"⚠️ Fallback used: {response.message}")
+                
+                if cache_info.next_refresh_due:
+                    days_until_refresh = (cache_info.next_refresh_due - datetime.now()).total_seconds() / (24 * 3600)
+                    logger.info(f"📅 Next refresh in {days_until_refresh:.1f} days")
                 
                 return result
                 
             else:
                 # Cache-first strategy failed completely
-                logger.error(f"❌ Processor rankings loading failed: {response.message}")
-                return {
-                    'status': 'failed',
-                    'pipeline_run_id': pipeline_run_id,
-                    'error': response.message,
-                    'timestamp': datetime.now().isoformat(),
-                    'test_mode': test_mode,
-                    'processors_count': 0
-                }
+                logger.error(f"❌ Cache-first strategy failed: {response.message}")
+                
+                # Try fallback to old CSV file method
+                processor_file = config.get_output_paths()['processor_rankings']
+                if os.path.exists(processor_file):
+                    logger.info("📁 Falling back to existing CSV file")
+                    import pandas as pd
+                    df = pd.read_csv(processor_file)
+                    
+                    if not df.empty:
+                        file_age_days = (time.time() - os.path.getmtime(processor_file)) / (24 * 3600)
+                        
+                        result = {
+                            'status': 'success',
+                            'pipeline_run_id': pipeline_run_id,
+                            'source': 'csv_fallback',
+                            'processors_count': len(df),
+                            'execution_time_seconds': round(execution_time, 2),
+                            'timestamp': datetime.now().isoformat(),
+                            'test_mode': test_mode,
+                            'cache_age_days': round(file_age_days, 1),
+                            'warning': 'Used CSV fallback due to cache system failure'
+                        }
+                        
+                        logger.info(f"✅ Using CSV fallback: {len(df)} processors (age: {file_age_days:.1f} days)")
+                        return result
+                
+                # Complete failure
+                raise Exception(f"All processor data loading methods failed: {response.message}")
                 
         except ImportError as e:
-            logger.error(f"❌ ProcessorDataLoader not available: {str(e)}")
-            return {
-                'status': 'failed',
-                'pipeline_run_id': pipeline_run_id,
-                'error': f"ProcessorDataLoader not available: {str(e)}",
-                'timestamp': datetime.now().isoformat(),
-                'test_mode': test_mode,
-                'processors_count': 0
-            }
+            logger.warning(f"⚠️ New cache system not available: {e}")
+            logger.info("📁 Falling back to legacy processor loading")
             
+            # Fallback to legacy method
+            processor_file = config.get_output_paths()['processor_rankings']
+            
+            if os.path.exists(processor_file):
+                import pandas as pd
+                df = pd.read_csv(processor_file)
+                file_age_days = (time.time() - os.path.getmtime(processor_file)) / (24 * 3600)
+                
+                result = {
+                    'status': 'success',
+                    'pipeline_run_id': pipeline_run_id,
+                    'source': 'legacy_cache',
+                    'processors_count': len(df),
+                    'execution_time_seconds': round(time.time() - start_time, 2),
+                    'timestamp': datetime.now().isoformat(),
+                    'test_mode': test_mode,
+                    'cache_age_days': round(file_age_days, 1),
+                    'warning': 'Used legacy cache system'
+                }
+                
+                logger.info(f"✅ Using legacy cache: {len(df)} processors (age: {file_age_days:.1f} days)")
+                return result
+            else:
+                raise Exception("No processor data available and cache system unavailable")
+        
     except Exception as e:
-        logger.error(f"❌ Processor rankings scraping failed: {str(e)}")
+        logger.error(f"❌ Processor rankings loading failed: {str(e)}")
+        import traceback
+        logger.error(f"   Error details: {traceback.format_exc()}")
+        
         return {
             'status': 'failed',
             'pipeline_run_id': pipeline_run_id,
             'error': str(e),
             'timestamp': datetime.now().isoformat(),
             'test_mode': test_mode,
-            'processors_count': 0
+            'processors_count': 0,
+            'execution_time_seconds': round(time.time() - start_time, 2)
         }
 
 def main():
     """Main extraction orchestrator"""
     parser = argparse.ArgumentParser(description='Data Extraction Orchestrator')
     parser.add_argument('--pipeline-run-id', required=True, help='Pipeline run identifier')
-    parser.add_argument('--max-pages', type=str, help='Maximum pages to scrape')
-    parser.add_argument('--skip-processor-rankings', type=str, default='false', help='Skip processor rankings update')
+    parser.add_argument('--max-pages', type=str, help='Maximum pages to scrape (empty = all)')
+    parser.add_argument('--skip-processor-rankings', type=str, default='false', help='Skip processor rankings')
     parser.add_argument('--test-mode', type=str, default='false', help='Run in test mode')
     
     args = parser.parse_args()
     
-    # Parse arguments
-    max_pages = int(args.max_pages) if args.max_pages and args.max_pages.isdigit() else None
-    skip_processor_rankings = args.skip_processor_rankings.lower() == 'true'
-    test_mode = args.test_mode.lower() == 'true'
-    
+    # Setup logging first
     logger = setup_logging()
-    logger.info(f"🔧 Starting data extraction orchestrator")
+    
+    # Parse arguments
+    max_pages = None
+    if args.max_pages and args.max_pages.strip():
+        try:
+            max_pages = int(args.max_pages)
+        except ValueError:
+            print(f"Warning: Invalid max_pages value '{args.max_pages}', using default")
+    
+    # For scheduled runs, we'll check all pages but use smart update detection
+    # This ensures we don't miss updates on any page while being efficient
+    if max_pages is None:
+        logger.info("   No max_pages specified - will check all pages with smart update detection")
+    
+    skip_processor = args.skip_processor_rankings.lower() == 'true'
+    test_mode = args.test_mode.lower() == 'true'
+    logger.info(f"🚀 Starting data extraction orchestrator")
     logger.info(f"   Pipeline Run ID: {args.pipeline_run_id}")
+    logger.info(f"   Max pages: {max_pages or 'ALL'}")
+    logger.info(f"   Skip processor rankings: {skip_processor}")
     logger.info(f"   Test mode: {test_mode}")
-    logger.info(f"   Skip processor rankings: {skip_processor_rankings}")
+    
+    # Results container
+    results = {
+        'pipeline_run_id': args.pipeline_run_id,
+        'timestamp': datetime.now().isoformat(),
+        'test_mode': test_mode
+    }
     
     try:
-        # Scrape mobile data
-        scraping_result = scrape_mobile_data(args.pipeline_run_id, max_pages, test_mode)
+        # 1. Scrape mobile data
+        logger.info("📱 Phase 1: Mobile data extraction")
+        mobile_result = scrape_mobile_data(
+            pipeline_run_id=args.pipeline_run_id,
+            max_pages=max_pages,
+            test_mode=test_mode
+        )
+        results['mobile_scraping'] = mobile_result
         
-        # Scrape processor rankings unless skipped
-        processor_result = {
-            'status': 'skipped',
-            'message': 'Processor rankings update skipped by user request'
-        }
-        
-        if not skip_processor_rankings:
-            processor_result = scrape_processor_rankings(args.pipeline_run_id, force_update=False, test_mode=test_mode)
+        # 2. Scrape processor rankings (if not skipped)
+        if not skip_processor:
+            logger.info("🔧 Phase 2: Processor rankings extraction")
+            processor_result = scrape_processor_rankings(
+                pipeline_run_id=args.pipeline_run_id,
+                force_update=False,
+                test_mode=test_mode
+            )
+            results['processor_scraping'] = processor_result
         else:
-            logger.info("⏭️ Skipping processor rankings update as requested")
+            logger.info("⏭️ Phase 2: Skipped processor rankings extraction")
+            results['processor_scraping'] = {
+                'status': 'skipped',
+                'pipeline_run_id': args.pipeline_run_id,
+                'timestamp': datetime.now().isoformat()
+            }
         
-        # Prepare final results
-        results = {
-            'scraping_result': scraping_result,
-            'processor_result': processor_result,
-            'pipeline_run_id': args.pipeline_run_id,
-            'timestamp': datetime.now().isoformat()
-        }
+        # 3. Determine overall status
+        mobile_success = mobile_result.get('status') == 'success'
+        processor_success = results['processor_scraping'].get('status') in ['success', 'skipped']
         
-        # Convert to JSON-serializable format
-        def convert_numpy_types(obj):
-            """Convert numpy types to native Python types for JSON serialization"""
-            if hasattr(obj, 'item'):
-                return obj.item()
-            elif isinstance(obj, dict):
-                return {k: convert_numpy_types(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_numpy_types(v) for v in obj]
-            else:
-                return obj
+        overall_status = 'success' if mobile_success and processor_success else 'partial'
+        if not mobile_success:
+            overall_status = 'failed'
         
-        json_safe_results = convert_numpy_types(results)
+        results['overall_status'] = overall_status
         
-        # Set GitHub Actions output
+        # 4. Output results for GitHub Actions
+        scraping_result_json = json.dumps(mobile_result)
+        processor_result_json = json.dumps(results['processor_scraping'])
+        
+        # Set GitHub Actions outputs
         if 'GITHUB_OUTPUT' in os.environ:
             with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                f.write(f"scraping_result={json.dumps(json_safe_results['scraping_result'])}\n")
-                f.write(f"processor_result={json.dumps(json_safe_results['processor_result'])}\n")
+                f.write(f"scraping_result={scraping_result_json}\n")
+                f.write(f"processor_result={processor_result_json}\n")
         
-        # Summary
-        logger.info(f"🎯 Data extraction completed")
-        logger.info(f"   Mobile scraping: {scraping_result['status'].upper()}")
-        logger.info(f"   Processor scraping: {processor_result['status'].upper()}")
+        # 5. Summary
+        logger.info(f"🎯 Data extraction completed with status: {overall_status.upper()}")
+        
+        if mobile_success:
+            logger.info(f"   Mobile data: {mobile_result.get('products_processed', 0)} products processed")
+        
+        if processor_success and results['processor_scraping'].get('status') == 'success':
+            logger.info(f"   Processor data: {results['processor_scraping'].get('processors_count', 0)} processors")
         
         # Exit with appropriate code
-        scraping_success = scraping_result['status'] == 'success'
-        processor_success = processor_result['status'] in ['success', 'skipped']
-        
-        sys.exit(0 if scraping_success and processor_success else 1)
+        sys.exit(0 if overall_status in ['success', 'partial'] else 1)
         
     except Exception as e:
         logger.error(f"❌ Data extraction orchestrator failed: {str(e)}")
+        import traceback
+        logger.error(f"   Error details: {traceback.format_exc()}")
         
         # Set failed outputs for GitHub Actions
         failed_result = {
             'status': 'failed',
             'error': str(e),
-            'pipeline_run_id': args.pipeline_run_id,
             'timestamp': datetime.now().isoformat()
         }
         

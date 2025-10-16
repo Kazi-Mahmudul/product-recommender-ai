@@ -26,14 +26,9 @@ def setup_logging():
     """Setup basic logging for the loading process"""
     import logging
     
-    # Reduce logging verbosity in production
-    log_level = getattr(logging, config.log_level)
-    if config.pipeline_env == 'production':
-        log_level = logging.WARNING  # Only show warnings and errors in production
-    
     logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=getattr(logging, config.log_level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout)
         ]
@@ -52,7 +47,7 @@ def validate_processing_results(processing_result: Dict[str, Any]) -> Dict[str, 
     """
     logger = setup_logging()
     
-    logger.info("🔍 Validating processing results...")
+    logger.info("🔍 Validating processing and database loading results...")
     
     # Check if processing was successful
     if processing_result.get('status') != 'success':
@@ -67,7 +62,7 @@ def validate_processing_results(processing_result: Dict[str, Any]) -> Dict[str, 
         logger.warning("⚠️ Direct database loading was skipped")
         return {
             'status': 'warning',
-            'message': 'Direct database loading was skipped',
+            'message': 'Direct database loading was skipped - using fallback validation',
             'validation_type': 'database_loading_skipped',
             'skip_reason': processing_result.get('database_loading_skip_reason', 'Unknown')
         }
@@ -94,7 +89,11 @@ def validate_processing_results(processing_result: Dict[str, Any]) -> Dict[str, 
             'validation_type': 'no_records_loaded'
         }
     
-    logger.info(f"✅ Processing validation successful")
+    logger.info(f"✅ Processing validation successful:")
+    logger.info(f"   Records processed: {records_processed}")
+    logger.info(f"   Records inserted: {records_inserted}")
+    logger.info(f"   Records updated: {records_updated}")
+    
     return {
         'status': 'success',
         'validation_type': 'processing_and_loading',
@@ -103,6 +102,8 @@ def validate_processing_results(processing_result: Dict[str, Any]) -> Dict[str, 
         'records_updated': records_updated,
         'total_loaded': total_loaded
     }
+
+# Database update functions removed - now using direct loading in process_data.py
 
 def validate_database_consistency(pipeline_run_id: str) -> Dict[str, Any]:
     """
@@ -193,14 +194,19 @@ def validate_database_consistency(pipeline_run_id: str) -> Dict[str, Any]:
         
         logger.info(f"✅ Database validation completed")
         logger.info(f"   Health score: {health_score}/100")
+        logger.info(f"   Total records: {checks['total_records']}")
+        logger.info(f"   Recent updates: {checks['recent_updates']}")
         
         if issues:
-            logger.warning(f"⚠️ Issues found: {', '.join(issues)}")
+            logger.warning(f"   Issues found: {len(issues)}")
+            for issue in issues:
+                logger.warning(f"     - {issue}")
         
         return result
         
     except Exception as e:
         logger.error(f"❌ Database validation failed: {str(e)}")
+        
         return {
             'status': 'failed',
             'error': str(e),
@@ -223,43 +229,73 @@ def main():
     try:
         processing_result = json.loads(args.processing_result)
     except json.JSONDecodeError as e:
-        print(f"❌ Failed to parse input JSON: {e}")
+        print(f"❌ Failed to parse processing result JSON: {e}")
         sys.exit(1)
     
     logger = setup_logging()
-    logger.info(f"🔧 Starting data loading orchestrator")
+    logger.info(f"🔍 Starting data loading validation orchestrator")
     logger.info(f"   Pipeline Run ID: {args.pipeline_run_id}")
     logger.info(f"   Test mode: {test_mode}")
+    logger.info(f"   Processing status: {processing_result.get('status', 'unknown')}")
+    logger.info(f"   Direct loading enabled: Database loading now happens in processing step")
     
     try:
-        # Validate processing results
-        validation_result = validate_processing_results(processing_result)
+        # Check if processing was successful (validation can still provide useful info even if processing failed)
+        if processing_result.get('status') != 'success':
+            logger.warning("⚠️ Processing was not successful, but continuing with validation for diagnostic purposes")
         
-        if validation_result['status'] != 'success':
-            logger.error(f"❌ Processing validation failed: {validation_result.get('error', 'Unknown error')}")
+        # Validate processing results (database loading now happens in processing step)
+        if test_mode:
+            logger.info("🧪 Test mode: Simulating validation...")
             
-            # Set GitHub Actions output
-            if 'GITHUB_OUTPUT' in os.environ:
-                with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                    f.write(f"loading_result={json.dumps(validation_result)}\n")
+            result = {
+                'status': 'success',
+                'method': 'test_validation',
+                'pipeline_run_id': args.pipeline_run_id,
+                'timestamp': datetime.now().isoformat(),
+                'validation_type': 'test_mode',
+                'records_processed': processing_result.get('records_processed', 0),
+                'records_inserted': processing_result.get('records_inserted', 5),
+                'records_updated': processing_result.get('records_updated', 10),
+                'test_mode': True
+            }
             
-            sys.exit(1)
-        
-        # Validate database consistency
-        consistency_result = validate_database_consistency(args.pipeline_run_id)
-        
-        # Prepare final result
-        result = {
-            'status': 'success' if consistency_result['is_healthy'] else 'warning',
-            'pipeline_run_id': args.pipeline_run_id,
-            'timestamp': datetime.now().isoformat(),
-            'test_mode': test_mode,
-            'validation_result': validation_result,
-            'consistency_result': consistency_result,
-            'records_processed': validation_result.get('records_processed', 0),
-            'records_inserted': validation_result.get('records_inserted', 0),
-            'records_updated': validation_result.get('records_updated', 0)
-        }
+        else:
+            logger.info("🔍 Validating processing and database loading results...")
+            
+            # Validate that processing and direct database loading completed successfully
+            validation_result = validate_processing_results(processing_result)
+            
+            result = {
+                'status': validation_result['status'],
+                'method': 'validation_only',
+                'pipeline_run_id': args.pipeline_run_id,
+                'timestamp': datetime.now().isoformat(),
+                'validation': validation_result
+            }
+            
+            # Copy metrics from processing result if validation was successful
+            if validation_result['status'] == 'success':
+                result.update({
+                    'records_processed': validation_result.get('records_processed', 0),
+                    'records_inserted': validation_result.get('records_inserted', 0),
+                    'records_updated': validation_result.get('records_updated', 0),
+                    'total_loaded': validation_result.get('total_loaded', 0)
+                })
+                
+                # Perform additional database consistency checks
+                logger.info("🔍 Performing database consistency validation...")
+                consistency_result = validate_database_consistency(args.pipeline_run_id)
+                result['consistency_validation'] = consistency_result
+            else:
+                # If validation failed, copy error information
+                result.update({
+                    'error': validation_result.get('error', 'Validation failed'),
+                    'validation_type': validation_result.get('validation_type', 'unknown'),
+                    'records_processed': 0,
+                    'records_inserted': 0,
+                    'records_updated': 0
+                })
         
         # Set GitHub Actions output
         if 'GITHUB_OUTPUT' in os.environ:
@@ -267,15 +303,25 @@ def main():
                 f.write(f"loading_result={json.dumps(result)}\n")
         
         # Summary
-        logger.info(f"🎯 Data loading completed: {result['status'].upper()}")
+        logger.info(f"🎯 Data loading validation completed with status: {result['status'].upper()}")
         logger.info(f"   Records processed: {result.get('records_processed', 0)}")
-        logger.info(f"   Database health: {consistency_result['health_score']}/100")
+        logger.info(f"   Records inserted: {result.get('records_inserted', 0)}")
+        logger.info(f"   Records updated: {result.get('records_updated', 0)}")
+        
+        if 'consistency_validation' in result:
+            consistency = result['consistency_validation']
+            logger.info(f"   Database health: {consistency.get('health_score', 0)}/100")
+        
+        if result['status'] != 'success':
+            logger.error(f"   Validation error: {result.get('error', 'Unknown error')}")
         
         # Exit with appropriate code
         sys.exit(0 if result['status'] == 'success' else 1)
         
     except Exception as e:
         logger.error(f"❌ Data loading orchestrator failed: {str(e)}")
+        import traceback
+        logger.error(f"   Error details: {traceback.format_exc()}")
         
         # Set failed output for GitHub Actions
         failed_result = {
@@ -283,7 +329,9 @@ def main():
             'error': str(e),
             'pipeline_run_id': args.pipeline_run_id,
             'timestamp': datetime.now().isoformat(),
-            'test_mode': test_mode
+            'records_processed': 0,
+            'records_inserted': 0,
+            'records_updated': 0
         }
         
         if 'GITHUB_OUTPUT' in os.environ:
