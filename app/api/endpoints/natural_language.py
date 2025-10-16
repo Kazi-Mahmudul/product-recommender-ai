@@ -874,7 +874,7 @@ async def rag_enhanced_query(
                 import re
                 query_text = request.query.lower()
                 
-                # Enhanced pattern for "under X", "below X", "less than X", "max X" with better taka support
+                # Enhanced pattern for "under X", "below X", "less than X", "max X", "at X"
                 under_patterns = [
                     r'under[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
                     r'below[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
@@ -884,6 +884,7 @@ async def rag_enhanced_query(
                     r'budget[\s]+(?:of[\s]+)?(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
                     r'within[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
                     r'up\s+to[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',
+                    r'at[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',  # Added pattern for "at X"
                     # Bangladesh-specific patterns
                     r'([0-9,]+)k?[\s]*(?:tk|taka|৳|bdt)[\s]*(?:er[\s]+)?(?:niche|under|below)',
                     r'([0-9,]+)k?[\s]*(?:hazar|hajar)[\s]*(?:taka|tk|৳)?[\s]*(?:er[\s]+)?(?:niche|under|below)'
@@ -916,6 +917,7 @@ async def rag_enhanced_query(
                     r'(?:tk[\s.]*|৳[\s]*|taka[\s]*)([0-9,]+)[\s]*(?:phone|mobile|smartphone)',
                     r'([0-9,]+)[\s]*(?:taka|tk|৳|bdt)[\s]*(?:phone|mobile|smartphone)',
                     r'([0-9,]+)[\s]*(?:hazar|hajar)[\s]*(?:taka|tk|৳)?[\s]*(?:phone|mobile|smartphone)',
+                    r'at[\s]+(?:tk[\s.]*|৳[\s]*|taka[\s]*|bdt[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?',  # Added pattern for "at X"
                     # Standalone price mentions
                     r'(?:price|dam|cost)[\s]*(?:under|below|max)?[\s]*(?:tk[\s.]*|৳[\s]*|taka[\s]*)?([0-9,]+)k?(?:[\s]*(?:tk|taka|৳|bdt))?'
                 ]
@@ -994,15 +996,38 @@ async def rag_enhanced_query(
                             try:
                                 price = float(price_str)
                                 # Handle "k" suffix or low numbers
-                                if 'k' in match.group(0).lower() or price < 1000:
-                                    if price < 1000:
-                                        price *= 1000
+                                if 'k' in match.group(0).lower():
+                                    price *= 1000
+                                elif price < 1000:
+                                    price *= 1000
                                 # For simple patterns, assume it's a max price
                                 processed_filters["max_price"] = price
                                 logger.info(f"Extracted max_price from simple pattern: {price}")
                                 break
                             except ValueError:
                                 continue
+
+                # Check for max price patterns
+                for pattern in under_patterns:
+                    match = re.search(pattern, query_text)
+                    if match:
+                        price_str = match.group(1).replace(',', '')
+                        try:
+                            price = float(price_str)
+                            # Handle "k" suffix (thousands)
+                            if 'k' in match.group(0).lower():
+                                price *= 1000
+                            # If price is suspiciously low, assume it's in thousands
+                            elif price < 1000:
+                                price *= 1000
+                            processed_filters["max_price"] = price
+                            logger.info(f"Extracted max_price from query: {price}")
+                            break
+                        except ValueError:
+                            continue
+
+                        except ValueError:
+                            continue
             
             # Handle nested RAM filters
             if "ram" in filters:

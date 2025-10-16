@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import TrendingPhones from "./components/TrendingPhones";
 import TopSearchedPhones from "./components/TopSearchedPhones";
 import WhyChoosePeyechi from "./components/WhyChoosePeyechi";
+import BrandsSection from "./components/BrandsSection";
 
 import Footer from "./components/Footer";
 import LoginPage from "./pages/LoginPage";
@@ -449,9 +450,20 @@ function App() {
               </div>
             </div>
           </section>
-          <TopSearchedPhones darkMode={darkMode} />
+          {/* Top Searched Phones and Brands Section - Side by side on desktop, stacked on mobile */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="lg:w-2/3">
+              <TopSearchedPhones darkMode={darkMode} />
+            </div>
+            <div className="lg:w-1/3 lg:block hidden">
+              <BrandsSection />
+            </div>
+          </div>
           <div className="my-8" />
           <TrendingPhones darkMode={darkMode} />
+          <div className="my-8 lg:hidden">
+            <BrandsSection />
+          </div>
           <div className="my-8" />
           <WhyChoosePeyechi darkMode={darkMode} />
           {/* Chat/Message Section */}
