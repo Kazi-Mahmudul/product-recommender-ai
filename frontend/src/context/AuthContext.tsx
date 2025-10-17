@@ -126,6 +126,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const googleLogin = async () => {
     setLoading(true);
     try {
+      // Store the current URL so we can redirect back after authentication
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('post_auth_redirect', currentPath);
+      
       // Call the backend to get the Google OAuth URL
       const API_BASE = process.env.REACT_APP_API_BASE || "/api";
       const response = await fetch(`${API_BASE}/api/v1/auth/google/login`, {

@@ -56,20 +56,35 @@ def signup(user_data: UserSignup, db: Session = Depends(get_db)):
         # Create new user
         user = create_user(db, user_data)
         
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create account"
+            )
+        
         # Create email verification
-        verification = create_email_verification(db, user.id)
+        verification = create_email_verification(db, user.id)  # type: ignore
+        
+        if not verification:
+            logger.warning(f"Failed to create verification for user {user.email}")  # type: ignore
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create verification code"
+            )
         
         # Send verification email
-        email_sent = send_verification_email(user.email, verification.code)
+        email_sent = send_verification_email(user.email, verification.code)  # type: ignore
         
         if not email_sent:
-            logger.warning(f"Failed to send verification email to {user.email}")
+            logger.warning(f"Failed to send verification email to {user.email}")  # type: ignore
         
         return MessageResponse(
             message="Account created successfully. Please check your email for verification code.",
             success=True
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error during signup: {str(e)}")
         raise HTTPException(
@@ -109,7 +124,7 @@ def verify_email(verification_data: EmailVerificationRequest, db: Session = Depe
         )
 
 @router.post("/login", response_model=Token)
-def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request = None, response: Response = None):
+def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request = None, response: Response = None):  # type: ignore
     """
     Authenticate user and return access token.
     
@@ -147,32 +162,32 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
         )
     
     # Check if user is verified
-    if not user.is_verified:
+    if not user.is_verified:  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email not verified. Please verify your email address."
         )
     
     # Verify password
-    if not verify_password(user_data.password, user.password_hash):
+    if not verify_password(user_data.password, user.password_hash):  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
     
     # Check if user should have admin status based on email
-    is_admin = user.email in settings.admin_emails_list
+    is_admin = user.email in settings.admin_emails_list  # type: ignore
     
     # Update admin status in database if needed
-    if user.is_admin != is_admin:
-        user.is_admin = is_admin
+    if user.is_admin != is_admin:  # type: ignore
+        user.is_admin = is_admin  # type: ignore
         db.commit()
         db.refresh(user)
     
     # Create access token
     access_token_expires = settings.ACCESS_TOKEN_EXPIRE_MINUTES
     access_token = create_access_token(
-        data={"sub": str(user.id)}, 
+        data={"sub": str(user.id)},  # type: ignore
         expires_delta=None  # Uses default from settings
     )
     
@@ -182,9 +197,9 @@ def login(user_data: UserLogin, db: Session = Depends(get_db), request: Request 
         if comparison_session_id:
             try:
                 session_uuid = uuid.UUID(comparison_session_id)
-                crud_comparison.merge_comparison_data(db, session_uuid, user.id)
+                crud_comparison.merge_comparison_data(db, session_uuid, user.id)  # type: ignore
                 # Clear the session cookie after merging with secure settings
-                is_production = settings.ENVIRONMENT == "production"
+                is_production = os.getenv("ENVIRONMENT", "development") == "production"
                 response.delete_cookie(
                     "comparison_session_id",
                     secure=is_production,
@@ -238,7 +253,7 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
             detail="User not found"
         )
     
-    if user.is_verified:
+    if user.is_verified:  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already verified"
@@ -246,13 +261,20 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
     
     try:
         # Create new verification code
-        verification = create_email_verification(db, user.id)
+        verification = create_email_verification(db, user.id)  # type: ignore
+        
+        if not verification:
+            logger.warning(f"Failed to create verification for user {user.email}")  # type: ignore
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create verification code"
+            )
         
         # Send verification email
-        email_sent = send_verification_email(user.email, verification.code)
+        email_sent = send_verification_email(user.email, verification.code)  # type: ignore
         
         if not email_sent:
-            logger.warning(f"Failed to send verification email to {user.email}")
+            logger.warning(f"Failed to send verification email to {user.email}")  # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to send verification email"
@@ -275,7 +297,7 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
 # Google OAuth endpoints
 if GOOGLE_AUTH_AVAILABLE:
     @router.post("/google", response_model=Token)
-    async def google_auth(request: Request, response: Response, db: Session = Depends(get_db)):
+    async def google_auth(request: Request, response: Response, db: Session = Depends(get_db)):  # type: ignore
         """
         Authenticate user via Google OAuth (client-side flow).
         
@@ -302,6 +324,8 @@ if GOOGLE_AUTH_AVAILABLE:
             # Verify the Google token
             try:
                 logger.info(f"Attempting to verify Google token")
+                from google.oauth2 import id_token
+                from google.auth.transport import requests as google_requests
                 idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
                 logger.info("Google token verified successfully")
             except ValueError as e:
@@ -331,8 +355,8 @@ if GOOGLE_AUTH_AVAILABLE:
 
             # Check if user exists, else create
             user = get_user_by_email(db, email)
+            is_new_user = False
             if not user:
-                # Create user directly for Google OAuth
                 from app.models.user import User
                 
                 # Use a secure random password for Google OAuth users
@@ -352,32 +376,38 @@ if GOOGLE_AUTH_AVAILABLE:
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-            elif not user.is_verified:
+                
+                # Mark as new user
+                is_new_user = True
+            elif not user.is_verified:  # type: ignore
                 # Verify existing user if they authenticate via Google
-                user.is_verified = True
+                user.is_verified = True  # type: ignore
                 # Check if user should have admin status based on email
-                user.is_admin = user.email in settings.admin_emails_list
+                user.is_admin = user.email in settings.admin_emails_list  # type: ignore
                 db.commit()
                 db.refresh(user)
             else:
-                # Update admin status if needed
-                if user.is_admin != (user.email in settings.admin_emails_list):
-                    user.is_admin = user.email in settings.admin_emails_list
+                # User already exists and is verified
+                # Check if user should have admin status based on email
+                if user.is_admin != (user.email in settings.admin_emails_list):  # type: ignore
+                    user.is_admin = user.email in settings.admin_emails_list  # type: ignore
                     db.commit()
                     db.refresh(user)
+                
+                # If user exists and tries to sign up again, we'll handle this on the frontend
 
             # Create JWT
             access_token_expires = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-            access_token = create_access_token(data={"sub": str(user.id)})
+            access_token = create_access_token(data={"sub": str(user.id)})  # type: ignore
             
             # Merge anonymous comparison data if a session cookie exists
             comparison_session_id = request.cookies.get("comparison_session_id")
             if comparison_session_id:
                 try:
                     session_uuid = uuid.UUID(comparison_session_id)
-                    crud_comparison.merge_comparison_data(db, session_uuid, user.id)
+                    crud_comparison.merge_comparison_data(db, session_uuid, user.id)  # type: ignore
                     # Clear the session cookie after merging with secure settings
-                    is_production = settings.ENVIRONMENT == "production"
+                    is_production = os.getenv("ENVIRONMENT", "development") == "production"
                     response.delete_cookie(
                         "comparison_session_id",
                         secure=is_production,
@@ -430,15 +460,17 @@ if GOOGLE_AUTH_AVAILABLE:
     async def google_auth_callback(
         request: Request,
         code: str,
-        state: str = None,
+        state: str = None,  # type: ignore
         db: Session = Depends(get_db),
-        response: Response = None
+        response: Response = None  # type: ignore
     ):
         """
         Callback endpoint for Google OAuth. Google redirects here after authentication.
         This endpoint exchanges the authorization code for an access token and user info.
         """
         import requests
+        from fastapi.responses import RedirectResponse
+        import urllib.parse
         
         try:
             # Exchange the authorization code for access token
@@ -493,6 +525,7 @@ if GOOGLE_AUTH_AVAILABLE:
             
             # Check if user exists, else create
             user = get_user_by_email(db, email)
+            is_new_user = False
             if not user:
                 from app.models.user import User
                 
@@ -513,39 +546,46 @@ if GOOGLE_AUTH_AVAILABLE:
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-            elif not user.is_verified:
+                
+                # Mark as new user
+                is_new_user = True
+            elif not user.is_verified:  # type: ignore
                 # Verify existing user if they authenticate via Google
-                user.is_verified = True
+                user.is_verified = True  # type: ignore
                 # Check if user should have admin status based on email
-                user.is_admin = user.email in settings.admin_emails_list
+                user.is_admin = user.email in settings.admin_emails_list  # type: ignore
                 db.commit()
                 db.refresh(user)
             else:
-                # Update admin status if needed
-                if user.is_admin != (user.email in settings.admin_emails_list):
-                    user.is_admin = user.email in settings.admin_emails_list
+                # User already exists and is verified
+                # Check if user should have admin status based on email
+                if user.is_admin != (user.email in settings.admin_emails_list):  # type: ignore
+                    user.is_admin = user.email in settings.admin_emails_list  # type: ignore
                     db.commit()
                     db.refresh(user)
+                
+                # If user exists and tries to sign up again, we'll handle this on the frontend
 
             # Create JWT
             access_token_expires = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-            access_token_jwt = create_access_token(data={"sub": str(user.id)})
+            access_token_jwt = create_access_token(data={"sub": str(user.id)})  # type: ignore
             
             # Set the token in a secure cookie
-            from fastapi.responses import RedirectResponse
-            is_production = settings.ENVIRONMENT == "production"
-            response.set_cookie(
-                key="auth_token",
-                value=access_token_jwt,
-                httponly=True,
-                secure=is_production,
-                samesite="lax" if is_production else "none",
-                max_age=3600  # 1 hour
-            )
+            is_production = os.getenv("ENVIRONMENT", "development") == "production"
+            if response:
+                response.set_cookie(
+                    key="auth_token",
+                    value=access_token_jwt,
+                    httponly=True,
+                    secure=is_production,
+                    samesite="lax" if is_production else "none",
+                    max_age=3600  # 1 hour
+                )
             
-            # Redirect to frontend success page
+            # Redirect to frontend success page with user status
             frontend_url = os.getenv("FRONTEND_URL", "https://peyechi.com")
-            redirect_url = f"{frontend_url}/auth/success?token={access_token_jwt}"
+            # Add query parameter to indicate if it's a new user registration
+            redirect_url = f"{frontend_url}/auth/success?token={access_token_jwt}&new_user={is_new_user}"
             return RedirectResponse(url=redirect_url)
             
         except HTTPException:

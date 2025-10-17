@@ -1,25 +1,69 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAuthAlerts } from '../hooks/useAuthAlerts';
 
 const AuthSuccessPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, loading, token } = useAuth();
+  const location = useLocation();
+  const { user, loading, token, setUser } = useAuth();
   const authAlerts = useAuthAlerts(false); // Assuming light mode for this page
 
   useEffect(() => {
     const handleAuthSuccess = async () => {
+      // Parse query parameters
+      const searchParams = new URLSearchParams(location.search);
+      const isNewUser = searchParams.get('new_user') === 'true';
+      
       // The token should already be set in the cookie from the backend callback
       // We just need to ensure the UI updates and show a success message
       
       if (!loading) {
-        if (token && user) {
-          // User is authenticated, show success and redirect
-          await authAlerts.showGoogleLoginSuccess(user);
+        if (token) {
+          // If we don't have user data yet, fetch it
+          if (!user) {
+            try {
+              const response = await fetch('/api/v1/auth/me', {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              if (response.ok) {
+                const userData = await response.json();
+                setUser({
+                  ...userData,
+                  auth_provider: 'google',
+                  last_login: new Date().toISOString()
+                });
+                
+                // Show appropriate success message
+                if (isNewUser) {
+                  await authAlerts.showSignupSuccess(userData);
+                } else {
+                  await authAlerts.showGoogleLoginSuccess(userData);
+                }
+              }
+            } catch (error) {
+              console.error('Failed to fetch user data:', error);
+            }
+          } else {
+            // Show appropriate success message
+            if (isNewUser) {
+              await authAlerts.showSignupSuccess(user);
+            } else {
+              await authAlerts.showGoogleLoginSuccess(user);
+            }
+          }
+          
+          // Redirect to original page or home page after a short delay
           setTimeout(() => {
-            navigate('/');
-          }, 2000); // Redirect after 2 seconds
+            // Get the stored redirect URL or default to home
+            const redirectPath = localStorage.getItem('post_auth_redirect') || '/';
+            // Remove the stored redirect URL
+            localStorage.removeItem('post_auth_redirect');
+            navigate(redirectPath);
+          }, 2000);
         } else {
           // If no token, maybe redirect to login
           setTimeout(() => {
@@ -30,7 +74,7 @@ const AuthSuccessPage: React.FC = () => {
     };
 
     handleAuthSuccess();
-  }, [loading, token, user, navigate, authAlerts]);
+  }, [loading, token, user, navigate, authAlerts, location.search, setUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20">
