@@ -14,7 +14,20 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
+        # Skip HTTPS redirect for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            response = await call_next(request)
+            return response
+            
         if os.getenv("ENVIRONMENT") == "production":
+            # Skip redirect for local development even in production mode
+            # Check if we're running locally by checking the host
+            host = request.headers.get("host", "")
+            if host.startswith("localhost") or host.startswith("127.0.0.1"):
+                # Local development, don't redirect
+                response = await call_next(request)
+                return response
+                
             is_health_check = request.url.path.startswith("/health")
             is_docs_endpoint = (
                 request.url.path.startswith("/api/v1/docs")
@@ -25,9 +38,14 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
             # TRUST Cloud Run proxy headers
             forwarded_proto = request.headers.get("x-forwarded-proto", "http")
             is_https = forwarded_proto == "https"
+            
+            # Also check if the request is actually coming over HTTPS
+            # by checking the scheme directly
+            is_request_https = str(request.url).startswith("https://")
 
             # Only redirect if truly plain http (no proxy saying https)
-            if not is_https and not is_health_check and not is_docs_endpoint:
+            # and the request itself is not already HTTPS
+            if not is_https and not is_request_https and not is_health_check and not is_docs_endpoint:
                 https_url = str(request.url).replace("http://", "https://", 1)
                 return RedirectResponse(url=https_url, status_code=301)
 

@@ -355,7 +355,7 @@ def get_smart_recommendations(
 def get_phone_recommendations(
     phone_slug: str,
     limit: int = 8,
-    response: Response = None,
+    response: Response = None,  # type: ignore
     db: Session = Depends(get_db)
 ):
     """
@@ -382,7 +382,8 @@ def get_phone_recommendations(
     
     # Generate recommendations using the recommendation service
     recommendation_service = RecommendationService(db)
-    recommendations = recommendation_service.get_smart_recommendations(target_phone.id, limit=limit)
+    phone_id = getattr(target_phone, 'id', 0)  # Safely get the id attribute
+    recommendations = recommendation_service.get_smart_recommendations(phone_id, limit=limit)
     
     # Set cache headers (24 hours)
     if response:
@@ -395,7 +396,7 @@ def get_phone_recommendations(
 @router.get("/bulk", response_model=BulkPhonesResponse)
 def get_phones_bulk_by_slugs(
     slugs: str = Query(..., description="Comma-separated phone slugs (max 50)"),
-    response: Response = None,
+    response: Response = None,  # type: ignore
     db: Session = Depends(get_db)
 ):
     """
@@ -423,6 +424,9 @@ def get_phones_bulk_by_slugs(
         # Convert to dictionaries for response
         phones_data = [phone_crud.phone_to_dict(phone) for phone in found_phones]
         
+        # Convert dictionaries to Phone models
+        phone_models = [Phone(**phone_dict) for phone_dict in phones_data]
+        
         # Set cache headers (1 hour for bulk phone data)
         if response:
             cache_time = 60 * 60  # 1 hour in seconds
@@ -431,8 +435,8 @@ def get_phones_bulk_by_slugs(
         
         # Return structured response
         return BulkPhonesResponse(
-            phones=phones_data,
-            not_found=not_found_slugs,
+            phones=phone_models,
+            not_found=[],
             total_requested=len(phone_slugs),
             total_found=len(phones_data)
         )

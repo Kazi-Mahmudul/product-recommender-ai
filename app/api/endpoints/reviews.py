@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.crud import review as review_crud
@@ -9,7 +9,7 @@ router = APIRouter()
 
 @router.post("/", response_model=Review)
 def create_review(review: ReviewCreate, 
-                  session_id: str = Header(None),
+                  session_id: Optional[str] = Header(None),
                   db: Session = Depends(get_db)):
     """
     Create a new review for a phone.
@@ -37,7 +37,7 @@ def read_reviews(slug: str, db: Session = Depends(get_db)):
 @router.put("/{review_id}", response_model=Review)
 def update_review(review_id: int,
                   review_update: ReviewUpdate,
-                  session_id: str = Header(None),
+                  session_id: Optional[str] = Header(None),
                   db: Session = Depends(get_db)):
     """
     Update a review if the session ID matches.
@@ -60,7 +60,7 @@ def update_review(review_id: int,
 
 @router.delete("/{review_id}")
 def delete_review(review_id: int,
-                  session_id: str = Header(None),
+                  session_id: Optional[str] = Header(None),
                   db: Session = Depends(get_db)):
     """
     Delete a review if the session ID matches.

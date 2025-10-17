@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import date
 
 class PhoneBase(BaseModel):
+    model_config = ConfigDict(extra='ignore')
+    
     name: str
     brand: str
     model: str
@@ -134,6 +136,10 @@ class PhoneBase(BaseModel):
     performance_score: Optional[float] = None
     display_score: Optional[float] = None
     camera_score: Optional[float] = None
+    
+    # Reviews
+    average_rating: Optional[float] = None
+    review_count: Optional[int] = None
 
 class PhoneCreate(PhoneBase):
     pass
@@ -141,6 +147,11 @@ class PhoneCreate(PhoneBase):
 class PhoneInDB(PhoneBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+    def model_dump(self, *args, **kwargs):
+        # Override to include None values by default
+        kwargs.setdefault('exclude_none', False)
+        return super().model_dump(*args, **kwargs)
 
 class Phone(PhoneInDB):
     """Phone model returned to clients"""

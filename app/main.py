@@ -217,6 +217,7 @@ app.add_middleware(
         "Origin",
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
+        "session_id",  # Add session_id header to allowed headers
         "X-Session-Id",
         "Cache-Control",
         "Pragma",

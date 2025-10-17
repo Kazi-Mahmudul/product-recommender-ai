@@ -25,6 +25,13 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string>('');
+
+  // Get current session ID on component mount
+  useEffect(() => {
+    const sessionId = localStorage.getItem('review_session_id') || '';
+    setCurrentSessionId(sessionId);
+  }, []);
 
   // Fetch reviews when component mounts
   useEffect(() => {
@@ -492,25 +499,27 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                       </div>
                     )}
                     
-                    {/* Edit/Delete Actions */}
-                    <div className="flex justify-end gap-2 mt-3">
-                      <button
-                        onClick={() => startEditing(review.id)}
-                        className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300"
-                        aria-label="Edit review"
-                      >
-                        <Edit size={16} />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteReview(review.id)}
-                        className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-300"
-                        aria-label="Delete review"
-                      >
-                        <Trash2 size={16} />
-                        <span>Delete</span>
-                      </button>
-                    </div>
+                    {/* Edit/Delete Actions - Only show for the review author */}
+                    {review.session_id === currentSessionId && (
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button
+                          onClick={() => startEditing(review.id)}
+                          className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300"
+                          aria-label="Edit review"
+                        >
+                          <Edit size={16} />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-300"
+                          aria-label="Delete review"
+                        >
+                          <Trash2 size={16} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
