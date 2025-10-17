@@ -3,16 +3,23 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from app.models.review import Review
 from app.models.phone import Phone
+import uuid
+from app.utils.database_validation import DatabaseValidator
 
-def create_review(db: Session, slug: str, rating: int, review_text: Optional[str] = None) -> Review:
+def create_review(db: Session, slug: str, rating: int, review_text: Optional[str] = None, session_id: Optional[str] = None) -> Review:
     """
     Create a new review for a phone and update the phone's average rating and review count.
     """
+    # Generate a session ID if not provided
+    if not session_id:
+        session_id = str(uuid.uuid4())
+    
     # Create the review
     db_review = Review(
         slug=slug,
         rating=rating,
-        review_text=review_text
+        review_text=review_text,
+        session_id=session_id
     )
     db.add(db_review)
     db.commit()
@@ -34,6 +41,42 @@ def get_review(db: Session, review_id: int) -> Optional[Review]:
     Get a specific review by ID.
     """
     return db.query(Review).filter(Review.id == review_id).first()
+
+def update_review(db: Session, review_id: int, rating: int, review_text: Optional[str], session_id: str) -> Optional[Review]:
+    """
+    Update a review if the session ID matches.
+    """
+    review = db.query(Review).filter(Review.id == review_id, Review.session_id == session_id).first()
+    if not review:
+        return None
+    
+    setattr(review, 'rating', rating)
+    setattr(review, 'review_text', review_text)
+    db.commit()
+    db.refresh(review)
+    
+    # Update the phone's average rating and review count
+    phone_slug = DatabaseValidator.get_safe_column_value(review, 'slug')
+    update_phone_ratings(db, phone_slug)
+    
+    return review
+
+def delete_review(db: Session, review_id: int, session_id: str) -> bool:
+    """
+    Delete a review if the session ID matches and update the phone's ratings.
+    """
+    review = db.query(Review).filter(Review.id == review_id, Review.session_id == session_id).first()
+    if not review:
+        return False
+    
+    phone_slug = DatabaseValidator.get_safe_column_value(review, 'slug')
+    db.delete(review)
+    db.commit()
+    
+    # Update the phone's average rating and review count
+    update_phone_ratings(db, phone_slug)
+    
+    return True
 
 def update_phone_ratings(db: Session, slug: str) -> None:
     """
@@ -59,20 +102,3 @@ def update_phone_ratings(db: Session, slug: str) -> None:
     })
     
     db.commit()
-
-def delete_review(db: Session, review_id: int) -> bool:
-    """
-    Delete a review and update the phone's ratings.
-    """
-    review = db.query(Review).filter(Review.id == review_id).first()
-    if not review:
-        return False
-    
-    phone_slug = review.slug
-    db.delete(review)
-    db.commit()
-    
-    # Update the phone's average rating and review count
-    update_phone_ratings(db, phone_slug)
-    
-    return True

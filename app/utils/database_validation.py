@@ -26,6 +26,9 @@ class DatabaseValidator:
         try:
             # Use SQLAlchemy inspector to get column information
             inspector = inspect(db.bind)
+            if inspector is None:
+                logger.error(f"Could not get inspector for database")
+                return set()
             columns = inspector.get_columns(table_name)
             column_names = {col['name'] for col in columns}
             
@@ -62,6 +65,7 @@ class DatabaseValidator:
             'screen_size_numeric', 'overall_device_score', 'display_score',
             'camera_score', 'battery_score', 'performance_score',
             'charging_wattage',  # Add charging wattage column
+            'average_rating', 'review_count',  # Add review-related columns
             
             # String columns used in filtering
             'display_type', 'battery_type', 'chipset', 'operating_system',

@@ -33,8 +33,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
   const specs = [
     { label: "Storage", value: (phone as any).internal_storage || (typeof (phone as any).storage_gb === "number" ? `${(phone as any).storage_gb} GB` : "-"), icon: specIcons.Storage },
     { label: "RAM", value: (phone as any).ram || (typeof (phone as any).ram_gb === "number" ? `${(phone as any).ram_gb} GB` : "-"), icon: specIcons.RAM },
-    { label: "Main Camera", value: (phone as any).main_camera || ((phone as any).primary_camera_mp ? `${(phone as any).primary_camera_mp} MP` : (phone as any).camera_setup || "-"), icon: specIcons.MainCamera },
-    { label: "Front Camera", value: (phone as any).front_camera || ((phone as any).selfie_camera_mp ? `${(phone as any).selfie_camera_mp} MP` : "-"), icon: specIcons.FrontCamera },
+    { label: "Main", value: (phone as any).main_camera || ((phone as any).primary_camera_mp ? `${(phone as any).primary_camera_mp} MP` : (phone as any).camera_setup || "-"), icon: specIcons.MainCamera },
+    { label: "Front", value: (phone as any).front_camera || ((phone as any).selfie_camera_mp ? `${(phone as any).selfie_camera_mp} MP` : "-"), icon: specIcons.FrontCamera },
     { label: "Display", value: (typeof (phone as any).screen_size_numeric === "number" && (phone as any).screen_size_numeric > 0) ? `${(phone as any).screen_size_numeric}"` : ((phone as any).screen_size_inches ? `${(phone as any).screen_size_inches}"` : "-"), icon: specIcons.Display },
     { label: "Battery", value: (typeof (phone as any).battery_capacity_numeric === "number" && (phone as any).battery_capacity_numeric > 0) ? `${(phone as any).battery_capacity_numeric} mAh` : (phone as any).capacity || "-", icon: specIcons.BatteryCapacity },
   ];

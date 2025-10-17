@@ -1,5 +1,4 @@
 from typing import List, Optional, Dict, Any, Tuple
-from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Float
 import logging
@@ -110,7 +109,8 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
             "selfie_camera_mp", "battery_capacity_numeric", "has_fast_charging",
             "has_wireless_charging", "charging_wattage", "battery_score", "security_score",
             "connectivity_score", "is_popular_brand", "is_new_release", "age_in_months",
-            "is_upcoming", "overall_device_score", "performance_score", "display_score", "camera_score"
+            "is_upcoming", "overall_device_score", "performance_score", "display_score", "camera_score",
+            "average_rating", "review_count"  
         ]
         for field in numeric_fields:
             result[field] = DatabaseValidator.get_safe_column_value(phone, field)
@@ -461,13 +461,13 @@ def get_phones_by_ids(db: Session, phone_ids: List[int]) -> Tuple[List[Phone], L
         found_phones = db.query(Phone).filter(Phone.id.in_(phone_ids)).all()
         
         # Create a mapping of found phone IDs for quick lookup
-        found_ids = {phone.id for phone in found_phones}
+        found_ids = {DatabaseValidator.get_safe_column_value(phone, 'id') for phone in found_phones}
         
         # Determine which IDs were not found
         not_found_ids = [phone_id for phone_id in phone_ids if phone_id not in found_ids]
         
         # Sort found phones to match the order of requested IDs
-        phone_id_to_phone = {phone.id: phone for phone in found_phones}
+        phone_id_to_phone = {DatabaseValidator.get_safe_column_value(phone, 'id'): phone for phone in found_phones}
         ordered_phones = []
         for phone_id in phone_ids:
             if phone_id in phone_id_to_phone:
@@ -494,7 +494,10 @@ def get_phone_slug_by_id(db: Session, phone_id: int) -> Optional[str]:
     """
     try:
         phone = db.query(Phone).filter(Phone.id == phone_id).first()
-        return phone.slug if phone and phone.slug else None
+        if phone and hasattr(phone, 'slug'):
+            slug_value = DatabaseValidator.get_safe_column_value(phone, 'slug')
+            return slug_value if slug_value else None
+        return None
     except Exception as e:
         logger.error(f"Error getting phone slug by ID {phone_id}: {str(e)}")
         return None
@@ -515,13 +518,13 @@ def get_phones_by_slugs(db: Session, phone_slugs: List[str]) -> Tuple[List[Phone
         found_phones = db.query(Phone).filter(Phone.slug.in_(phone_slugs)).all()
         
         # Create a mapping of found phone slugs for quick lookup
-        found_slugs = {phone.slug for phone in found_phones if phone.slug}
+        found_slugs = {DatabaseValidator.get_safe_column_value(phone, 'slug') for phone in found_phones if DatabaseValidator.get_safe_column_value(phone, 'slug')}
         
         # Determine which slugs were not found
         not_found_slugs = [slug for slug in phone_slugs if slug not in found_slugs]
         
         # Sort found phones to match the order of requested slugs
-        phone_slug_to_phone = {phone.slug: phone for phone in found_phones if phone.slug}
+        phone_slug_to_phone = {DatabaseValidator.get_safe_column_value(phone, 'slug'): phone for phone in found_phones if DatabaseValidator.get_safe_column_value(phone, 'slug')}
         ordered_phones = []
         for slug in phone_slugs:
             if slug in phone_slug_to_phone:
@@ -576,7 +579,7 @@ def get_price_range(db: Session) -> Dict[str, float]:
         return {"min": min_price, "max": max_price}
     except Exception as e:
         logger.error(f"Error fetching price range: {str(e)}")
-        return {"min": None, "max": None}
+        return {"min": 0.0, "max": 0.0}
 
 def create_phone(db: Session, phone: PhoneCreate) -> Phone:
     """

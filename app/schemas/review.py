@@ -15,6 +15,7 @@ class ReviewUpdate(ReviewBase):
 class Review(ReviewBase):
     id: int
     slug: str
+    session_id: str
     created_at: datetime
 
     class Config:

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Star, User, Calendar } from 'lucide-react';
-import { Review, fetchReviewsByPhoneSlug, createReview } from '../../api/reviews';
+import { Star, User, Calendar, Edit, Trash2 } from 'lucide-react';
+import { Review, fetchReviewsByPhoneSlug, createReview, updateReview, deleteReview } from '../../api/reviews';
 
 interface ReviewsSectionProps {
   phoneSlug: string;
@@ -8,8 +8,14 @@ interface ReviewsSectionProps {
   reviewCount: number;
 }
 
+interface EditableReview extends Review {
+  isEditing?: boolean;
+  tempRating?: number;
+  tempReviewText?: string;
+}
+
 const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRating, reviewCount }) => {
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<EditableReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newReview, setNewReview] = useState({
@@ -26,7 +32,12 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
       try {
         setLoading(true);
         const fetchedReviews = await fetchReviewsByPhoneSlug(phoneSlug);
-        setReviews(fetchedReviews);
+        // Add isEditing flag to each review
+        const reviewsWithEditFlag = fetchedReviews.map(review => ({
+          ...review,
+          isEditing: false
+        }));
+        setReviews(reviewsWithEditFlag);
         setError(null);
       } catch (err) {
         setError('Failed to load reviews. Please try again later.');
@@ -67,7 +78,10 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
       const createdReview = await createReview(reviewData);
       
       // Add the new review to the list
-      setReviews(prev => [createdReview, ...prev]);
+      setReviews(prev => [{
+        ...createdReview,
+        isEditing: false
+      }, ...prev]);
       setSubmitSuccess(true);
       
       // Reset form
@@ -106,6 +120,94 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
     const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
     return { rating, count, percentage };
   });
+
+  // Start editing a review
+  const startEditing = (reviewId: number) => {
+    setReviews(prev => prev.map(review => 
+      review.id === reviewId 
+        ? { 
+            ...review, 
+            isEditing: true,
+            tempRating: review.rating,
+            tempReviewText: review.review_text || ''
+          } 
+        : review
+    ));
+  };
+
+  // Cancel editing a review
+  const cancelEditing = (reviewId: number) => {
+    setReviews(prev => prev.map(review => 
+      review.id === reviewId 
+        ? { 
+            ...review, 
+            isEditing: false,
+            tempRating: undefined,
+            tempReviewText: undefined
+          } 
+        : review
+    ));
+  };
+
+  // Save edited review
+  const saveReview = async (reviewId: number) => {
+    const review = reviews.find(r => r.id === reviewId);
+    if (!review || !review.tempRating) return;
+
+    try {
+      const updatedReview = await updateReview(reviewId, {
+        rating: review.tempRating,
+        review_text: review.tempReviewText || undefined
+      });
+
+      setReviews(prev => prev.map(r => 
+        r.id === reviewId 
+          ? { 
+              ...updatedReview,
+              isEditing: false,
+              tempRating: undefined,
+              tempReviewText: undefined
+            } 
+          : r
+      ));
+    } catch (err) {
+      console.error('Error updating review:', err);
+      // Handle error (could show a message to the user)
+    }
+  };
+
+  // Delete a review
+  const handleDeleteReview = async (reviewId: number) => {
+    if (!window.confirm('Are you sure you want to delete this review?')) {
+      return;
+    }
+
+    try {
+      await deleteReview(reviewId);
+      setReviews(prev => prev.filter(review => review.id !== reviewId));
+    } catch (err) {
+      console.error('Error deleting review:', err);
+      // Handle error (could show a message to the user)
+    }
+  };
+
+  // Handle rating change during editing
+  const handleEditRatingSelect = (reviewId: number, rating: number) => {
+    setReviews(prev => prev.map(review => 
+      review.id === reviewId 
+        ? { ...review, tempRating: rating } 
+        : review
+    ));
+  };
+
+  // Handle review text change during editing
+  const handleEditReviewTextChange = (reviewId: number, text: string) => {
+    setReviews(prev => prev.map(review => 
+      review.id === reviewId 
+        ? { ...review, tempReviewText: text } 
+        : review
+    ));
+  };
 
   return (
     <section 
@@ -290,37 +392,126 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                 key={review.id} 
                 className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow duration-300 animate-fade-in"
               >
-                {/* Review Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          size={16}
-                          className={`${
-                            i < review.rating 
-                              ? 'text-yellow-500 fill-yellow-500' 
-                              : 'text-gray-300 dark:text-gray-600'
-                          }`}
-                        />
-                      ))}
+                {review.isEditing ? (
+                  // Edit mode
+                  <div className="space-y-4">
+                    {/* Edit Rating */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Your Rating
+                      </label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => handleEditRatingSelect(review.id, star)}
+                            className="transition-transform duration-200 hover:scale-110"
+                            aria-label={`Rate ${star} stars`}
+                          >
+                            <Star
+                              size={24}
+                              className={`${
+                                star <= (review.tempRating || 0)
+                                  ? 'text-yellow-500 fill-yellow-500' 
+                                  : 'text-gray-300 dark:text-gray-600'
+                              } transition-colors duration-200`}
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      Anonymous User
-                    </span>
+                    
+                    {/* Edit Review Text */}
+                    <div>
+                      <label htmlFor={`edit-review-text-${review.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Your Review
+                      </label>
+                      <textarea
+                        id={`edit-review-text-${review.id}`}
+                        value={review.tempReviewText || ''}
+                        onChange={(e) => handleEditReviewTextChange(review.id, e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand dark:bg-gray-800 dark:text-white transition-all duration-300"
+                        placeholder="Share your experience with this phone..."
+                      />
+                    </div>
+                    
+                    {/* Edit Actions */}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cancelEditing(review.id)}
+                        className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium rounded-lg transition-colors duration-300"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveReview(review.id)}
+                        className="px-4 py-2 bg-brand hover:bg-brand-dark text-white font-medium rounded-lg transition-colors duration-300"
+                        disabled={!review.tempRating}
+                      >
+                        Save
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                    <Calendar size={14} />
-                    <span>{formatDate(review.created_at)}</span>
-                  </div>
-                </div>
-                
-                {/* Review Text */}
-                {review.review_text && (
-                  <div className="text-gray-700 dark:text-gray-300 mt-2">
-                    {review.review_text}
-                  </div>
+                ) : (
+                  // View mode
+                  <>
+                    {/* Review Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              size={16}
+                              className={`${
+                                i < review.rating 
+                                  ? 'text-yellow-500 fill-yellow-500' 
+                                  : 'text-gray-300 dark:text-gray-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          Anonymous User
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                        <Calendar size={14} />
+                        <span>{formatDate(review.created_at)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Review Text */}
+                    {review.review_text && (
+                      <div className="text-gray-700 dark:text-gray-300 mt-2">
+                        {review.review_text}
+                      </div>
+                    )}
+                    
+                    {/* Edit/Delete Actions */}
+                    <div className="flex justify-end gap-2 mt-3">
+                      <button
+                        onClick={() => startEditing(review.id)}
+                        className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300"
+                        aria-label="Edit review"
+                      >
+                        <Edit size={16} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReview(review.id)}
+                        className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-300"
+                        aria-label="Delete review"
+                      >
+                        <Trash2 size={16} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             ))}

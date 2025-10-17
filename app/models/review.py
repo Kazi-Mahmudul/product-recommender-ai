@@ -11,6 +11,8 @@ class Review(Base):
     rating = Column(Integer, nullable=False)
     review_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Add session identifier for anonymous user tracking
+    session_id = Column(String(255), nullable=False)
     
     # Relationship to Phone model
     phone = relationship("Phone", back_populates="reviews")
