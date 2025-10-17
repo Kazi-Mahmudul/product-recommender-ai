@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Numeric
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Phone(Base):
@@ -9,7 +10,7 @@ class Phone(Base):
     name = Column(String(512), index=True)
     brand = Column(String(255), index=True)
     model = Column(String(255), index=True)
-    slug = Column(String(255), index=True)
+    slug = Column(String(255), index=True, unique=True)
     price = Column(String(1024))
     url = Column(String(1024))
     img_url = Column(String(1024))
@@ -125,6 +126,13 @@ class Phone(Base):
     performance_score = Column(Float)
     display_score = Column(Float)
     camera_score = Column(Float)
+    
+    # New fields for reviews
+    average_rating = Column(Float, default=0.0)
+    review_count = Column(Integer, default=0)
+    
+    # Relationship to Review model
+    reviews = relationship("Review", back_populates="phone", cascade="all, delete-orphan")
     
     # Pipeline-specific columns
     scraped_at = Column(DateTime)

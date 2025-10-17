@@ -141,6 +141,10 @@ export interface Phone {
   performance_score?: number;
   display_score?: number;
   camera_score?: number;
+  
+  // Reviews
+  average_rating?: number;
+  review_count?: number;
 }
 
 export interface PhoneListResponse {

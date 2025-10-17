@@ -8,6 +8,7 @@ import DeviceScoresChart from "../components/FullSpecs/DeviceScoresChart";
 import FullSpecsAccordion from "../components/FullSpecs/FullSpecsAccordion";
 import ProsCons from "../components/FullSpecs/ProsCons";
 import SmartRecommendations from "../components/FullSpecs/SmartRecommendations";
+import ReviewsSection from "../components/FullSpecs/ReviewsSection";
 import { fetchGeminiSummary, fetchGeminiProsCons } from "../api/gemini";
 
 const PhoneDetailsPage: React.FC = () => {
@@ -181,7 +182,16 @@ Generate a similar tagline that captures this phone's unique strengths:`;
         />
       </div>
 
-      {/* 4. SMART RECOMMENDATIONS SECTION */}
+      {/* 4. REVIEWS SECTION */}
+      <div className="mb-6">
+        <ReviewsSection
+          phoneSlug={phone.slug!}
+          averageRating={phone.average_rating || 0}
+          reviewCount={phone.review_count || 0}
+        />
+      </div>
+
+      {/* 5. SMART RECOMMENDATIONS SECTION */}
       <div className="mb-6">
         {phone && <SmartRecommendations phoneSlug={phone.slug!} />}
       </div>
