@@ -240,6 +240,7 @@ app.add_middleware(
 app.add_middleware(RequestLoggingMiddleware)  # Add request logging
 app.add_middleware(HTTPSRedirectMiddleware)  # Add HTTPS redirect middleware early
 app.add_middleware(SecurityHeadersMiddleware)  # Add security headers middleware
+# SecurityMiddleware is intentionally not added to avoid authentication issues with public endpoints
 
 # Remove the catch-all OPTIONS handler as it's interfering with normal routes
 # CORS preflight requests will be handled by the CORSMiddleware

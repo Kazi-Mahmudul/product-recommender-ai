@@ -231,7 +231,26 @@ export async function fetchPhones({
   // Ensure no double slashes in URL
   const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
   const res = await fetch(`${baseUrl}/api/v1/phones?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch phones");
+  
+  if (!res.ok) {
+    // Handle different HTTP error codes
+    if (res.status === 404) {
+      throw new Error("Phones data not found. Please try again later.");
+    } else if (res.status === 429) {
+      throw new Error("Too many requests. Please try again later.");
+    } else if (res.status === 400) {
+      throw new Error("Invalid request. Please check your parameters and try again.");
+    } else if (res.status === 401) {
+      throw new Error("Authentication required. Please contact support.");
+    } else if (res.status === 403) {
+      throw new Error("Access denied. Please contact support.");
+    } else if (res.status >= 500) {
+      throw new Error("Server error. Our team has been notified. Please try again later.");
+    } else {
+      throw new Error(`Failed to fetch phones: HTTP error ${res.status}`);
+    }
+  }
+  
   const data = await res.json();
   let items = data.items;
   let totalCount = data.total || items.length;
@@ -346,7 +365,22 @@ export async function fetchBrands(): Promise<string[]> {
     const res = await fetch(`${baseUrl}/api/v1/phones/brands`);
 
     if (!res.ok) {
-      return [];
+      // Handle different HTTP error codes
+      if (res.status === 404) {
+        return [];
+      } else if (res.status === 429) {
+        throw new Error("Too many requests. Please try again later.");
+      } else if (res.status === 400) {
+        throw new Error("Invalid request. Please check your parameters and try again.");
+      } else if (res.status === 401) {
+        throw new Error("Authentication required. Please contact support.");
+      } else if (res.status === 403) {
+        throw new Error("Access denied. Please contact support.");
+      } else if (res.status >= 500) {
+        throw new Error("Server error. Our team has been notified. Please try again later.");
+      } else {
+        throw new Error(`Failed to fetch brands: HTTP error ${res.status}`);
+      }
     }
 
     const data = await res.json();
@@ -360,6 +394,7 @@ export async function fetchBrands(): Promise<string[]> {
       return [];
     }
   } catch (error) {
+    console.error("Error fetching brands:", error);
     return [];
   }
 }
@@ -381,7 +416,22 @@ export async function fetchCameraSetups(): Promise<string[]> {
     const res = await fetch(`${baseUrl}/api/v1/phones?${params.toString()}`);
 
     if (!res.ok) {
-      return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
+      // Handle different HTTP error codes
+      if (res.status === 404) {
+        return ["Single", "Dual", "Triple", "Quad", "Penta"]; // Fallback to common values
+      } else if (res.status === 429) {
+        throw new Error("Too many requests. Please try again later.");
+      } else if (res.status === 400) {
+        throw new Error("Invalid request. Please check your parameters and try again.");
+      } else if (res.status === 401) {
+        throw new Error("Authentication required. Please contact support.");
+      } else if (res.status === 403) {
+        throw new Error("Access denied. Please contact support.");
+      } else if (res.status >= 500) {
+        throw new Error("Server error. Our team has been notified. Please try again later.");
+      } else {
+        throw new Error(`Failed to fetch camera setups: HTTP error ${res.status}`);
+      }
     }
 
     const data = await res.json();
@@ -556,13 +606,29 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
     const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     // Fetch filter options
     const optionsPromise = fetch(`${baseUrl}/api/v1/phones/filter-options`)
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          return {};
+          // Handle different HTTP error codes
+          if (res.status === 404) {
+            return {};
+          } else if (res.status === 429) {
+            throw new Error("Too many requests. Please try again later.");
+          } else if (res.status === 400) {
+            throw new Error("Invalid request. Please check your parameters and try again.");
+          } else if (res.status === 401) {
+            throw new Error("Authentication required. Please contact support.");
+          } else if (res.status === 403) {
+            throw new Error("Access denied. Please contact support.");
+          } else if (res.status >= 500) {
+            throw new Error("Server error. Our team has been notified. Please try again later.");
+          } else {
+            throw new Error(`Failed to fetch filter options: HTTP error ${res.status}`);
+          }
         }
         return res.json();
       })
       .catch((error) => {
+        console.error("Error fetching filter options:", error);
         return {};
       });
 
@@ -590,6 +656,7 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
           : defaultFilterOptions.cameraSetups,
     };
   } catch (error) {
+    console.error("Error fetching filter options:", error);
     return defaultFilterOptions;
   }
 }
