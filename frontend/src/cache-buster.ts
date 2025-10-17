@@ -15,7 +15,14 @@ export function ensureHttps(url: string): string {
 
 // Get API base with forced HTTPS
 export function getSecureApiBase(): string {
-  const base = process.env.REACT_APP_API_BASE || "/api";
+  // In production, use relative path since frontend and backend are served from same domain
+  // In development, use the environment variable or default to /api
+  let base = "/api";
+  
+  if (process.env.NODE_ENV === 'development') {
+    base = process.env.REACT_APP_API_BASE || "/api";
+  }
+  
   const secureBase = ensureHttps(base);
   
   // Log for debugging in development

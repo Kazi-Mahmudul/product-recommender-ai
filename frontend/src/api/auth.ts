@@ -1,5 +1,6 @@
 import { getSecureApiBase } from '../cache-buster';
 
+// Use relative path in production since frontend and backend are served from same domain
 const API_BASE = `${getSecureApiBase()}/api/v1/auth`;
 
 export async function signup(email: string, password: string, confirmPassword: string, first_name: string, last_name: string) {
@@ -59,4 +60,4 @@ export async function updateProfile(token: string, profileData: { first_name?: s
 export async function logout() {
   // For JWT, just remove token on client
   return { success: true };
-} 
+}

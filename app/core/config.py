@@ -142,7 +142,9 @@ class Settings(BaseSettings):
     # Google OAuth settings
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "https://peyechi.com/api/v1/auth/google/callback")
+    # Use the deployed URL for Google OAuth callback from environment variable
+    default_redirect_uri = f"{os.getenv('REACT_APP_API_BASE', 'https://peyechi.com')}/api/v1/auth/google/callback"
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", default_redirect_uri)
     
     # Monitoring settings
     MONITORING_API_KEY: str = os.getenv("MONITORING_API_KEY", "")
