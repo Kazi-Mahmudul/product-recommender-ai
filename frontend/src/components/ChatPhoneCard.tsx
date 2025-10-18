@@ -284,7 +284,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           {phone.main_camera && (
             <div className="flex items-center gap-1">
               <Camera size={12} className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} />
-              <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.primary_camera_mp || "N/A"}</span>
+              <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.main_camera}</span>
             </div>
           )}
           {phone.battery_capacity_numeric && (

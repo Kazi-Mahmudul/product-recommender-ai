@@ -577,8 +577,12 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
     slug: p.slug,
     name: p.name,
     brand: p.brand,
+    model: p.name, // Use name as model as fallback
     img_url: p.image,
-    price: p.price.toString(),
+    image: p.image, // Also set image property for consistency
+    price: p.price.toString(), // Convert to string as expected by Phone interface
+    price_original: p.price, // Keep original number for formatting
+    url: `/${p.slug}`, // Generate URL from slug
     // Add other required Phone properties with defaults
     id: 0, // Legacy compatibility
   } as Phone)) : (legacyPhones || []);

@@ -678,47 +678,117 @@ const SimpleComparisonTable: React.FC<{
   phones: any[];
   features: any[];
   darkMode: boolean;
-}> = ({ phones, features, darkMode }) => (
-  <div className="min-w-full">
-    <table className="w-full text-sm">
-      <thead>
-        <tr className={`border-b ${
-          darkMode ? 'border-gray-700' : 'border-gray-200'
-        }`}>
-          <th className="text-left py-3 px-3 font-semibold">Feature</th>
-          {phones.map((phone, index) => (
-            <th key={index} className="text-center py-3 px-3 min-w-32">
-              <div className="flex flex-col items-center">
-                <span className="text-xs font-medium mb-1">{phone.name}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{phone.brand}</span>
-              </div>
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {features.map((feature, featureIndex) => (
-          <tr key={featureIndex} className={`border-b ${
-            darkMode ? 'border-gray-700/50' : 'border-gray-200/50'
+}> = ({ phones, features, darkMode }) => {
+  // Helper function to get units for different features
+  const getUnit = (featureKey: string): string => {
+    const units: Record<string, string> = {
+      price: "BDT",
+      price_original: "BDT",
+      ram_gb: "GB",
+      storage_gb: "GB",
+      primary_camera_mp: "MP",
+      selfie_camera_mp: "MP",
+      battery_capacity_numeric: "mAh",
+      display_score: "/10",
+      camera_score: "/10",
+      battery_score: "/10",
+      performance_score: "/10",
+      overall_device_score: "/10",
+      screen_size_inches: "inches",
+      refresh_rate_hz: "Hz",
+      ppi: "PPI",
+      weight: "g",
+      thickness: "mm"
+    };
+    return units[featureKey] || "";
+  };
+  
+  // Find the best value in each feature
+  const bestValues = features.map(feature => {
+    const values = (feature.values || feature.raw)?.filter((v: any) => v !== null && v !== undefined) || [];
+    if (values.length === 0) return null;
+    
+    // For most features, higher is better, but for price, lower is better
+    if (feature.key?.toLowerCase().includes('price')) {
+      return Math.min(...values.map((v: any) => Number(v)).filter((v: number) => !isNaN(v)));
+    } else {
+      return Math.max(...values.map((v: any) => Number(v)).filter((v: number) => !isNaN(v)));
+    }
+  });
+  
+  return (
+    <div className="min-w-full">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className={`border-b ${
+            darkMode ? 'border-gray-700' : 'border-gray-200'
           }`}>
-            <td className="py-3 px-3 font-medium">{feature.label}</td>
-            {(feature.values || feature.raw)?.map((value: any, phoneIndex: number) => (
-              <td key={phoneIndex} className="py-3 px-3 text-center">
-                <span className="text-sm">
-                  {value !== null && value !== undefined ? value : 'N/A'}
-                </span>
-              </td>
-            )) || phones.map((_: any, phoneIndex: number) => (
-              <td key={phoneIndex} className="py-3 px-3 text-center">
-                <span className="text-sm text-gray-400">N/A</span>
-              </td>
+            <th className="text-left py-3 px-3 font-semibold">Feature</th>
+            {phones.map((phone, index) => (
+              <th key={index} className="text-center py-3 px-3 min-w-32">
+                <div className="flex flex-col items-center">
+                  <span className="text-xs font-medium mb-1">{phone.name}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{phone.brand}</span>
+                </div>
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+        </thead>
+        <tbody>
+          {features.map((feature, featureIndex) => {
+            const bestValue = bestValues[featureIndex];
+            const unit = getUnit(feature.key);
+            return (
+              <tr key={featureIndex} className={`border-b ${
+                darkMode ? 'border-gray-700/50' : 'border-gray-200/50'
+              }`}>
+                <td className="py-3 px-3 font-medium">
+                  {feature.label}
+                  {unit && (
+                    <span className="text-xs opacity-75 ml-1">({unit})</span>
+                  )}
+                </td>
+                {(feature.values || feature.raw)?.map((value: any, phoneIndex: number) => {
+                  // Check if this is the best value for this feature
+                  const isBest = value !== null && value !== undefined && 
+                                bestValue !== null && 
+                                Number(value) === Number(bestValue);
+                  
+                  // For price features, we want to indicate the best (lowest) price differently
+                  const isPriceFeature = feature.key?.toLowerCase().includes('price');
+                  const isBestPrice = isPriceFeature && isBest;
+                  
+                  return (
+                    <td key={phoneIndex} className="py-3 px-3 text-center">
+                      <span className={`text-sm ${isBest ? 'font-bold' : ''} ${
+                        isBestPrice 
+                          ? 'text-green-600 dark:text-green-400'  // Green for best price (lowest)
+                          : isBest 
+                            ? 'text-blue-600 dark:text-blue-400'  // Blue for other best values (highest)
+                            : ''
+                      }`}>
+                        {value !== null && value !== undefined ? value : 'N/A'}
+                        {isBest && (
+                          <span className="ml-1">
+                            {isPriceFeature ? ' 🔽' : ' 🔼'}
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                  );
+                }) || phones.map((_: any, phoneIndex: number) => (
+                  <td key={phoneIndex} className="py-3 px-3 text-center">
+                    <span className="text-sm text-gray-400">N/A</span>
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 const ComparisonResponse: React.FC<{
   content: any;
   formatting?: any;
