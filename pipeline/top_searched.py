@@ -35,7 +35,7 @@ POPULAR_BRANDS = ["samsung","apple", "iphone", "xiaomi","redmi","poco","realme",
 class TopSearchedPipeline:
     def __init__(self, database_url: Optional[str] = None):
         # Initialize pytrends if available
-        if PYTRENDS_AVAILABLE:
+        if PYTRENDS_AVAILABLE and TrendReq is not None:
             self.pytrends = TrendReq(hl='en-US', tz=360, timeout=(10, 25))
         else:
             self.pytrends = None
@@ -63,40 +63,48 @@ class TopSearchedPipeline:
             # Also include some recently added phones to capture trending new releases
             # Use release_date_clean for proper date sorting
             brand_placeholders = ','.join(['%s'] * len(POPULAR_BRANDS))
-            cursor.execute(f"""
-                (
-                    SELECT id, name, brand, model, release_date, release_date_clean, created_at
-                    FROM phones 
-                    WHERE LOWER(brand) = ANY(ARRAY[{','.join(['LOWER(%s)'] * len(POPULAR_BRANDS))}])
-                    AND name IS NOT NULL 
-                    AND brand IS NOT NULL 
-                    AND model IS NOT NULL
-                    AND (release_date_clean IS NULL OR release_date_clean >= CURRENT_DATE - INTERVAL '2 years')
-                    ORDER BY 
-                        CASE 
-                            WHEN release_date_clean IS NOT NULL THEN release_date_clean 
-                            ELSE created_at 
-                        END DESC
-                    LIMIT 70
-                )
-                UNION
-                (
-                    SELECT id, name, brand, model, release_date, release_date_clean, created_at
-                    FROM phones 
-                    WHERE name IS NOT NULL 
-                    AND brand IS NOT NULL 
-                    AND model IS NOT NULL
-                    AND created_at >= CURRENT_DATE - INTERVAL '6 months'
-                    ORDER BY created_at DESC
-                    LIMIT 30
-                )
+            query = """
+                SELECT * FROM (
+                    (
+                        SELECT id, name, brand, model, release_date, release_date_clean, created_at
+                        FROM phones 
+                        WHERE LOWER(brand) = ANY(ARRAY[{}])
+                        AND name IS NOT NULL 
+                        AND brand IS NOT NULL 
+                        AND model IS NOT NULL
+                        AND (release_date_clean IS NULL OR release_date_clean >= CURRENT_DATE - INTERVAL '2 years')
+                        ORDER BY 
+                            CASE 
+                                WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                                ELSE created_at 
+                            END DESC
+                        LIMIT 70
+                    )
+                    UNION
+                    (
+                        SELECT id, name, brand, model, release_date, release_date_clean, created_at
+                        FROM phones 
+                        WHERE name IS NOT NULL 
+                        AND brand IS NOT NULL 
+                        AND model IS NOT NULL
+                        AND created_at >= CURRENT_DATE - INTERVAL '6 months'
+                        ORDER BY 
+                            CASE 
+                                WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                                ELSE created_at 
+                            END DESC
+                        LIMIT 30
+                    )
+                ) AS combined_results
                 ORDER BY 
                     CASE 
                         WHEN release_date_clean IS NOT NULL THEN release_date_clean 
                         ELSE created_at 
                     END DESC
                 LIMIT 100
-            """, POPULAR_BRANDS)
+            """.format(','.join(['LOWER(%s)'] * len(POPULAR_BRANDS)))
+            
+            cursor.execute(query, POPULAR_BRANDS)
             
             phones = cursor.fetchall()
             phone_keywords = []
@@ -155,7 +163,13 @@ class TopSearchedPipeline:
                     interest_over_time_df = interest_over_time_df.drop(columns=['isPartial'])
                 
                 # Calculate average interest for each keyword
-                avg_interest = interest_over_time_df.mean().to_dict()
+                avg_series = interest_over_time_df.mean()
+                # Convert series to dict properly
+                if isinstance(avg_series, pd.Series):
+                    avg_interest = avg_series.to_dict()
+                else:
+                    # Fallback for unexpected types
+                    avg_interest = {}
                 return pd.DataFrame(list(avg_interest.items()), columns=['keyword', 'search_index'])
             else:
                 return pd.DataFrame(columns=['keyword', 'search_index'])
@@ -205,7 +219,13 @@ class TopSearchedPipeline:
             # Match trends with phones
             matched_data = []
             for _, row in trends_df.iterrows():
-                keyword = row['keyword'].lower()
+                keyword_value = row['keyword']
+                if isinstance(keyword_value, str):
+                    keyword = keyword_value.lower()
+                else:
+                    # Convert to string first if it's not already a string
+                    keyword = str(keyword_value).lower()
+                    
                 if keyword in keyword_to_phone:
                     phone_info = keyword_to_phone[keyword]
                     matched_data.append({
@@ -235,6 +255,7 @@ class TopSearchedPipeline:
         """
         Update the top_searched table with new rankings
         """
+        conn = None
         try:
             conn = psycopg2.connect(self.database_url)
             cursor = conn.cursor()
@@ -266,12 +287,15 @@ class TopSearchedPipeline:
         except Exception as e:
             logger.error(f"Error updating database: {str(e)}")
             # Try to rollback if connection is still available
-            try:
-                if 'conn' in locals():
+            if conn is not None:
+                try:
                     conn.rollback()
+                except:
+                    pass
+                try:
                     conn.close()
-            except:
-                pass
+                except:
+                    pass
     
     def run(self, limit: int = 10):
         """

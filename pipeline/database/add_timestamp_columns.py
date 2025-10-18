@@ -256,6 +256,16 @@ def add_timestamp_columns():
         except Exception as e:
             logger.warning(f"   ⚠️ Could not create index on phones.created_at: {e}")
         
+        # Index on phones.release_date_clean for release date sorting
+        try:
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_phones_release_date_clean 
+                ON phones (release_date_clean DESC)
+            """)
+            logger.info("   ✅ Created index on phones.release_date_clean")
+        except Exception as e:
+            logger.warning(f"   ⚠️ Could not create index on phones.release_date_clean: {e}")
+        
         # Summary
         logger.info("🎉 Database migration completed successfully!")
         if migrations_applied:

@@ -172,8 +172,11 @@ def create_sample_top_searched_data(pipeline_run_id: str, limit: int = 10) -> Di
                 FROM phones 
                 WHERE name IS NOT NULL 
                 AND brand IS NOT NULL
-                AND created_at >= CURRENT_DATE - INTERVAL '6 months'
-                ORDER BY created_at DESC
+                ORDER BY 
+                    CASE 
+                        WHEN release_date_clean IS NOT NULL THEN release_date_clean 
+                        ELSE created_at 
+                    END DESC
                 LIMIT %s
             )
             ORDER BY 
@@ -340,7 +343,8 @@ def validate_top_searched_table() -> Dict[str, Any]:
             )
         """)
         
-        table_exists = cursor.fetchone()[0]
+        table_exists_result = cursor.fetchone()
+        table_exists = table_exists_result[0] if table_exists_result else False
         
         if not table_exists:
             logger.error("❌ top_searched table does not exist")
@@ -370,7 +374,8 @@ def validate_top_searched_table() -> Dict[str, Any]:
         
         # Check current data
         cursor.execute("SELECT COUNT(*) as count FROM top_searched")
-        record_count = cursor.fetchone()['count']
+        record_count_result = cursor.fetchone()
+        record_count = record_count_result['count'] if record_count_result else 0
         
         cursor.close()
         conn.close()
