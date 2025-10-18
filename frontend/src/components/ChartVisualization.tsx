@@ -291,7 +291,13 @@ const ChartVisualization: React.FC<ChartVisualizationProps> = ({
                   {phone.name}
                 </div>
                 <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {phone.brand} • ৳{phone.price_original?.toLocaleString() || 'N/A'}
+                  {phone.brand} • ৳{
+                    phone.price_original ? 
+                      Number(phone.price_original).toLocaleString() : 
+                      (phone.price ? 
+                        (typeof phone.price === 'string' ? phone.price : Number(phone.price).toLocaleString()) : 
+                        'N/A')
+                  }
                 </div>
               </div>
             </div>

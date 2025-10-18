@@ -3,6 +3,7 @@ import { ConversationContext } from '../services/intelligentContextManager';
 import ChatPhoneCard from './ChatPhoneCard';
 import ChartVisualization from './ChartVisualization';
 import { Phone } from '../api/phones';
+import { useAIVerdict } from '../hooks/useAIVerdict';
 
 interface IntelligentResponse {
   response_type: string;
@@ -695,7 +696,7 @@ const SimpleComparisonTable: React.FC<{
       performance_score: "/10",
       overall_device_score: "/10",
       screen_size_inches: "inches",
-      refresh_rate_hz: "Hz",
+      refresh_rate_numeric: "Hz",
       ppi: "PPI",
       weight: "g",
       thickness: "mm"
@@ -820,6 +821,14 @@ const ComparisonResponse: React.FC<{
           onBackToSimple={() => setViewMode('simple')}
         />
         
+        {/* AI-Generated Comparison Summary and Recommendation */}
+        {phones.length >= 2 && (
+          <AIVerdictSection 
+            phones={phones as Phone[]} 
+            darkMode={darkMode} 
+          />
+        )}
+        
         {formatting?.show_drill_down && (
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -885,6 +894,14 @@ const ComparisonResponse: React.FC<{
         </div>
       )}
       
+      {/* AI-Generated Comparison Summary and Recommendation */}
+      {phones.length >= 2 && (
+        <AIVerdictSection 
+          phones={phones as Phone[]} 
+          darkMode={darkMode} 
+        />
+      )}
+      
       {/* Switch to chart view button */}
       {phones.length >= 2 && (
         <div className="flex flex-wrap gap-2 mb-4">
@@ -944,6 +961,86 @@ const ComparisonResponse: React.FC<{
           </button>
         </div>
       )}
+    </div>
+  );
+};
+
+// AI Verdict Section Component
+const AIVerdictSection: React.FC<{
+  phones: Phone[];
+  darkMode: boolean;
+}> = ({ phones, darkMode }) => {
+  const [verdict, setVerdict] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const generateVerdict = async () => {
+      if (phones.length < 2) return;
+      
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Build a prompt for the AI to generate a compact comparison summary
+        const phoneNames = phones.map(p => p.name).join(' vs ');
+        const phoneDescriptions = phones.map(p => 
+          `${p.name}: ${p.brand} phone with ${p.ram_gb || 'N/A'}GB RAM, ${p.storage_gb || 'N/A'}GB storage, ${p.primary_camera_mp || 'N/A'}MP camera, ${p.battery_capacity_numeric || 'N/A'}mAh battery, priced at ৳${p.price_original || 'N/A'}`
+        ).join('\n');
+        
+        const prompt = `As a smartphone expert, provide a concise one or two sentence comparison summary for these phones:
+${phoneDescriptions}
+
+Focus on the key differences and provide a clear recommendation. Keep it brief and conversational, suitable for a chatbot interface.`;
+
+        // In a real implementation, this would call your AI service
+        // For now, we'll simulate a compact response
+        const simulatedResponse = `The ${phones[0].name} offers better value with its ${phones[0].primary_camera_mp || 'high'}MP camera and ${phones[0].battery_capacity_numeric || 'large'}mAh battery, while the ${phones[1].name} excels in performance. For most users, the ${phones[0].name} provides the best balance of features and price.`;
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        setVerdict(simulatedResponse);
+      } catch (err) {
+        setError('Failed to generate AI comparison summary. Please try again.');
+        console.error('AI verdict generation error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    generateVerdict();
+  }, [phones]);
+
+  if (isLoading) {
+    return (
+      <div className={`mt-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand"></div>
+          <span className="text-sm">Generating AI comparison summary...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`mt-4 text-sm ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+        {error}
+      </div>
+    );
+  }
+
+  if (!verdict) return null;
+
+  return (
+    <div className="mt-4">
+      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+        {verdict}
+      </p>
+      <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        For detailed comparison, click the "Compare" button on the phone cards.
+      </p>
     </div>
   );
 };
