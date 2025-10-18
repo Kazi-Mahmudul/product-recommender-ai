@@ -384,8 +384,11 @@ def get_phones(
             logger.debug("Applied price_low sorting")
         elif sort in ["price_high", "price_low"] and not column_validation.get('price_original', False):
             logger.warning(f"Price sorting requested but price_original column not available, using default sorting")
-            # Default sorting: newest phones first (created_at descending if available, otherwise ID descending)
-            if column_validation.get('created_at', False):
+            # Default sorting: newest phones first (release_date_clean descending if available, otherwise created_at descending)
+            if column_validation.get('release_date_clean', False):
+                query = query.order_by(Phone.release_date_clean.desc())
+                logger.debug("Applied default release_date_clean descending sorting (newest phones first)")
+            elif column_validation.get('created_at', False):
                 query = query.order_by(Phone.created_at.desc())
                 logger.debug("Applied default created_at descending sorting (newest phones first)")
             else:
@@ -396,8 +399,11 @@ def get_phones(
             query = query.order_by(Phone.overall_device_score.desc())
             logger.debug("Applied overall_device_score sorting")
         else:
-            # Default sorting: newest phones first (created_at descending if available, otherwise ID descending)
-            if column_validation.get('created_at', False):
+            # Default sorting: newest phones first (release_date_clean descending if available, otherwise created_at descending)
+            if column_validation.get('release_date_clean', False):
+                query = query.order_by(Phone.release_date_clean.desc())
+                logger.debug("Applied default release_date_clean descending sorting (newest phones first)")
+            elif column_validation.get('created_at', False):
                 query = query.order_by(Phone.created_at.desc())
                 logger.debug("Applied default created_at descending sorting (newest phones first)")
             else:
@@ -418,9 +424,12 @@ def get_phones(
             try:
                 logger.info("Attempting fallback query with basic columns only")
                 # Use newest phones first for fallback query as well
-                # Default sorting: newest phones first (created_at descending if available, otherwise ID descending)
+                # Default sorting: newest phones first (release_date_clean descending if available, otherwise created_at descending)
                 column_validation = DatabaseValidator.validate_phone_columns(db)
-                if column_validation.get('created_at', False):
+                if column_validation.get('release_date_clean', False):
+                    fallback_query = db.query(Phone).order_by(Phone.release_date_clean.desc())
+                    logger.debug("Applied fallback release_date_clean descending sorting (newest phones first)")
+                elif column_validation.get('created_at', False):
                     fallback_query = db.query(Phone).order_by(Phone.created_at.desc())
                     logger.debug("Applied fallback created_at descending sorting (newest phones first)")
                 else:

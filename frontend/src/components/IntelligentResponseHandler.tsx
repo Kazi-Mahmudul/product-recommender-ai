@@ -151,6 +151,47 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
       };
     }
 
+    // Handle raw JSON responses with a 'response' field (like {'response': 'Hi there!'})
+    if (typeof legacyResponse === 'object' && legacyResponse.response) {
+      return {
+        response_type: 'text',
+        content: {
+          text: legacyResponse.response,
+          suggestions: legacyResponse.suggestions || []
+        },
+        formatting_hints: {
+          text_style: 'conversational',
+          show_suggestions: Boolean(legacyResponse.suggestions?.length)
+        }
+      };
+    }
+
+    // Handle other object responses by extracting text-like fields
+    if (typeof legacyResponse === 'object' && legacyResponse !== null) {
+      // Look for common text fields
+      const textContent = legacyResponse.text || 
+                         legacyResponse.data || 
+                         legacyResponse.content || 
+                         legacyResponse.message ||
+                         legacyResponse.response ||
+                         '';
+      
+      // If we found text content, use it
+      if (textContent) {
+        return {
+          response_type: 'text',
+          content: {
+            text: typeof textContent === 'string' ? textContent : JSON.stringify(textContent),
+            suggestions: legacyResponse.suggestions || []
+          },
+          formatting_hints: {
+            text_style: 'conversational',
+            show_suggestions: Boolean(legacyResponse.suggestions?.length)
+          }
+        };
+      }
+    }
+
     // Fallback for unknown formats
     return {
       response_type: 'text',

@@ -189,10 +189,10 @@ async def process_chat_query(
     except Exception as e:
         processing_time = time.time() - start_time
         logger.error(f"[{request_id}] Unexpected error processing chat query: {str(e)}", exc_info=True)
-        
+            
         # Use error handler for generic errors
         error_response = ChatErrorHandler.handle_generic_error(e, "chat_query", request_id)
-        
+            
         return ChatResponse(
             response_type=error_response["response_type"],
             content=error_response["content"],
@@ -243,13 +243,13 @@ async def enhance_with_knowledge(
                 if re.search(r'\bbest\s+phone\b(?!s)', query_lower) and 'phones' not in query_lower:
                     requested_limit = 1
                 # Check for "top/best X phones" patterns
-                elif re.search(r'\b(?:top|best)\s+(\d+)\s+phones?\b', query_lower):
-                    match = re.search(r'\b(?:top|best)\s+(\d+)\s+phones?\b', query_lower)
-                    requested_limit = int(match.group(1))
+                match1 = re.search(r'\b(?:top|best)\s+(\d+)\s+phones?\b', query_lower)
+                if match1:
+                    requested_limit = int(match1.group(1))
                 # Check for "show/give me X phones" patterns
-                elif re.search(r'\b(?:show|give\s+me|find)\s+(\d+)\s+phones?\b', query_lower):
-                    match = re.search(r'\b(?:show|give\s+me|find)\s+(\d+)\s+phones?\b', query_lower)
-                    requested_limit = int(match.group(1))
+                match2 = re.search(r'\b(?:show|give\s+me|find)\s+(\d+)\s+phones?\b', query_lower)
+                if match2:
+                    requested_limit = int(match2.group(1))
                 # Check for single numbers followed by "phones" or similar
                 elif number_matches and any(word in query_lower for word in ['phones', 'recommendations', 'options']):
                     # Use the first number found if it seems reasonable (1-20)
@@ -887,7 +887,53 @@ async def format_response(
         Dict containing formatted response for frontend
     """
     try:
+        # Handle raw responses that might not be properly formatted
+        if not isinstance(enhanced_response, dict):
+            # Convert raw string or other types to chat response
+            return {
+                "response_type": "text",
+                "content": {
+                    "text": str(enhanced_response) if enhanced_response else "I'm here to help you find the perfect phone. What would you like to know?",
+                    "error": False
+                },
+                "suggestions": [
+                    "Recommend phones for my budget",
+                    "Compare popular phones", 
+                    "Show me the latest phone releases"
+                ]
+            }
+        
         response_type = enhanced_response.get("type", "text")
+        
+        # Handle responses with 'response' field (raw JSON responses)
+        if "response" in enhanced_response and not response_type:
+            return {
+                "response_type": "text",
+                "content": {
+                    "text": enhanced_response["response"],
+                    "error": False
+                },
+                "suggestions": [
+                    "Recommend phones for my budget",
+                    "Compare popular phones",
+                    "Show me the latest phone releases"
+                ]
+            }
+        
+        # Handle chat responses with 'data' field
+        if response_type in ["chat", "text"] and "data" in enhanced_response:
+            return {
+                "response_type": "text",
+                "content": {
+                    "text": enhanced_response["data"],
+                    "error": False
+                },
+                "suggestions": [
+                    "Recommend phones for my budget",
+                    "Compare popular phones",
+                    "Show me the latest phone releases"
+                ]
+            }
         
         if response_type == "recommendations":
             return await response_formatter_service.format_recommendations(
@@ -913,8 +959,16 @@ async def format_response(
             
         else:
             # Text/conversational response
+            text_content = (
+                enhanced_response.get("text") or 
+                enhanced_response.get("data") or 
+                enhanced_response.get("content") or
+                enhanced_response.get("response") or
+                str(enhanced_response)
+            )
+            
             return await response_formatter_service.format_conversational(
-                text=enhanced_response.get("text", ""),
+                text=text_content,
                 related_phones=enhanced_response.get("related_phones"),
                 reasoning=enhanced_response.get("reasoning", ""),
                 original_query=original_query

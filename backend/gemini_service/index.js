@@ -404,7 +404,7 @@ User: "Top 5 gaming phones"
 Your thinking: They want 5 phones good for gaming. → Recommendation with performance_score filter and "limit": 5
 
 User: "I want a phone that's good for everything" 
-Your thinking: They want a balanced, well-rounded device. → Recommendation with overall_device_score filter (no limit specified, system will default to 5)
+Your thinking: They need a balanced, well-rounded device. → Recommendation with overall_device_score filter (no limit specified, system will default to 5)
 
 User: "What's the deal with 5G phones?" 
 Your thinking: They're asking for information about 5G technology. → QA response with explanation
@@ -490,11 +490,54 @@ User query: ${query}`;
     );
 
     // Parse and validate response
-    const parsed = JSON.parse(cleanedText);
-    const allowedTypes = ["recommendation", "qa", "comparison", "drill_down", "phone_search", "chat"];
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanedText);
+    } catch (parseError) {
+      // If JSON parsing fails, try to extract text content from the raw response
+      console.log(`[${new Date().toISOString()}] ⚠️ JSON parsing failed, attempting to extract text content`);
+      
+      // Try to extract text from common patterns
+      let extractedText = rawText.trim();
+      
+      // Remove any JSON-like wrappers
+      if (extractedText.startsWith('{') && extractedText.endsWith('}')) {
+        try {
+          const obj = JSON.parse(extractedText);
+          // Look for common text fields
+          extractedText = obj.response || obj.text || obj.data || obj.content || obj.message || extractedText;
+        } catch (e) {
+          // If we can't parse as JSON, keep the original text
+        }
+      }
+      
+      // If we still have a JSON-like string, try to extract the actual content
+      if (typeof extractedText === 'string' && extractedText.includes(':') && extractedText.includes('"')) {
+        // Try to extract content between quotes after common field names
+        const responseMatch = extractedText.match(/["']?(?:response|text|data|content|message)["']?\s*:\s*["']([^"']*)["']/i);
+        if (responseMatch && responseMatch[1]) {
+          extractedText = responseMatch[1];
+        }
+      }
+      
+      // Return as a chat response
+      return {
+        type: "chat",
+        data: extractedText || "I'm here to help you find the perfect phone. What would you like to know?",
+        reasoning: "Converted raw response to chat format"
+      };
+    }
+    
+    const allowedTypes = ["recommendation", "qa", "comparison", "drill_down", "phone_search", "chat", "text"];
 
     if (!parsed.type || !allowedTypes.includes(parsed.type)) {
-      throw new Error(`Unexpected response type: ${parsed.type}`);
+      // Convert unknown types to chat responses
+      console.log(`[${new Date().toISOString()}] ⚠️ Unknown response type "${parsed.type}", converting to chat`);
+      return {
+        type: "chat",
+        data: parsed.response || parsed.text || parsed.data || parsed.content || "I'm here to help you find the perfect phone. What would you like to know?",
+        reasoning: `Converted ${parsed.type || 'unknown'} response to chat format`
+      };
     }
 
     console.log(`[${new Date().toISOString()}] ✅ Successfully parsed response type: ${parsed.type}`);
