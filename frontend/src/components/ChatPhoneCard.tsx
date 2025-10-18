@@ -101,7 +101,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
       <div className="relative">
         <div className={`w-28 md:w-40 h-36 md:h-48 rounded-xl flex items-center justify-center ${darkMode ? "bg-gray-700" : "bg-white border border-gray-200"} border`}>
           <img
-            src={phone.img_url || "/phone.png"}
+            src={phone.img_url || phone.image || "/phone.png"}
             alt={phone.name}
             className="w-24 md:w-32 h-32 md:h-40 object-contain transition-transform duration-300 hover:scale-105"
           />
@@ -226,7 +226,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
       <div className="relative h-32 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-2">
         <div className="h-28 flex items-center justify-center">
           <img
-            src={phone.img_url || "/phone.png"}
+            src={phone.img_url || phone.image || "/phone.png"}
             alt={phone.name}
             className="h-24 object-contain transition-transform duration-300 hover:scale-105"
             loading="lazy"
@@ -281,7 +281,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         </h3>
 
         <div className="grid grid-cols-2 gap-x-1 gap-y-1 mb-2 text-xs">
-          {phone.primary_camera_mp && (
+          {phone.main_camera && (
             <div className="flex items-center gap-1">
               <Camera size={12} className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} />
               <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.primary_camera_mp || "N/A"}</span>

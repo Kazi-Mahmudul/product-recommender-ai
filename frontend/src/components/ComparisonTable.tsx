@@ -6,7 +6,8 @@ interface Feature {
   key: string;
   label: string;
   percent: number[];
-  raw: any[];
+  raw?: any[];  // Make raw optional since it might not always be present
+  values?: any[];  // Add values as an alternative
 }
 
 interface ComparisonTableProps {
@@ -66,7 +67,8 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
               <td className="font-medium py-2 px-3">{feature.label}</td>
               {phones.map((phone, phoneIndex) => {
                 const value = feature.percent[phoneIndex];
-                const rawValue = feature.raw[phoneIndex];
+                // Use raw if available, otherwise use values, otherwise undefined
+                const rawData = feature.raw?.[phoneIndex] ?? feature.values?.[phoneIndex];
                 const isHighest = value === bestScores[featureIndex];
                 
                 return (
@@ -87,8 +89,8 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                       >
                         {value.toFixed(1)}%
                       </span>
-                      {!compact && rawValue && (
-                        <span className="text-xs opacity-70">({rawValue})</span>
+                      {!compact && rawData !== undefined && rawData !== null && (
+                        <span className="text-xs opacity-70">({rawData})</span>
                       )}
                     </div>
                   </td>

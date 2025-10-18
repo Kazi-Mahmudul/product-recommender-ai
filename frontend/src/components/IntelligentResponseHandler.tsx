@@ -702,13 +702,13 @@ const SimpleComparisonTable: React.FC<{
             darkMode ? 'border-gray-700/50' : 'border-gray-200/50'
           }`}>
             <td className="py-3 px-3 font-medium">{feature.label}</td>
-            {feature.raw?.map((value: any, phoneIndex: number) => (
+            {(feature.values || feature.raw)?.map((value: any, phoneIndex: number) => (
               <td key={phoneIndex} className="py-3 px-3 text-center">
                 <span className="text-sm">
                   {value !== null && value !== undefined ? value : 'N/A'}
                 </span>
               </td>
-            )) || phones.map((_, phoneIndex) => (
+            )) || phones.map((_: any, phoneIndex: number) => (
               <td key={phoneIndex} className="py-3 px-3 text-center">
                 <span className="text-sm text-gray-400">N/A</span>
               </td>

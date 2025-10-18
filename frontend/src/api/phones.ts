@@ -25,6 +25,7 @@ export interface Phone {
   price: string;
   url: string;
   img_url?: string;
+  image?: string;  
 
   // Display
   display_type?: string;

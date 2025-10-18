@@ -114,7 +114,7 @@ const EnhancedComparison: React.FC<EnhancedComparisonProps> = ({
           typeof percentValue === "number" && !isNaN(percentValue)
             ? percentValue
             : 0;
-        dataPoint[`${phone.name}_raw`] = feature.raw[index];
+        dataPoint[`${phone.name}_raw`] = feature.raw?.[index];
         dataPoint[`${phone.name}_color`] =
           phoneColors[index % phoneColors.length];
       });
@@ -148,7 +148,7 @@ const EnhancedComparison: React.FC<EnhancedComparisonProps> = ({
     features.forEach((feature) => {
       const maxIndex = feature.percent.indexOf(Math.max(...feature.percent));
       const maxPhone = phones[maxIndex];
-      const maxValue = feature.raw[maxIndex];
+      const maxValue = feature.raw?.[maxIndex];
 
       if (maxPhone && maxValue !== null && maxValue !== undefined) {
         insights.push(
@@ -375,7 +375,7 @@ const EnhancedComparison: React.FC<EnhancedComparisonProps> = ({
                     {feature.label}:
                   </span>
                   <span className="font-medium">
-                    {feature.raw[index]}
+                    {feature.raw?.[index]}
                     {getUnit(feature.key)}
                   </span>
                 </div>

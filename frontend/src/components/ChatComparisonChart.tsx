@@ -53,7 +53,8 @@ interface Feature {
   key: string;
   label: string;
   percent: number[];
-  raw: any[];
+  raw?: any[];  // Make raw optional
+  values?: any[];  // Add values as an alternative
 }
 
 interface ChatComparisonChartProps {
@@ -694,7 +695,8 @@ const ChatComparisonChart: React.FC<ChatComparisonChartProps> = ({
         phones.forEach((phone, idx) => {
           // Add error handling for missing or invalid data
           const percentValue = feature.percent[idx];
-          const rawValue = feature.raw[idx];
+          // Handle the case where feature.raw might be undefined
+          const rawValue = feature.raw?.[idx];
 
           // Ensure percent value is a valid number and normalize if needed
           let normalizedValue = 0;
