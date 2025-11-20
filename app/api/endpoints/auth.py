@@ -76,7 +76,14 @@ def signup(user_data: UserSignup, db: Session = Depends(get_db)):
         email_sent = send_verification_email(user.email, verification.code)  # type: ignore
         
         if not email_sent:
-            logger.warning(f"Failed to send verification email to {user.email}")  # type: ignore
+            logger.warning(f"Failed to send verification email to {user.email}. Rolling back user creation.")  # type: ignore
+            # Delete the user since verification email failed
+            db.delete(user)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send verification email. Please try again later."
+            )
         
         return MessageResponse(
             message="Account created successfully. Please check your email for verification code.",

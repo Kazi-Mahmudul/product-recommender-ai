@@ -51,6 +51,8 @@ def send_verification_email(email: str, verification_code: str) -> bool:
         
         msg.attach(MIMEText(body, 'html'))
         
+        logger.info(f"Verification code for {email}: {verification_code}")
+        
         # Send email
         server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT)
         if settings.EMAIL_USE_TLS:
