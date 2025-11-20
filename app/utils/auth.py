@@ -47,6 +47,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
                 # Fallback comparison (NOT secure, only for testing)
                 return False
     except Exception as e:
+        # Check if it might be a fallback hash (SHA256 hex digest is 64 chars)
+        if len(hashed_password) == 64:
+            try:
+                import hashlib
+                # Verify using fallback method
+                fallback_check = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+                if fallback_check == hashed_password:
+                    return True
+            except Exception:
+                pass
+        
         logger.error(f"Password verification error: {str(e)}")
         return False
 

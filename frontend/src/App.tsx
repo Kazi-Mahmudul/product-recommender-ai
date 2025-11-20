@@ -17,6 +17,7 @@ import PhonesPage from "./pages/PhonesPage";
 import PhoneDetailsPage from "./pages/PhoneDetailsPage";
 import ComparePage from "./pages/ComparePage";
 import AuthSuccessPage from "./pages/AuthSuccessPage";
+import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import ErrorPage from "./pages/ErrorPage";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -475,11 +476,10 @@ function App() {
                     key={message.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`p-4 rounded-lg ${
-                      message.role === "user"
-                        ? "bg-brand text-white ml-12"
-                        : "bg-gray-100 text-gray-900 mr-12"
-                    }`}
+                    className={`p-4 rounded-lg ${message.role === "user"
+                      ? "bg-brand text-white ml-12"
+                      : "bg-gray-100 text-gray-900 mr-12"
+                      }`}
                   >
                     <pre className="whitespace-pre-wrap font-sans">
                       {message.content}
@@ -568,6 +568,7 @@ function App() {
           <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/auth/success" element={<AuthSuccessPage />} />
+          <Route path="/auth/google" element={<GoogleCallbackPage />} />
           <Route path="*" element={<ErrorPage />} />
 
         </Routes>
