@@ -141,7 +141,15 @@ class GeminiRAGService:
             enhanced_query = self._enhance_query_with_context(query, conversation_history or [])
             
             # Call existing GEMINI service with retry logic
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # Use shorter timeout and no retries for localhost to avoid hanging
+            if "localhost" in self.gemini_service_url:
+                logger.warning("Skipping Gemini RAG call for localhost - returning fallback")
+                return self._create_fallback_response(query, "AI service skipped for local dev")
+            
+            request_timeout = self.timeout
+            effective_retries = self.max_retries
+
+            async with httpx.AsyncClient(timeout=request_timeout) as client:
                 response = await client.post(
                     f"{self.gemini_service_url}/parse-query",
                     json={"query": enhanced_query},
@@ -159,7 +167,7 @@ class GeminiRAGService:
                     return result
                 elif response.status_code == 429:
                     # Rate limiting - implement exponential backoff
-                    if retry_count < self.max_retries:
+                    if retry_count < effective_retries:
                         delay = self._calculate_backoff_delay(retry_count)
                         logger.warning(f"Rate limited, retrying in {delay}s (attempt {retry_count + 1})")
                         await asyncio.sleep(delay)
@@ -169,7 +177,7 @@ class GeminiRAGService:
                         return self._create_fallback_response(query, "Service temporarily overloaded")
                 elif response.status_code >= 500:
                     # Server error - retry with exponential backoff
-                    if retry_count < self.max_retries:
+                    if retry_count < effective_retries:
                         delay = self._calculate_backoff_delay(retry_count)
                         logger.warning(f"Server error {response.status_code}, retrying in {delay}s")
                         await asyncio.sleep(delay)
@@ -184,7 +192,7 @@ class GeminiRAGService:
                     
         except httpx.TimeoutException:
             self._record_failure()
-            if retry_count < self.max_retries:
+            if retry_count < effective_retries:
                 delay = self._calculate_backoff_delay(retry_count)
                 logger.warning(f"Request timeout, retrying in {delay}s (attempt {retry_count + 1})")
                 await asyncio.sleep(delay)

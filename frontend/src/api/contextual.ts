@@ -124,9 +124,9 @@ class ContextualAPIService {
     // Ensure we always use HTTPS in production
     let baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
     // Always ensure HTTPS for production URLs (Cloud Run, etc.)
-    if (process.env.NODE_ENV === 'production' && baseURL.startsWith('http://')) {
-      baseURL = baseURL.replace('http://', 'https://');
-    }
+    // if (process.env.NODE_ENV === 'production' && baseURL.startsWith('http://')) {
+    //   baseURL = baseURL.replace('http://', 'https://');
+    // }
     this.baseURL = baseURL;
     this.initializeSession();
   }
@@ -138,7 +138,7 @@ class ContextualAPIService {
     // Try to restore session from localStorage
     const storedSession = localStorage.getItem('contextual_session_id');
     const storedUser = localStorage.getItem('user_id');
-    
+
     if (storedSession) {
       this.sessionId = storedSession;
     } else {
@@ -191,7 +191,7 @@ class ContextualAPIService {
     retryCount = 0
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     // Add authentication headers
     const headers = {
       'Content-Type': 'application/json',
@@ -291,7 +291,7 @@ class ContextualAPIService {
 
     try {
       const response = await requestPromise;
-      
+
       // Update session ID if changed
       if (response.metadata.session_id !== this.sessionId) {
         this.sessionId = response.metadata.session_id;
@@ -432,7 +432,7 @@ class ContextualAPIService {
   public async batchProcessQueries(
     queries: string[]
   ): Promise<ContextualQueryResponse[]> {
-    const promises = queries.map(query => 
+    const promises = queries.map(query =>
       this.enhancedQuery(query, { includeContext: false })
     );
 

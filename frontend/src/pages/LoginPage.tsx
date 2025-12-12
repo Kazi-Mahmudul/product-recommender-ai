@@ -27,10 +27,15 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
     setLoading(true);
     setError("");
     try {
-      await login(form.email, form.password);
+      const user = await login(form.email, form.password);
       // Show success alert without user data since it will be updated after login
       await authAlerts.showLoginSuccess();
-      navigate("/");
+
+      if (user?.is_admin) {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
     } catch (err: any) {
       setError(err.message || "Login failed");
       await authAlerts.showAuthError(err.message || "Login failed");

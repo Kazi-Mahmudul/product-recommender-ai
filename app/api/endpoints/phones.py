@@ -176,6 +176,14 @@ def read_price_range(db: Session = Depends(get_db)):
     """
     return phone_crud.get_price_range(db)
 
+@router.get("/cache-stats")
+def read_cache_stats():
+    """
+    Get cache statistics for monitoring performance
+    """
+    from app.utils import query_cache
+    return query_cache.get_cache_stats()
+
 @router.get("/filter-options")
 def read_filter_options(db: Session = Depends(get_db)):
     """

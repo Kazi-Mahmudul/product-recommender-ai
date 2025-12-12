@@ -3,11 +3,12 @@ import { getCacheItem, setCacheItem, getPhoneDetailsCacheKey, CACHE_TTL } from '
 import { chatAPIService, ChatQueryRequest, ChatResponse } from './chat';
 
 // API base URL from environment variables
-// Ensure we always use HTTPS in production
+// API base URL from environment variables
 let API_BASE = process.env.REACT_APP_API_BASE || "/api";
-if (API_BASE.startsWith('http://')) {
-  API_BASE = API_BASE.replace('http://', 'https://');
-}
+// Removed forced HTTPS upgrade to allow local development
+// if (API_BASE.startsWith('http://')) {
+//   API_BASE = API_BASE.replace('http://', 'https://');
+// }
 
 // Define the interface for the recommendation data
 export interface SmartRecommendation {
@@ -38,7 +39,7 @@ const isValidPhoneSlug = (slug: string | null | undefined): boolean => {
  * @returns Promise resolving to an array of SmartRecommendation objects
  */
 export async function fetchRecommendations(
-  phoneSlug: string, 
+  phoneSlug: string,
   limit: number = 8,
   signal?: AbortSignal
 ): Promise<SmartRecommendation[]> {
@@ -46,7 +47,7 @@ export async function fetchRecommendations(
   if (!isValidPhoneSlug(phoneSlug)) {
     throw new Error('Invalid phone slug. Please provide a valid phone slug.');
   }
-  
+
   try {
     // Ensure no double slashes in URL
     const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
@@ -54,7 +55,7 @@ export async function fetchRecommendations(
       `${baseUrl}/api/v1/phones/slug/${phoneSlug}/recommendations?limit=${limit}`,
       { signal }
     );
-    
+
     if (!response.ok) {
       // Handle different HTTP error codes
       if (response.status === 404) {
@@ -73,35 +74,35 @@ export async function fetchRecommendations(
         throw new Error(`Failed to fetch recommendations: HTTP error ${response.status}`);
       }
     }
-    
+
     const data = await response.json();
-    
+
     // Validate the response data
     if (!Array.isArray(data)) {
       throw new Error('Invalid response format. Expected an array of recommendations.');
     }
-    
+
     // Check if all recommendations have invalid slugs
     const allInvalid = data.length > 0 && data.every(rec => !rec.phone || !isValidPhoneSlug(rec.phone.slug));
     if (allInvalid) {
       throw new Error('The recommendation service returned invalid data. Please try again later.');
     }
-    
+
     // Filter out recommendations with invalid phone slugs
     const validRecommendations = data.filter(rec => rec.phone && isValidPhoneSlug(rec.phone.slug));
-    
+
     return validRecommendations;
   } catch (error) {
     // Re-throw AbortError as is
     if (error instanceof Error && error.name === 'AbortError') {
       throw error;
     }
-    
+
     // Check for network errors
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       throw new Error('Network error. Please check your internet connection and try again.');
     }
-    
+
     // Re-throw the error with a more descriptive message if it's not already an Error object
     if (error instanceof Error) {
       throw error;
@@ -125,31 +126,31 @@ export async function prefetchPhoneDetails(phoneSlug: string): Promise<void> {
   // Check if we already have this phone in cache and it's not expired
   const cacheKey = getPhoneDetailsCacheKey(phoneSlug);
   const cachedData = getCacheItem(cacheKey);
-  
+
   if (cachedData) {
     // Cache is valid, no need to prefetch again
     return;
   }
-  
+
   try {
     // Add a low priority hint to the fetch request
     const controller = new AbortController();
     const signal = controller.signal;
-    
+
     // Use a timeout to abort the prefetch if it takes too long
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
+
     // Ensure no double slashes in URL
     const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     const response = await fetch(`${baseUrl}/api/v1/phones/slug/${phoneSlug}`, {
       signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (response.ok) {
       const data = await response.json();
-      
+
       // Store in cache using our cache manager
       setCacheItem(cacheKey, data, CACHE_TTL.PHONE_DETAILS);
     }
@@ -178,7 +179,7 @@ export async function fetchRAGRecommendations(
     };
 
     const response = await chatAPIService.sendChatQuery(ragRequest);
-    
+
     // Ensure we got recommendations
     if (response.response_type !== 'recommendations') {
       throw new Error('Expected recommendations but got different response type');
@@ -208,7 +209,7 @@ export async function fetchEnhancedRecommendations(
   try {
     // Get traditional recommendations first
     const traditionalRecs = await fetchRecommendations(phoneSlug, limit, signal);
-    
+
     if (!useRAG || traditionalRecs.length === 0) {
       return traditionalRecs;
     }
@@ -227,7 +228,7 @@ export async function fetchEnhancedRecommendations(
       if (ragResponse.content.text) {
         // Try to extract insights for each phone
         const insights = extractPhoneInsights(ragResponse.content.text, phoneNames);
-        
+
         // Enhance recommendations with RAG insights
         return traditionalRecs.map((rec, index) => ({
           ...rec,
@@ -271,27 +272,27 @@ export async function fetchContextualRecommendations(
   try {
     // Build natural language query from preferences
     let query = 'I need phone recommendations';
-    
+
     if (preferences.budget) {
       query += ` under ৳${preferences.budget.toLocaleString()}`;
     }
-    
+
     if (preferences.usage) {
       query += ` for ${preferences.usage}`;
     }
-    
+
     if (preferences.brand) {
       query += ` from ${preferences.brand}`;
     }
-    
+
     if (preferences.features && preferences.features.length > 0) {
       query += ` with good ${preferences.features.join(', ')}`;
     }
-    
+
     if (preferences.size) {
       query += ` in ${preferences.size} size`;
     }
-    
+
     if (context) {
       query += `. Additional context: ${context}`;
     }
@@ -317,13 +318,13 @@ export async function fetchPhoneAlternatives(
     // First get the phone details to build context
     const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     const phoneResponse = await fetch(`${baseUrl}/api/v1/phones/slug/${phoneSlug}`);
-    
+
     if (!phoneResponse.ok) {
       throw new Error('Failed to fetch phone details');
     }
-    
+
     const phone = await phoneResponse.json();
-    
+
     // Build query based on alternative type
     let query = '';
     switch (alternativeType) {
@@ -340,7 +341,7 @@ export async function fetchPhoneAlternatives(
         query = `Find phones from different brands that compete with ${phone.name}`;
         break;
     }
-    
+
     if (phone.price_original) {
       query += ` (reference price: ৳${phone.price_original.toLocaleString()})`;
     }
@@ -360,14 +361,14 @@ export async function fetchPhoneAlternatives(
  */
 function extractPhoneInsights(text: string, phoneNames: string[]): Record<string, string[]> {
   const insights: Record<string, string[]> = {};
-  
+
   phoneNames.forEach(phoneName => {
     const phoneInsights: string[] = [];
-    
+
     // Look for mentions of the phone in the text
     const phoneRegex = new RegExp(`${phoneName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^.]*[.]`, 'gi');
     const matches = text.match(phoneRegex);
-    
+
     if (matches) {
       matches.forEach(match => {
         // Extract key insights from the sentence
@@ -378,19 +379,19 @@ function extractPhoneInsights(text: string, phoneNames: string[]): Record<string
             .replace(phoneName, '')
             .replace(/^[^a-zA-Z]*/, '')
             .trim();
-          
+
           if (cleanSentence.length > 10) {
             phoneInsights.push(cleanSentence);
           }
         }
       });
     }
-    
+
     if (phoneInsights.length > 0) {
       insights[phoneName] = phoneInsights.slice(0, 2); // Limit to 2 insights per phone
     }
   });
-  
+
   return insights;
 }
 

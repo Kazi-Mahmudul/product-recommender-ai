@@ -169,7 +169,7 @@ class PhoneNameResolver:
     
     def _try_fuzzy_match(self, phone_name: str, db: Session) -> Optional[ResolvedPhone]:
         """Try fuzzy string matching"""
-        all_phones_result = phone_crud.get_phones(db, limit=1000)  # Get first 1000 phones
+        all_phones_result = phone_crud.get_phones(db, limit=100)  # Reduced from 1000 for cost optimization
         all_phones = all_phones_result[0] if isinstance(all_phones_result, tuple) else all_phones_result
         best_match = None
         best_score = 0
@@ -315,7 +315,7 @@ class PhoneNameResolver:
         Returns:
             List of suggested phone names
         """
-        all_phones_result = phone_crud.get_phones(db, limit=1000)  # Get first 1000 phones
+        all_phones_result = phone_crud.get_phones(db, limit=100)  # Reduced from 1000 for cost optimization
         all_phones = all_phones_result[0] if isinstance(all_phones_result, tuple) else all_phones_result
         suggestions = []
         

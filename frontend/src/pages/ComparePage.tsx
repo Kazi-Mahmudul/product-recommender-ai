@@ -318,7 +318,7 @@ const ComparePage: React.FC = () => {
                 </p>
                 <button
                   onClick={() => navigate("/phones")}
-                  className="inline-flex items-center px-6 py-3 bg-[#377D5B] hover:bg-[#377D5B]/90 text-white font-medium rounded-lg transition-colors duration-200"
+                  className="inline-flex items-center px-6 py-3 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
                 >
                   <svg
                     className="w-5 h-5 mr-2"

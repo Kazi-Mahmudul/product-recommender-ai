@@ -6,6 +6,7 @@ import TrendingPhones from "./components/TrendingPhones";
 import TopSearchedPhones from "./components/TopSearchedPhones";
 import WhyChoosePeyechi from "./components/WhyChoosePeyechi";
 import BrandsSection from "./components/BrandsSection";
+import PopularComparisons from "./components/PopularComparisons";
 
 import Footer from "./components/Footer";
 import LoginPage from "./pages/LoginPage";
@@ -24,6 +25,11 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ComparisonProvider } from "./context/ComparisonContext";
 import ComparisonWidget from "./components/ComparisonWidget";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import AdminLayout from "./layouts/AdminLayout";
+import UsersPage from "./pages/admin/UsersPage";
+import PhoneManagementPage from "./pages/admin/PhonesPage";
+import PhoneEditorPage from "./pages/admin/PhoneEditorPage";
+import ComparisonsPage from "./pages/admin/ComparisonsPage";
 
 
 interface Message {
@@ -462,6 +468,8 @@ function App() {
           </div>
           <div className="my-8" />
           <TrendingPhones darkMode={darkMode} />
+          <div className="my-8" />
+          <PopularComparisons />
           <div className="my-8 lg:hidden">
             <BrandsSection />
           </div>
@@ -566,7 +574,14 @@ function App() {
           <Route path="/phones/:slug" element={<PhoneDetailsPage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/compare/:phoneIdentifiers" element={<ComparePage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="phones" element={<PhoneManagementPage />} />
+            <Route path="phones/new" element={<PhoneEditorPage />} />
+            <Route path="phones/edit/:phoneId" element={<PhoneEditorPage />} />
+            <Route path="comparisons" element={<ComparisonsPage />} />
+          </Route>
           <Route path="/auth/success" element={<AuthSuccessPage />} />
           <Route path="/auth/google" element={<GoogleCallbackPage />} />
           <Route path="*" element={<ErrorPage />} />

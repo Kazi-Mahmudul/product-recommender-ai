@@ -44,6 +44,34 @@ def initialize_admin_users():
                 logger.info(f"Moderator initialized: {moderator.email}")
             else:
                 logger.info(f"Moderator already exists: {existing_moderator.email}")
+
+        # --- ALSO SEED MAIN USER TABLE (For Standard Login Page Access) ---
+        from app.crud.auth import get_user_by_email
+        from app.models.user import User
+        from app.utils.auth import get_password_hash
+        
+        main_user = get_user_by_email(db, settings.SUPER_ADMIN_EMAIL)
+        if not main_user:
+            logger.info("Seeding Super Admin into main Users table...")
+            new_main_user = User(
+                email=settings.SUPER_ADMIN_EMAIL,
+                password_hash=get_password_hash(settings.SUPER_ADMIN_PASSWORD),
+                first_name="Super",
+                last_name="Admin",
+                is_admin=True,
+                is_verified=True
+            )
+            db.add(new_main_user)
+            db.commit()
+            db.refresh(new_main_user)
+            logger.info(f"Main User created for Super Admin: {new_main_user.email}")
+        else:
+            # Ensure is_admin is True
+            if not main_user.is_admin:
+                main_user.is_admin = True
+                db.commit()
+                logger.info(f"Updated existing Main User to admin: {main_user.email}")
+        # -------------------------------------------------------------
         
         return True
         

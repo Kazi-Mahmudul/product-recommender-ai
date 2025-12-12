@@ -11,7 +11,7 @@ const SimilarPhones: React.FC<SimilarPhonesProps> = ({ phones, loading, onRegene
   <div className="rounded-2xl shadow p-4 border bg-white border-brand dark:bg-gray-900 dark:border-gray-700">
     <div className="font-semibold mb-2 flex justify-between items-center text-brand">
       Similar Phones
-      <button onClick={onRegenerate} className="ml-2 px-3 py-1 bg-brand text-white rounded-full text-xs font-semibold hover:opacity-90 transition">
+      <button onClick={onRegenerate} className="ml-2 px-3 py-1 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-full text-xs font-semibold hover:shadow-md transition">
         {loading ? "Generating..." : "Regenerate"}
       </button>
     </div>

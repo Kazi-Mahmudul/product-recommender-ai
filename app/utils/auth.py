@@ -46,7 +46,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
                 logger.warning(f"BCrypt verification failed: {str(e)}")
                 # Fallback comparison (NOT secure, only for testing)
                 return False
-    except Exception as e:
+    except (Exception, AttributeError) as e:
         # Check if it might be a fallback hash (SHA256 hex digest is 64 chars)
         if len(hashed_password) == 64:
             try:
@@ -93,7 +93,7 @@ def get_password_hash(password: str) -> str:
                 # Fallback to a simple hash method for emergency cases
                 import hashlib
                 return hashlib.sha256(password.encode('utf-8')).hexdigest()
-    except Exception as e:
+    except (Exception, AttributeError) as e:
         logger.error(f"Password hashing error: {str(e)}")
         # Fallback to a simple hash method for emergency cases
         import hashlib

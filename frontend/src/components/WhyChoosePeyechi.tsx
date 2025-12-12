@@ -84,9 +84,6 @@ const WhyChoosePeyechi: React.FC<WhyChoosePeyechiProps> = ({ darkMode }) => {
       <div className="absolute bottom-20 right-20 w-72 h-72 bg-accent-purple/5 rounded-full filter blur-3xl -z-10"></div>
       
       <div className="text-center mb-12">
-        <span className="inline-block px-4 py-1.5 rounded-full bg-brand/10 text-brand font-medium text-sm mb-4">
-          Why Choose Us
-        </span>
         <h2 className="text-3xl md:text-4xl font-bold text-neutral-800 dark:text-white mb-4">
           Why Choose <span className="text-brand">Peyechi</span>?
         </h2>
@@ -100,9 +97,9 @@ const WhyChoosePeyechi: React.FC<WhyChoosePeyechiProps> = ({ darkMode }) => {
           {features.map((feature, idx) => (
             <div key={idx} className="px-3 py-2">
               <div 
-                className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700/30 rounded-3xl p-6 shadow-soft transition-all duration-300 hover:shadow-soft-lg hover:translate-y-[-4px] group h-full"
+                className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700/30 rounded-3xl p-6 shadow-sm transition-all duration-300 hover:shadow-md group h-full"
               >
-                <div className="w-14 h-14 rounded-2xl bg-brand/10 dark:bg-brand/5 flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110">
+                <div className="w-14 h-14 rounded-2xl bg-brand/5 dark:bg-brand/10 flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110">
                   {feature.icon}
                 </div>
                 
@@ -123,7 +120,7 @@ const WhyChoosePeyechi: React.FC<WhyChoosePeyechiProps> = ({ darkMode }) => {
       <div className="mt-16 text-center">
         <a 
           href="/chat" 
-          className="inline-flex items-center justify-center px-8 py-3.5 bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white font-medium rounded-full transition-all duration-300 shadow-soft hover:shadow-soft-lg"
+          className="inline-flex items-center justify-center px-8 py-3.5 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-full transition-all duration-300 shadow-sm hover:shadow-md"
         >
           Try Our AI Assistant
         </a>

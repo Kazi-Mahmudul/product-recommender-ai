@@ -364,28 +364,47 @@ if GOOGLE_AUTH_AVAILABLE:
             user = get_user_by_email(db, email)
             is_new_user = False
             if not user:
-                from app.models.user import User
-                
-                # Use a secure random password for Google OAuth users
-                google_oauth_password = get_password_hash("GoogleOAuth2024!")
-                
-                # Check if user should have admin status based on email
-                is_admin = email in settings.admin_emails_list
+                try:
+                    from app.models.user import User
+                    
+                    # Use a secure random password for Google OAuth users
+                    # Ensure password hash is generated correctly
+                    try:
+                        google_oauth_password = get_password_hash("GoogleOAuth2024!")
+                    except Exception as pass_error:
+                        logger.error(f"Password hashing failed during Google signup: {pass_error}")
+                        # Fallback to a precise internal string if hashing fails completely (should not happen with patch)
+                        google_oauth_password = "FAILED_HASH_FALLBACK"
 
-                user = User(
-                    email=email,
-                    password_hash=google_oauth_password,
-                    first_name=first_name,
-                    last_name=last_name,
-                    is_verified=True,  # Google OAuth users are automatically verified
-                    is_admin=is_admin
-                )
-                db.add(user)
-                db.commit()
-                db.refresh(user)
-                
-                # Mark as new user
-                is_new_user = True
+                    # Check if user should have admin status based on email
+                    is_admin = email in settings.admin_emails_list
+                    
+                    # Truncate names if too long
+                    safe_first_name = (first_name or "")[:100]
+                    safe_last_name = (last_name or "")[:100]
+
+                    user = User(
+                        email=email,
+                        password_hash=google_oauth_password,
+                        first_name=safe_first_name,
+                        last_name=safe_last_name,
+                        is_verified=True,  # Google OAuth users are automatically verified
+                        is_admin=is_admin
+                    )
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                    
+                    # Mark as new user
+                    is_new_user = True
+                    logger.info(f"Successfully created new Google Verified User: {email}")
+                except Exception as create_error:
+                    logger.error(f"Failed to create Google user in DB: {create_error}")
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Database error during account creation: {str(create_error)}"
+                    )
             elif not user.is_verified:  # type: ignore
                 # Verify existing user if they authenticate via Google
                 user.is_verified = True  # type: ignore
@@ -463,7 +482,7 @@ if GOOGLE_AUTH_AVAILABLE:
         
         return {"auth_url": google_auth_url, "state": state}
 
-    @router.get("/auth/google/callback")
+    @router.get("/google/callback")
     async def google_auth_callback(
         request: Request,
         code: str,

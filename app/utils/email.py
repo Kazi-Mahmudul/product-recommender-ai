@@ -53,6 +53,11 @@ def send_verification_email(email: str, verification_code: str) -> bool:
         
         logger.info(f"Verification code for {email}: {verification_code}")
         
+        # MOCK EMAIL FOR LOCAL DEVELOPMENT
+        if settings.ENVIRONMENT == "development" and not settings.EMAIL_USER:
+            logger.warning(f"MOCK EMAIL: Verification code for {email} is {verification_code}")
+            return True
+
         # Send email
         server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT)
         if settings.EMAIL_USE_TLS:
@@ -110,6 +115,11 @@ def send_password_reset_email(email: str, reset_code: str) -> bool:
         
         msg.attach(MIMEText(body, 'html'))
         
+        # MOCK EMAIL FOR LOCAL DEVELOPMENT
+        if settings.ENVIRONMENT == "development" and not settings.EMAIL_USER:
+            logger.warning(f"MOCK EMAIL: Password reset code for {email} is {reset_code}")
+            return True
+
         # Send email
         server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT)
         if settings.EMAIL_USE_TLS:

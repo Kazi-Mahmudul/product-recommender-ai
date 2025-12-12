@@ -112,7 +112,7 @@ const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
         </p>
         <button
           onClick={handleRetry}
-          className="px-4 py-2 bg-brand text-white rounded-md hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+          className="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-md transition focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2 dark:focus:ring-offset-gray-900 hover:shadow-md"
           aria-label="Retry loading recommendations"
         >
           Retry Connection
@@ -142,7 +142,7 @@ const RecommendationFallback: React.FC<RecommendationFallbackProps> = ({
       </p>
       <button
         onClick={handleRetry}
-        className="px-4 py-2 bg-brand text-white rounded-md hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+        className="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-md transition focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2 dark:focus:ring-offset-gray-900 hover:shadow-md"
         aria-label="Try loading recommendations again"
       >
         Try Again

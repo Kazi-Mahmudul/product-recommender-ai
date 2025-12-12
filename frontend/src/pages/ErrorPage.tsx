@@ -66,7 +66,7 @@ const ErrorPage: React.FC = () => {
           
           <Link
             to="/"
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-brand hover:bg-brand-darkGreen text-white rounded-xl transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-xl transition-colors shadow-sm hover:shadow-md"
           >
             <Home size={18} />
             Go Home

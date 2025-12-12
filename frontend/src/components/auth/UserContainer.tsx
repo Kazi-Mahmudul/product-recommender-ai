@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronDown, LogOut, User as UserIcon } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import UserProfileModal from './UserProfileModal';
@@ -21,7 +22,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
     dropdownOpen: false,
     profileModalOpen: false
   });
-  
+
   const { isMobile } = useResponsiveLayout();
   const { updateProfile } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -70,10 +71,10 @@ export const UserContainer: React.FC<UserContainerProps> = ({
   }, []);
 
   const handleProfileClick = useCallback(() => {
-    setState(prev => ({ 
-      ...prev, 
-      dropdownOpen: false, 
-      profileModalOpen: true 
+    setState(prev => ({
+      ...prev,
+      dropdownOpen: false,
+      profileModalOpen: true
     }));
   }, []);
 
@@ -103,7 +104,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
     return (
       <div className={`relative w-full ${className}`}>
         <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 transition-all duration-300 min-w-0">
-          <Avatar 
+          <Avatar
             user={user}
             size="md"
             onClick={handleProfileClick}
@@ -128,15 +129,14 @@ export const UserContainer: React.FC<UserContainerProps> = ({
             className="p-2 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors duration-200 flex-shrink-0"
             aria-label="User menu"
           >
-            <ChevronDown 
-              size={16} 
-              className={`text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
-                state.dropdownOpen ? 'rotate-180' : ''
-              }`} 
+            <ChevronDown
+              size={16}
+              className={`text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${state.dropdownOpen ? 'rotate-180' : ''
+                }`}
             />
           </button>
         </div>
-        
+
         {/* Mobile dropdown menu with animation */}
         {state.dropdownOpen && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 z-50 animate-in slide-in-from-top-2 duration-200">
@@ -148,26 +148,26 @@ export const UserContainer: React.FC<UserContainerProps> = ({
                 <UserIcon size={16} />
                 View Profile
               </button>
-            {user.is_admin && (
-              <a
-                href="/admin/status"
-                className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200"
+              {user.is_admin && (
+                <a
+                  href="/admin/status"
+                  className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200"
+                >
+                  <UserIcon size={16} />
+                  Admin Panel
+                </a>
+              )}
+              <button
+                onClick={handleLogoutClick}
+                className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
               >
-                <UserIcon size={16} />
-                Admin Panel
-              </a>
-            )}
-            <button
-              onClick={handleLogoutClick}
-              className="flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
-            >
-              <LogOut size={16} />
-              Sign Out
-            </button>
+                <LogOut size={16} />
+                Sign Out
+              </button>
             </div>
           </div>
         )}
-        
+
         {/* Profile Modal */}
         <UserProfileModal
           user={user}
@@ -188,7 +188,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
         className="flex items-center gap-2 p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand/30"
         aria-label={`${displayName}'s profile menu`}
       >
-        <Avatar 
+        <Avatar
           user={user}
           size="md"
           ariaLabel={`${displayName}'s profile picture`}
@@ -201,11 +201,10 @@ export const UserContainer: React.FC<UserContainerProps> = ({
             {user.auth_provider === 'google' ? 'Google Account' : 'Peyechi Account'}
           </p>
         </div>
-        <ChevronDown 
-          size={16} 
-          className={`text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${
-            state.dropdownOpen ? 'rotate-180' : ''
-          }`} 
+        <ChevronDown
+          size={16}
+          className={`text-neutral-500 dark:text-neutral-400 transition-transform duration-200 ${state.dropdownOpen ? 'rotate-180' : ''
+            }`}
         />
       </button>
 
@@ -215,7 +214,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
           {/* User info header */}
           <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center gap-3">
-              <Avatar 
+              <Avatar
                 user={user}
                 size="sm"
               />
@@ -235,7 +234,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
               </div>
             </div>
           </div>
-          
+
           {/* Menu items */}
           <div className="py-2">
             <button
@@ -247,13 +246,14 @@ export const UserContainer: React.FC<UserContainerProps> = ({
             </button>
             <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
             {user.is_admin && (
-              <a
-                href="/admin/status"
+              <Link
+                to="/admin"
                 className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200"
+                onClick={() => setState(prev => ({ ...prev, dropdownOpen: false }))}
               >
                 <UserIcon size={16} />
                 Admin Panel
-              </a>
+              </Link>
             )}
             <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
             <button
@@ -266,7 +266,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
           </div>
         </div>
       )}
-      
+
       {/* Profile Modal */}
       <UserProfileModal
         user={user}

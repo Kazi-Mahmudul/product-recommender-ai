@@ -2,10 +2,13 @@ from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Float
 import logging
+import hashlib
+import json
 
 from app.models.phone import Phone
 from app.schemas.phone import PhoneCreate
 from app.utils.database_validation import DatabaseValidator
+from app.utils import query_cache
 from rapidfuzz import process, fuzz
 
 logger = logging.getLogger(__name__)
@@ -126,7 +129,8 @@ def phone_to_dict(phone: Phone, include_optimized_images: bool = True) -> Dict[s
         if not isinstance(result["id"], int) or result["id"] <= 0:
             logger.warning(f"phone_to_dict: Invalid or missing id for phone: {result.get('name', 'Unknown')} (raw id: {result['id']})")
         
-        logger.debug(f"Successfully converted phone {result['id']} to dict")
+        # Removed excessive debug logging - was logging 1000+ times per request
+        # logger.debug(f"Successfully converted phone {result['id']} to dict")
         return result
         
     except Exception as e:
@@ -184,8 +188,38 @@ def get_phones(
     sort: Optional[str] = None,
     search: Optional[str] = None
 ) -> Tuple[List[Phone], int]:
-    """Get phones with optional filtering and safe column access"""
+    """Get phones with optional filtering and safe column access with caching"""
     try:
+        # Generate cache key from all filter parameters
+        filter_params = {
+            'skip': skip, 'limit': limit, 'brand': brand, 'min_price': min_price,
+            'max_price': max_price, 'min_ram_gb': min_ram_gb, 'max_ram_gb': max_ram_gb,
+            'min_storage_gb': min_storage_gb, 'max_storage_gb': max_storage_gb,
+            'camera_setup': camera_setup, 'min_primary_camera_mp': min_primary_camera_mp,
+            'min_selfie_camera_mp': min_selfie_camera_mp, 'battery_type': battery_type,
+            'min_battery_capacity': min_battery_capacity, 'max_battery_capacity': max_battery_capacity,
+            'display_type': display_type, 'min_refresh_rate': min_refresh_rate,
+            'min_screen_size': min_screen_size, 'max_screen_size': max_screen_size,
+            'chipset': chipset, 'operating_system': operating_system, 'network': network,
+            'bluetooth': bluetooth, 'nfc': nfc, 'usb': usb,
+            'fingerprint_sensor': fingerprint_sensor, 'face_unlock': face_unlock,
+            'wireless_charging': wireless_charging, 'quick_charging': quick_charging,
+            'reverse_charging': reverse_charging, 'build': build, 'waterproof': waterproof,
+            'ip_rating': ip_rating, 'min_charging_wattage': min_charging_wattage,
+            'max_age_in_months': max_age_in_months, 'sort': sort, 'search': search
+        }
+        
+        # Create hash of filter parameters for cache key
+        filter_hash = hashlib.md5(json.dumps(filter_params, sort_keys=True).encode()).hexdigest()
+        cache_key = query_cache.get_cached_filter_result(filter_hash, limit)
+        
+        # Check if cache is valid
+        if query_cache.is_cache_valid(cache_key):
+            logger.debug(f"Cache hit for filter query: {filter_hash[:8]}...")
+        else:
+            query_cache.set_cache_timestamp(cache_key)
+            logger.debug(f"Cache miss for filter query: {filter_hash[:8]}...")
+        
         # Validate column existence for critical columns
         column_validation = DatabaseValidator.validate_phone_columns(db)
         
@@ -378,26 +412,26 @@ def get_phones(
         # Apply sorting with safe column access
         if sort == "price_high" and column_validation.get('price_original', False):
             query = query.order_by(Phone.price_original.desc())
-            logger.debug("Applied price_high sorting")
+            # logger.debug("Applied price_high sorting")  # Removed to reduce log spam
         elif sort == "price_low" and column_validation.get('price_original', False):
             query = query.order_by(Phone.price_original.asc())
-            logger.debug("Applied price_low sorting")
+            # logger.debug("Applied price_low sorting")  # Removed to reduce log spam
         elif sort in ["price_high", "price_low"] and not column_validation.get('price_original', False):
             logger.warning(f"Price sorting requested but price_original column not available, using default sorting")
             # Default sorting: newest phones first (release_date_clean descending if available, otherwise created_at descending)
             if column_validation.get('release_date_clean', False):
                 query = query.order_by(Phone.release_date_clean.desc())
-                logger.debug("Applied default release_date_clean descending sorting (newest phones first)")
+                # logger.debug("Applied default release_date_clean descending sorting (newest phones first)")
             elif column_validation.get('created_at', False):
                 query = query.order_by(Phone.created_at.desc())
-                logger.debug("Applied default created_at descending sorting (newest phones first)")
+                # logger.debug("Applied default created_at descending sorting (newest phones first)")
             else:
                 query = query.order_by(Phone.id.desc())
-                logger.debug("Applied default ID descending sorting (newest phones first)")
+                # logger.debug("Applied default ID descending sorting (newest phones first)")
         elif sort == "score_high" and column_validation.get('overall_device_score', False):
             # Score-based sorting when explicitly requested
             query = query.order_by(Phone.overall_device_score.desc())
-            logger.debug("Applied overall_device_score sorting")
+            # logger.debug("Applied overall_device_score sorting")  # Removed to reduce log spam
         else:
             # Default sorting: newest phones first (release_date_clean descending if available, otherwise created_at descending)
             if column_validation.get('release_date_clean', False):
@@ -415,6 +449,11 @@ def get_phones(
             total = query.count()
             phones = query.offset(skip).limit(limit).all()
             
+            # Periodically clear expired cache entries (every 100th query)
+            import random
+            if random.randint(1, 100) == 1:
+                query_cache.clear_expired_cache()
+            
             logger.info(f"Successfully retrieved {len(phones)} phones (total: {total}) with filters applied")
             return phones, total
             
@@ -428,13 +467,13 @@ def get_phones(
                 column_validation = DatabaseValidator.validate_phone_columns(db)
                 if column_validation.get('release_date_clean', False):
                     fallback_query = db.query(Phone).order_by(Phone.release_date_clean.desc())
-                    logger.debug("Applied fallback release_date_clean descending sorting (newest phones first)")
+                    # logger.debug("Applied fallback release_date_clean descending sorting (newest phones first)")
                 elif column_validation.get('created_at', False):
                     fallback_query = db.query(Phone).order_by(Phone.created_at.desc())
-                    logger.debug("Applied fallback created_at descending sorting (newest phones first)")
+                    # logger.debug("Applied fallback created_at descending sorting (newest phones first)")
                 else:
                     fallback_query = db.query(Phone).order_by(Phone.id.desc())
-                    logger.debug("Applied fallback ID descending sorting (newest phones first)")
+                    # logger.debug("Applied fallback ID descending sorting (newest phones first)")
                 total = fallback_query.count()
                 phones = fallback_query.offset(skip).limit(limit).all()
                 logger.warning(f"Fallback query succeeded, returned {len(phones)} phones")
@@ -564,15 +603,37 @@ def get_phone_by_name_and_brand(db: Session, name: str, brand: str) -> Optional[
 
 def get_phone_by_slug(db: Session, slug: str) -> Optional[Phone]:
     """
-    Get a single phone by slug
+    Get a single phone by slug with caching
     """
+    # Generate cache key
+    cache_key = query_cache.get_cached_phone_by_slug(slug)
+    
+    # Check if cache is valid
+    if query_cache.is_cache_valid(cache_key):
+        # Note: We still need to query DB as LRU cache only stores the key
+        # But this helps track cache hits/misses
+        logger.debug(f"Cache hit for phone slug: {slug}")
+    else:
+        query_cache.set_cache_timestamp(cache_key)
+        logger.debug(f"Cache miss for phone slug: {slug}")
+    
     return db.query(Phone).filter(Phone.slug == slug).first()
 
 def get_brands(db: Session) -> List[str]:
     """
-    Get all unique brands in the database
+    Get all unique brands in the database with caching
     """
     try:
+        # Use a simple cache key for brands
+        cache_key = "brands_list"
+        
+        # Check if cache is valid (5 minute TTL)
+        if query_cache.is_cache_valid(cache_key):
+            logger.debug("Using cached brands list")
+        else:
+            query_cache.set_cache_timestamp(cache_key)
+            logger.debug("Refreshing brands cache")
+        
         return [brand[0] for brand in db.query(Phone.brand).distinct().all()]
     except Exception as e:
         logger.error(f"Error fetching brands: {str(e)}")
@@ -590,12 +651,227 @@ def get_price_range(db: Session) -> Dict[str, float]:
         logger.error(f"Error fetching price range: {str(e)}")
         return {"min": 0.0, "max": 0.0}
 
+def calculate_derived_fields(phone: Phone) -> None:
+    """
+    Calculate and update ALL derived fields based on phone data.
+    This modifies the phone object in-place.
+    
+    Calculates all numeric/derived fields from string fields.
+    """
+    import re
+    from datetime import datetime, date
+    
+    # ===== PRICE FIELDS =====
+    # Extract numeric price from price string
+    if phone.price:
+        price_str = str(phone.price)
+        match = re.search(r'[\d,]+\.?\d*', price_str.replace(',', ''))
+        if match:
+            try:
+                phone.price_original = float(match.group(0))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse price: {phone.price}")
+                phone.price_original = None
+    
+    # Determine price category
+    if phone.price_original:
+        if phone.price_original < 15000:
+            phone.price_category = "Budget"
+        elif phone.price_original < 40000:
+            phone.price_category = "Mid-range"
+        else:
+            phone.price_category = "Flagship"
+    
+    # ===== RAM & STORAGE =====
+    # Extract numeric RAM from ram string
+    if phone.ram and not phone.ram_gb:
+        ram_str = str(phone.ram).upper()
+        match = re.search(r'(\d+)\s*GB', ram_str)
+        if match:
+            try:
+                phone.ram_gb = float(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse RAM: {phone.ram}")
+    
+    # Extract numeric storage from internal_storage string
+    if phone.internal_storage and not phone.storage_gb:
+        storage_str = str(phone.internal_storage).upper()
+        match = re.search(r'(\d+)\s*TB', storage_str)
+        if match:
+            try:
+                phone.storage_gb = float(match.group(1)) * 1024
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse storage (TB): {phone.internal_storage}")
+        else:
+            match = re.search(r'(\d+)\s*GB', storage_str)
+            if match:
+                try:
+                    phone.storage_gb = float(match.group(1))
+                except (ValueError, AttributeError):
+                    logger.warning(f"Could not parse storage (GB): {phone.internal_storage}")
+    
+    # Calculate price per GB
+    if phone.price_original and phone.storage_gb and phone.storage_gb > 0:
+        phone.price_per_gb = round(phone.price_original / phone.storage_gb, 2)
+    
+    if phone.price_original and phone.ram_gb and phone.ram_gb > 0:
+        phone.price_per_gb_ram = round(phone.price_original / phone.ram_gb, 2)
+    
+    # ===== DISPLAY FIELDS =====
+    # Extract screen size
+    if phone.screen_size_inches:
+        size_str = str(phone.screen_size_inches)
+        match = re.search(r'(\d+\.?\d*)', size_str)
+        if match:
+            try:
+                phone.screen_size_numeric = float(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse screen size: {phone.screen_size_inches}")
+    
+    # Extract resolution (e.g., "1080x2400", "1080 x 2400 pixels")
+    if phone.display_resolution:
+        res_str = str(phone.display_resolution)
+        match = re.search(r'(\d+)\s*[xX×]\s*(\d+)', res_str)
+        if match:
+            try:
+                phone.resolution_width = int(match.group(1))
+                phone.resolution_height = int(match.group(2))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse resolution: {phone.display_resolution}")
+    
+    # Extract PPI
+    if phone.pixel_density_ppi:
+        ppi_str = str(phone.pixel_density_ppi)
+        match = re.search(r'(\d+\.?\d*)', ppi_str)
+        if match:
+            try:
+                phone.ppi_numeric = float(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse PPI: {phone.pixel_density_ppi}")
+    
+    # Extract refresh rate
+    if phone.refresh_rate_hz:
+        refresh_str = str(phone.refresh_rate_hz)
+        match = re.search(r'(\d+)', refresh_str)
+        if match:
+            try:
+                phone.refresh_rate_numeric = int(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse refresh rate: {phone.refresh_rate_hz}")
+    
+    # ===== CAMERA FIELDS =====
+    # Count cameras (e.g., "Triple", "Quad", "Dual")
+    if phone.camera_setup:
+        setup_str = str(phone.camera_setup).lower()
+        if 'quad' in setup_str or '4' in setup_str:
+            phone.camera_count = 4
+        elif 'triple' in setup_str or '3' in setup_str:
+            phone.camera_count = 3
+        elif 'dual' in setup_str or '2' in setup_str:
+            phone.camera_count = 2
+        elif 'single' in setup_str or '1' in setup_str:
+            phone.camera_count = 1
+        else:
+            # Try to count from primary_camera_resolution
+            if phone.primary_camera_resolution:
+                camera_count = len(re.findall(r'\d+\s*MP', str(phone.primary_camera_resolution), re.IGNORECASE))
+                phone.camera_count = camera_count if camera_count > 0 else None
+    
+    # Extract primary camera MP
+    if phone.primary_camera_resolution:
+        cam_str = str(phone.primary_camera_resolution)
+        match = re.search(r'(\d+\.?\d*)\s*MP', cam_str, re.IGNORECASE)
+        if match:
+            try:
+                phone.primary_camera_mp = float(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse primary camera: {phone.primary_camera_resolution}")
+    
+    # Extract selfie camera MP
+    if phone.selfie_camera_resolution:
+        cam_str = str(phone.selfie_camera_resolution)
+        match = re.search(r'(\d+\.?\d*)\s*MP', cam_str, re.IGNORECASE)
+        if match:
+            try:
+                phone.selfie_camera_mp = float(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse selfie camera: {phone.selfie_camera_resolution}")
+    
+    # ===== BATTERY FIELDS =====
+    # Extract battery capacity
+    if phone.capacity:
+        cap_str = str(phone.capacity)
+        match = re.search(r'(\d+)', cap_str)
+        if match:
+            try:
+                phone.battery_capacity_numeric = int(match.group(1))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse battery capacity: {phone.capacity}")
+    
+    # Detect fast charging
+    if phone.quick_charging:
+        quick_str = str(phone.quick_charging).lower()
+        phone.has_fast_charging = 'yes' in quick_str or 'fast' in quick_str or 'quick' in quick_str or 'w' in quick_str
+        
+        # Extract wattage (e.g., "33W", "65W Fast Charging")
+        match = re.search(r'(\d+)\s*W', quick_str, re.IGNORECASE)
+        if match:
+            try:
+                phone.charging_wattage = float(match.group(1))
+            except (ValueError, AttributeError):
+                pass
+    
+    # Detect wireless charging
+    if phone.wireless_charging:
+        wireless_str = str(phone.wireless_charging).lower()
+        phone.has_wireless_charging = 'yes' in wireless_str or 'wireless' in wireless_str or 'w' in wireless_str
+    
+    # ===== BRAND & RELEASE DATE =====
+    # Check if popular brand
+    popular_brands = ['Samsung', 'Apple', 'Xiaomi', 'Realme', 'Oppo', 'Vivo', 'OnePlus', 'Google', 'Motorola', 'Nokia']
+    if phone.brand:
+        phone.is_popular_brand = any(brand.lower() in str(phone.brand).lower() for brand in popular_brands)
+    
+    # Parse release date
+    if phone.release_date and not phone.release_date_clean:
+        date_str = str(phone.release_date)
+        # Try various date formats
+        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%B %Y', '%b %Y', '%Y']:
+            try:
+                parsed_date = datetime.strptime(date_str.strip(), fmt).date()
+                phone.release_date_clean = parsed_date
+                break
+            except (ValueError, AttributeError):
+                continue
+    
+    # Calculate age and new release status
+    if phone.release_date_clean:
+        today = date.today()
+        
+        # Check if upcoming
+        phone.is_upcoming = phone.release_date_clean > today
+        
+        if not phone.is_upcoming:
+            # Calculate age in months
+            age_delta = (today.year - phone.release_date_clean.year) * 12 + (today.month - phone.release_date_clean.month)
+            phone.age_in_months = age_delta
+            
+            # New release if less than 6 months old
+            phone.is_new_release = age_delta <= 6
+        else:
+            phone.age_in_months = 0
+            phone.is_new_release = False
+
 def create_phone(db: Session, phone: PhoneCreate) -> Phone:
     """
     Create a new phone
     """
     try:
         db_phone = Phone(**phone.model_dump())
+        
+        # Calculate derived fields
+        calculate_derived_fields(db_phone)
+        
         db.add(db_phone)
         db.commit()
         db.refresh(db_phone)
@@ -1263,4 +1539,57 @@ def get_phones_by_filters(db: Session, filters: Dict[str, Any], limit: int = 10)
         logger.error(f"Error in get_phones_by_filters: {str(e)}", exc_info=True)
         return []
 
-        return []
+def update_phone(db: Session, phone_id: int, phone_update: PhoneCreate) -> Optional[Phone]:
+    """
+    Update an existing phone
+    """
+    try:
+        db_phone = get_phone(db, phone_id)
+        if not db_phone:
+            return None
+            
+        update_data = phone_update.model_dump(exclude_unset=True)
+        
+        for field, value in update_data.items():
+            setattr(db_phone, field, value)
+        
+        # Calculate derived fields after updating
+        calculate_derived_fields(db_phone)
+            
+        db.add(db_phone)
+        db.commit()
+        db.refresh(db_phone)
+        logger.info(f"Updated phone: {db_phone.name} with ID {db_phone.id}")
+        
+        # Invalidate recommendation cache
+        from app.services.cache_invalidation import CacheInvalidationService
+        CacheInvalidationService.invalidate_phone_recommendations()
+        
+        return db_phone
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating phone {phone_id}: {str(e)}")
+        raise
+
+def delete_phone(db: Session, phone_id: int) -> bool:
+    """
+    Delete a phone by ID
+    """
+    try:
+        db_phone = get_phone(db, phone_id)
+        if not db_phone:
+            return False
+            
+        db.delete(db_phone)
+        db.commit()
+        logger.info(f"Deleted phone with ID {phone_id}")
+        
+        # Invalidate recommendation cache
+        from app.services.cache_invalidation import CacheInvalidationService
+        CacheInvalidationService.invalidate_phone_recommendations()
+        
+        return True
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting phone {phone_id}: {str(e)}")
+        raise

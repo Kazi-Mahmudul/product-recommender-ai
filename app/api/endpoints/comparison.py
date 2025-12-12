@@ -168,3 +168,74 @@ def get_items(
     except Exception as e:
         logger.error(f"Unexpected error getting items: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/popular")
+def get_popular_comparisons(
+    limit: int = 3,
+    db: Session = Depends(deps.get_db)
+):
+    """
+    Get most popular phone comparison pairs (public endpoint for homepage)
+    Returns pairs of phones that are frequently compared together
+    """
+    try:
+        from app.models.comparison import ComparisonItem, ComparisonSession
+        from app.models.phone import Phone
+        from sqlalchemy import func
+        from typing import Dict, Tuple
+        
+        # Get sessions with exactly 2 phones
+        sessions = db.query(ComparisonItem.session_id).group_by(
+            ComparisonItem.session_id
+        ).having(
+            func.count(ComparisonItem.id) == 2
+        ).all()
+        
+        session_ids = [s[0] for s in sessions]
+        
+        # Get pairs and count occurrences
+        pairs_count: Dict[Tuple[str, str], int] = {}
+        for session_id in session_ids:
+            items = db.query(ComparisonItem).filter(
+                ComparisonItem.session_id == session_id
+            ).all()
+            
+            if len(items) == 2:
+                slugs = tuple(sorted([items[0].slug, items[1].slug]))
+                pairs_count[slugs] = pairs_count.get(slugs, 0) + 1
+        
+        # Sort by count and get top pairs
+        sorted_pairs = sorted(pairs_count.items(), key=lambda x: x[1], reverse=True)[:limit]
+        
+        # Get phone details for each pair
+        results = []
+        for (slug1, slug2), count in sorted_pairs:
+            phone1 = db.query(Phone).filter(Phone.slug == slug1).first()
+            phone2 = db.query(Phone).filter(Phone.slug == slug2).first()
+            
+            if phone1 and phone2:
+                results.append({
+                    "phone1": {
+                        "slug": slug1,
+                        "name": phone1.name,
+                        "brand": phone1.brand,
+                        "model": phone1.model,
+                        "img_url": phone1.img_url,
+                        "price": phone1.price
+                    },
+                    "phone2": {
+                        "slug": slug2,
+                        "name": phone2.name,
+                        "brand": phone2.brand,
+                        "model": phone2.model,
+                        "img_url": phone2.img_url,
+                        "price": phone2.price
+                    },
+                    "comparison_count": count
+                })
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error getting popular comparisons: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get popular comparisons")

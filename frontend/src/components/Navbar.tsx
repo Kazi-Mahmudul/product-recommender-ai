@@ -139,7 +139,7 @@ const Navbar: React.FC<NavbarProps> = ({
       <ul className="hidden md:flex space-x-10 font-medium">
         {[
           { path: "/", label: "Home" },
-          { path: "/chat", label: "Chat" },
+          { path: "/chat", label: "AI-Chat" },
           { path: "/phones", label: "Phones" },
           { path: "/compare", label: "Compare" },
         ].map((item) => (
@@ -266,11 +266,10 @@ const Navbar: React.FC<NavbarProps> = ({
         {/* Dark Mode Toggle */}
         <button
           onClick={() => setDarkMode(!darkMode)}
-          className={`p-2.5 rounded-full transition-all duration-200 ${
-            darkMode
+          className={`p-2.5 rounded-full transition-all duration-200 ${darkMode
               ? "bg-neutral-800/30 text-neutral-100 hover:bg-brand/10 hover:text-brand"
               : "bg-neutral-100 text-neutral-700 hover:bg-brand/10 hover:text-brand"
-          }`}
+            }`}
           aria-label="Toggle dark mode"
         >
           {darkMode ? <Sun size={20} /> : <Moon size={20} />}
@@ -290,7 +289,7 @@ const Navbar: React.FC<NavbarProps> = ({
           <div className="hidden md:block relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen((v) => !v)}
-              className="rounded-full px-6 py-2.5 font-medium text-white text-sm bg-brand hover:bg-brand-darkGreen hover:text-hover-light transition-colors duration-200 shadow-soft"
+              className="rounded-full px-6 py-2.5 font-medium text-brand dark:text-brand dark:hover:text-hover-light text-sm bg-brand/10 hover:bg-brand/20 transition-colors duration-200 shadow-sm hover:shadow-md"
             >
               Login / Signup
             </button>
@@ -302,11 +301,10 @@ const Navbar: React.FC<NavbarProps> = ({
                 ].map((item) => (
                   <button
                     key={item.path}
-                    className={`block w-full text-left px-5 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800/30 transition-colors duration-200 ${
-                      location.pathname === item.path
+                    className={`block w-full text-left px-5 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800/30 transition-colors duration-200 ${location.pathname === item.path
                         ? "font-medium text-brand"
                         : "text-neutral-700 dark:text-neutral-100"
-                    }`}
+                      }`}
                     onClick={() => {
                       setDropdownOpen(false);
                       navigate(item.path);

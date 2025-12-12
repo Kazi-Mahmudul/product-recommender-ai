@@ -341,7 +341,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
             <button
               type="submit"
               disabled={submitting || newReview.rating === 0}
-              className="px-6 py-2 bg-brand hover:bg-brand-dark text-white font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:shadow-md"
             >
               {submitting ? (
                 <>
@@ -456,7 +456,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                       <button
                         type="button"
                         onClick={() => saveReview(review.id)}
-                        className="px-4 py-2 bg-brand hover:bg-brand-dark text-white font-medium rounded-lg transition-colors duration-300"
+                        className="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-colors duration-300 hover:shadow-md"
                         disabled={!review.tempRating}
                       >
                         Save

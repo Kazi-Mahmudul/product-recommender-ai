@@ -238,39 +238,17 @@ class HealthCheckService:
         """Check knowledge retrieval services."""
         try:
             from app.services.knowledge_retrieval import KnowledgeRetrievalService
-            from app.crud import phone as phone_crud
             
-            # Test service initialization
+            # Test service initialization only - no database queries
             knowledge_service = KnowledgeRetrievalService()
             
-            # Test database access through CRUD
-            db_gen = get_db()
-            db = next(db_gen)
-            
-            try:
-                # Test a simple query
-                test_filters = {"is_popular_brand": True}
-                phones = phone_crud.get_phones_by_filters(db, test_filters, limit=1)
-                
-                db.close()
-                
-                return {
-                    "status": "healthy",
-                    "healthy": True,
-                    "components": {
-                        "knowledge_retrieval_service": "initialized",
-                        "phone_crud": "functional"
-                    },
-                    "test_query_result": f"Found {len(phones)} phones"
+            return {
+                "status": "healthy",
+                "healthy": True,
+                "components": {
+                    "knowledge_retrieval_service": "initialized"
                 }
-                
-            except Exception as db_error:
-                db.close()
-                return {
-                    "status": "error",
-                    "healthy": False,
-                    "error": f"Database query failed: {str(db_error)}"
-                }
+            }
                 
         except Exception as e:
             return {

@@ -637,6 +637,12 @@ Each highlight should be on a new line with no additional text or explanation.
         backoff_delays = [min(2 ** i, 10) for i in range(retries)]
         
         # Try the API call with retries
+        # If localhost, disable retries to prevent long delays if service is down
+        if "localhost" in self.api_url or "127.0.0.1" in self.api_url:
+            logger.debug("Skipping Gemini API call for localhost/local URL")
+            return None
+
+        # retries is not used if we return above, but keeping variable for reference
         for attempt, delay in enumerate(backoff_delays + [0]):  # +[0] for the initial attempt
             try:
                 # Create async HTTP client with timeout

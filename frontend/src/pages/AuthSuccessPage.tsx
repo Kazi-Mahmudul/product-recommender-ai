@@ -13,63 +13,77 @@ const AuthSuccessPage: React.FC = () => {
     const handleAuthSuccess = async () => {
       // Parse query parameters
       const searchParams = new URLSearchParams(location.search);
+      const urlToken = searchParams.get('token');
       const isNewUser = searchParams.get('new_user') === 'true';
-      
-      // The token should already be set in the cookie from the backend callback
-      // We just need to ensure the UI updates and show a success message
-      
-      if (!loading) {
-        if (token) {
-          // If we don't have user data yet, fetch it
-          if (!user) {
-            try {
-              const response = await fetch('/api/v1/auth/me', {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
-              
-              if (response.ok) {
-                const userData = await response.json();
-                setUser({
-                  ...userData,
-                  auth_provider: 'google',
-                  last_login: new Date().toISOString()
-                });
-                
-                // Show appropriate success message
-                if (isNewUser) {
-                  await authAlerts.showSignupSuccess(userData);
-                } else {
-                  await authAlerts.showGoogleLoginSuccess(userData);
-                }
-              }
-            } catch (error) {
-              console.error('Failed to fetch user data:', error);
+
+      let effectiveToken = token;
+
+      // If token is provided in URL, save it and use it
+      if (urlToken) {
+        localStorage.setItem('auth_token', urlToken);
+        // We'll trust the token from URL temporarily until context updates
+        effectiveToken = urlToken;
+
+        // Reload is often the safest way to reset all context state with new token
+        // But let's try to do it gracefully first if we can access setToken exposed by context?
+        // Context exposes setUser but maybe not setToken directly used this way?
+        // Actually AuthContext provider exposes user, loading, token...
+        // We can manually set the token in the cookie as a fallacy backup if needed by legacy code, 
+        // but localStorage is primary for this app's Bearer auth
+      }
+
+      if (effectiveToken || urlToken) {
+        const currentToken = effectiveToken || urlToken!;
+
+        try {
+          // Check user data
+          const response = await fetch('/api/v1/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${currentToken}`
             }
-          } else {
+          });
+
+          if (response.ok) {
+            const userData = await response.json();
+            setUser({
+              ...userData,
+              auth_provider: 'google',
+              last_login: new Date().toISOString()
+            });
+
             // Show appropriate success message
             if (isNewUser) {
-              await authAlerts.showSignupSuccess(user);
+              await authAlerts.showSignupSuccess(userData);
             } else {
-              await authAlerts.showGoogleLoginSuccess(user);
+              await authAlerts.showGoogleLoginSuccess(userData);
             }
-          }
-          
-          // Redirect to original page or home page after a short delay
-          setTimeout(() => {
-            // Get the stored redirect URL or default to home
-            const redirectPath = localStorage.getItem('post_auth_redirect') || '/';
-            // Remove the stored redirect URL
-            localStorage.removeItem('post_auth_redirect');
-            navigate(redirectPath);
-          }, 2000);
-        } else {
-          // If no token, maybe redirect to login
-          setTimeout(() => {
+
+            // Redirect logic
+            setTimeout(() => {
+              const redirectPath = localStorage.getItem('post_auth_redirect') || '/';
+              localStorage.removeItem('post_auth_redirect');
+              // Force a reload if we just set the token to ensure all contexts pick it up
+              if (urlToken) {
+                window.location.href = redirectPath;
+              } else {
+                navigate(redirectPath);
+              }
+            }, 1500);
+
+          } else {
+            console.error("Failed to verify token from URL");
             navigate('/login');
-          }, 2000);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
+          navigate('/login');
         }
+      } else if (!loading) {
+        // No token found
+        console.warn("No token found in URL or Context");
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       }
     };
 

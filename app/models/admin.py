@@ -19,7 +19,7 @@ class AdminUser(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(AdminRole), default=AdminRole.MODERATOR, nullable=False)
+    role = Column(String(50), default=AdminRole.MODERATOR.value, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)

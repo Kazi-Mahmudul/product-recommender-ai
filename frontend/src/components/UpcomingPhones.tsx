@@ -219,7 +219,7 @@ const UpcomingPhones: React.FC<UpcomingPhonesProps> = ({ darkMode }) => {
                         e.stopPropagation();
                         phone.slug && navigate(generatePhoneDetailUrl(phone.slug));
                       }}
-                      className="bg-brand hover:bg-brand-darkGreen hover:text-hover-light text-white rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm"
+                      className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
                     >
                       Details
                     </button>

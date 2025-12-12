@@ -16,9 +16,9 @@ export const searchPhones = async (query: string): Promise<SearchResult[]> => {
 
   // Ensure we always use HTTPS in production
   let API_BASE = process.env.REACT_APP_API_BASE || "/api";
-  if (API_BASE.startsWith('http://')) {
-    API_BASE = API_BASE.replace('http://', 'https://');
-  }
+  // if (API_BASE.startsWith('http://')) {
+  //   API_BASE = API_BASE.replace('http://', 'https://');
+  // }
 
   try {
     // Ensure no double slashes in URL

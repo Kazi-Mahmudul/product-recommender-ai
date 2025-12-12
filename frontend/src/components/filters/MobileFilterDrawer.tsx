@@ -56,7 +56,7 @@ const MobileFilterDrawer: React.FC<MobileFilterDrawerProps> = ({
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-brand text-white hover:bg-brand/90"
+            className="px-4 py-2 rounded-lg bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light hover:shadow-md"
           >
             Apply Filters
           </button>

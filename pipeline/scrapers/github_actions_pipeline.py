@@ -31,7 +31,7 @@ def generate_pipeline_run_id() -> str:
     """Generate a unique pipeline run ID"""
     return f"local_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-def extract_data(pipeline_run_id: str, max_pages: int = 50) -> Dict[str, Any]:
+def extract_data(pipeline_run_id: str, max_pages: int = 10) -> Dict[str, Any]:
     """
     Phase 1: Extract data by scraping mobile phone data
     
@@ -346,7 +346,7 @@ def main():
     
     try:
         # Phase 1: Extract data
-        scraping_result = extract_data(pipeline_run_id, max_pages=50)
+        scraping_result = extract_data(pipeline_run_id, max_pages=10)
         results['extraction'] = scraping_result
         
         if scraping_result['status'] != 'success':

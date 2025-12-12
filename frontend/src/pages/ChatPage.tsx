@@ -626,7 +626,7 @@ How can I help you today?`,
           {/* New Chat Button */}
           <div className="flex-shrink-0">
             <button
-              className="px-3 py-2 sm:px-6 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-brand to-brand-darkGreen text-white hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand/50 active:scale-95"
+              className="px-3 py-2 sm:px-6 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-semibold bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand/30 active:scale-95 shadow-sm hover:shadow-md"
               onClick={handleNewChat}
               aria-label="Start a new chat conversation"
             >

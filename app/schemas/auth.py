@@ -126,11 +126,13 @@ class EmailVerificationRequest(BaseModel):
         """
         if not v or not v.strip():
             raise ValueError('Verification code cannot be empty')
+        
+        v = v.strip()
         if not v.isdigit():
             raise ValueError('Verification code must contain only digits')
         if len(v) != 6:
             raise ValueError('Verification code must be exactly 6 digits')
-        return v.strip()
+        return v
 
     class Config:
         schema_extra = {

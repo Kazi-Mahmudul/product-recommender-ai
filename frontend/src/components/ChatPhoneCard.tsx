@@ -193,7 +193,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
 
         <div className="flex justify-between items-center mt-3">
           <button
-            className="bg-brand hover:bg-brand-darkGreen text-white font-medium rounded-full px-4 py-1.5 text-sm transition-colors shadow-md hover:shadow-lg"
+            className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-full px-4 py-1.5 text-sm transition-colors shadow-sm hover:shadow-md"
             onClick={(e) => {
               e.stopPropagation();
               handleViewDetails();
@@ -205,7 +205,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           {/* Compare Button */}
           <button
             className={`rounded-lg px-4 py-1.5 text-sm font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 ${isSelected
-                ? 'bg-brand hover:bg-brand-darkGreen text-white hover:text-black focus:ring-brand'
+                ? 'bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light focus:ring-brand/30'
                 : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
               }`}
             title={isSelected ? 'Remove from comparison' : 'Add to comparison'}
@@ -327,7 +327,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           </div>
           <div>
             <button
-              className="bg-brand hover:bg-brand-darkGreen text-white rounded-full px-2.5 py-1 text-xs font-medium transition-colors shadow hover:shadow-md"
+              className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-full px-2.5 py-1 text-xs font-medium transition-colors shadow-sm hover:shadow-md"
               onClick={(e) => {
                 e.stopPropagation();
                 handleViewDetails();

@@ -16,7 +16,7 @@ interface AuthContextType {
   user: EnhancedUser | null;
   loading: boolean;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<EnhancedUser | null>;
   signup: (email: string, password: string, confirm: string, first_name: string, last_name: string) => Promise<void>;
   verify: (email: string, code: string) => Promise<void>;
   logout: () => void;
@@ -42,12 +42,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (localStorageToken) {
       return localStorageToken;
     }
-    
+
     // Check cookies
     const cookieName = 'auth_token=';
     const decodedCookie = decodeURIComponent(document.cookie);
     const cookieArray = decodedCookie.split(';');
-    
+
     for (let i = 0; i < cookieArray.length; i++) {
       let cookie = cookieArray[i];
       while (cookie.charAt(0) === ' ') {
@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return cookie.substring(cookieName.length, cookie.length);
       }
     }
-    
+
     return null;
   };
   const [loading, setLoading] = useState(true);
@@ -78,13 +78,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchUser = async () => {
       const currentToken = getToken();
-      
+
       if (!currentToken) {
         setUser(null);
         setLoading(false);
         return;
       }
-      
+
       setLoading(true);
       try {
         const data = await authApi.getCurrentUser(currentToken);
@@ -99,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     };
     fetchUser();
-    
+
     // Set initial token state
     const initialToken = getToken();
     if (initialToken) {
@@ -115,12 +115,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('auth_token', data.access_token);
       // Fetch user info
       const userData = await authApi.getCurrentUser(data.access_token);
-      setUser(enhanceUserData(userData));
+      const enhancedUser = enhanceUserData(userData);
+      setUser(enhancedUser);
+      setLoading(false);
+      return enhancedUser;
     } else {
       setUser(null);
+      setLoading(false);
       throw new Error(data.detail || 'Login failed');
     }
-    setLoading(false);
   };
 
   const googleLogin = async () => {
@@ -129,7 +132,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Store the current URL so we can redirect back after authentication
       const currentPath = window.location.pathname + window.location.search;
       localStorage.setItem('post_auth_redirect', currentPath);
-      
+
       // Call the backend to get the Google OAuth URL
       const API_BASE = process.env.REACT_APP_API_BASE || "/api";
       const response = await fetch(`${API_BASE}/api/v1/auth/google/login`, {
@@ -178,7 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!token) {
       throw new Error('No authentication token available');
     }
-    
+
     setLoading(true);
     try {
       const data = await authApi.updateProfile(token, profileData);

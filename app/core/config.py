@@ -14,17 +14,22 @@ import json
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# Try loading from .local-env first for local development
+if os.path.exists(".local-env"):
+    load_dotenv(dotenv_path=".local-env", override=True)
+else:
+    load_dotenv()
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "PickBD"
     PROJECT_VERSION: str = "1.0.0"
     API_PREFIX: str = "/api/v1"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
     
     # Database settings
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/pickbd")
-    LOCAL_DATABASE_URL: str = os.getenv("LOCAL_DATABASE_URL", "postgresql://user:password@localhost:5432/pickbd_local")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://username:password@localhost/dbname")
+    LOCAL_DATABASE_URL: str = os.getenv("LOCAL_DATABASE_URL", "postgresql://username:password@localhost:5432/dbname_local")
     
     # CORS settings - Load from environment variable for production  
     _cors_origins_str: str = os.getenv("CORS_ORIGINS", "")
@@ -159,10 +164,10 @@ class Settings(BaseSettings):
     SECURE_COOKIES: bool = os.getenv("SECURE_COOKIES", "False").lower() == "true"
     
     # Admin panel settings
-    SUPER_ADMIN_EMAIL: str = os.getenv("SUPER_ADMIN_EMAIL", "admin@peyechi.com")
-    SUPER_ADMIN_PASSWORD: str = os.getenv("SUPER_ADMIN_PASSWORD", "SuperAdmin@123")
-    MODERATOR_EMAIL: str = os.getenv("MODERATOR_EMAIL", "moderator@peyechi.com")
-    MODERATOR_PASSWORD: str = os.getenv("MODERATOR_PASSWORD", "Moderator@123")
+    SUPER_ADMIN_EMAIL: str = os.getenv("SUPER_ADMIN_EMAIL", "admin@example.com")
+    SUPER_ADMIN_PASSWORD: str = os.getenv("SUPER_ADMIN_PASSWORD", "change_me_in_production")
+    MODERATOR_EMAIL: str = os.getenv("MODERATOR_EMAIL", "moderator@example.com")
+    MODERATOR_PASSWORD: str = os.getenv("MODERATOR_PASSWORD", "change_me_in_production")
     # List of admin emails (comma-separated)
     ADMIN_EMAILS: str = os.getenv("ADMIN_EMAILS", "admin@peyechi.com")
     
