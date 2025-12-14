@@ -87,9 +87,9 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
     <div
       ref={ref}
       className="
-        min-w-[180px] max-w-[220px] flex-shrink-0
+        min-w-[150px] max-w-[180px] flex-shrink-0
         md:min-w-0 md:w-full
-        bg-white dark:bg-gray-800 rounded-xl p-3
+        bg-white dark:bg-gray-800 rounded-lg md:rounded-xl p-2 md:p-3
         flex flex-col items-center shadow-sm hover:shadow-md
         transition-all duration-300 cursor-pointer
         transform hover:scale-[1.02] hover:bg-gray-50 dark:hover:bg-gray-750
@@ -112,12 +112,12 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       style={{ order: index }} // For keyboard navigation order
     >
       {/* Phone image with single badge overlay */}
-      <div className="relative w-full flex justify-center mb-2">
+      <div className="relative w-full flex justify-center mb-1 md:mb-2">
         <div className="relative">
           <img
             src={safePhone.img_url}
             alt={safePhone.name}
-            className="w-24 h-32 object-contain rounded-lg bg-white p-2 border border-gray-100 dark:border-gray-700"
+            className="w-20 h-24 md:w-24 md:h-32 object-contain rounded-md md:rounded-lg bg-white p-1.5 md:p-2 border border-gray-100 dark:border-gray-700"
             loading="lazy"
             onError={(e) => {
               // Use local SVG placeholder to avoid external service dependency
@@ -130,7 +130,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
             <div className="absolute top-0 left-0 right-0 flex justify-center">
               <span
                 className={`
-                  inline-block text-xs px-3 py-1 rounded-full shadow-sm font-medium transform -translate-y-2
+                  inline-block text-[10px] md:text-xs px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-sm font-medium transform -translate-y-1 md:-translate-y-2
                   ${primaryBadge.type === 'value' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 
                     primaryBadge.type === 'feature' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
                     'bg-amber-50 text-amber-700 border border-amber-100'}
@@ -148,32 +148,32 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
 
       {/* Phone name with brand accent */}
       <div className="w-full text-center">
-        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-0.5">
+        <div className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mb-0.5">
           {safePhone.brand}
         </div>
-        <h3 className="font-bold text-sm text-gray-800 dark:text-white line-clamp-2 h-10">
+        <h3 className="font-bold text-xs md:text-sm text-gray-800 dark:text-white line-clamp-2 h-8 md:h-10">
           {safePhone.name}
         </h3>
       </div>
 
       {/* Phone price with styling */}
-      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 my-1">
+      <div className="text-xs md:text-sm font-semibold text-gray-900 dark:text-gray-100 my-1">
         Tk. {safePhone.price}
       </div>
 
       {/* Key specs tags with icons - cleaner design */}
-      <div className="grid grid-cols-2 gap-2 mb-3 w-full">
+      <div className="grid grid-cols-2 gap-1 md:gap-2 mb-2 md:mb-3 w-full">
         {safePhone.main_camera ? (
-          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-center text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             {safePhone.main_camera}
           </div>
         ) : safePhone.primary_camera_mp && (
-          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-center text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -181,31 +181,31 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
           </div>
         )}
         {safePhone.front_camera ? (
-          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-center text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
             {safePhone.front_camera}
           </div>
         ) : safePhone.battery_capacity_numeric && (
-          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-center text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             {safePhone.battery_capacity_numeric}mAh
           </div>
         )}
         {safePhone.ram_gb && (
-          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-center text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
             </svg>
             {safePhone.ram_gb}GB
           </div>
         )}
         {safePhone.storage_gb && (
-          <div className="flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex items-center justify-center text-[10px] md:text-xs text-gray-700 dark:text-gray-300">
+            <svg className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
             {safePhone.storage_gb}GB
@@ -217,7 +217,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       {highlights.length > 0 && (
         <div className="w-full mt-1">
           <div
-            className="text-xs bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2 text-center font-medium text-gray-700 dark:text-gray-200 border border-gray-100 dark:border-gray-600"
+            className="text-[10px] md:text-xs bg-gray-50 dark:bg-gray-700 rounded-md md:rounded-lg px-2 py-1 md:px-3 md:py-2 text-center font-medium text-gray-700 dark:text-gray-200 border border-gray-100 dark:border-gray-600"
           >
             {highlights[0]}
           </div>

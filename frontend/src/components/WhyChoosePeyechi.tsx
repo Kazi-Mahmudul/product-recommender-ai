@@ -78,36 +78,36 @@ const WhyChoosePeyechi: React.FC<WhyChoosePeyechiProps> = ({ darkMode }) => {
   };
 
   return (
-    <section className="w-full max-w-7xl mx-auto px-4 md:px-8 py-20 relative">
+    <section className="w-full max-w-7xl mx-auto px-2 md:px-8 py-8 md:py-20 relative">
       {/* Decorative background elements */}
-      <div className="absolute top-40 left-20 w-72 h-72 bg-brand/5 rounded-full filter blur-3xl -z-10"></div>
-      <div className="absolute bottom-20 right-20 w-72 h-72 bg-accent-purple/5 rounded-full filter blur-3xl -z-10"></div>
-      
-      <div className="text-center mb-12">
-        <h2 className="text-3xl md:text-4xl font-bold text-neutral-800 dark:text-white mb-4">
+      <div className="absolute top-40 left-20 w-48 md:w-72 h-48 md:h-72 bg-brand/5 rounded-full filter blur-3xl -z-10"></div>
+      <div className="absolute bottom-20 right-20 w-48 md:w-72 h-48 md:h-72 bg-accent-purple/5 rounded-full filter blur-3xl -z-10"></div>
+
+      <div className="text-center mb-6 md:mb-12">
+        <h2 className="text-xl md:text-4xl font-bold text-neutral-800 dark:text-white mb-2 md:mb-4">
           Why Choose <span className="text-brand">Peyechi</span>?
         </h2>
-        <p className="text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+        <p className="text-xs md:text-base text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
           We're revolutionizing how you find and compare smartphones in Bangladesh with our cutting-edge AI technology.
         </p>
       </div>
-      
+
       <div className="feature-slider-container relative mt-12">
         <Slider {...sliderSettings} className="feature-slider">
           {features.map((feature, idx) => (
             <div key={idx} className="px-3 py-2">
-              <div 
+              <div
                 className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700/30 rounded-3xl p-6 shadow-sm transition-all duration-300 hover:shadow-md group h-full"
               >
-                <div className="w-14 h-14 rounded-2xl bg-brand/5 dark:bg-brand/10 flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110">
-                  {feature.icon}
+                <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-brand/5 dark:bg-brand/10 flex items-center justify-center mb-3 md:mb-5 transition-all duration-300 group-hover:scale-110">
+                  {React.cloneElement(feature.icon as React.ReactElement, { size: 18, className: (feature.icon as React.ReactElement).props.className })}
                 </div>
-                
-                <h3 className="text-xl font-semibold text-neutral-800 dark:text-white mb-3">
+
+                <h3 className="text-sm md:text-xl font-semibold text-neutral-800 dark:text-white mb-2 md:mb-3">
                   {feature.title}
                 </h3>
-                
-                <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+
+                <p className="text-neutral-600 dark:text-neutral-400 text-xs md:text-sm">
                   {feature.description}
                 </p>
               </div>
@@ -115,17 +115,17 @@ const WhyChoosePeyechi: React.FC<WhyChoosePeyechiProps> = ({ darkMode }) => {
           ))}
         </Slider>
       </div>
-      
+
       {/* Call to action */}
       <div className="mt-16 text-center">
-        <a 
-          href="/chat" 
-          className="inline-flex items-center justify-center px-8 py-3.5 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-full transition-all duration-300 shadow-sm hover:shadow-md"
+        <a
+          href="/chat"
+          className="inline-flex items-center justify-center text-sm md:text-base px-4 md:px-8 py-3.5 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-full transition-all duration-300 shadow-sm hover:shadow-md"
         >
           Try Our AI Assistant
         </a>
       </div>
-      
+
       {/* Custom styling for slider dots */}
       <style>{`
         .custom-dots {

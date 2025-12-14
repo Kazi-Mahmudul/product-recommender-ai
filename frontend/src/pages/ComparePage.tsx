@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 import { Phone } from "../api/phones";
 import {
   parseComparisonUrl,
@@ -8,8 +8,6 @@ import {
 } from "../utils/slugUtils";
 import { useComparisonState } from "../hooks/useComparisonState";
 import { useAIVerdict } from "../hooks/useAIVerdict";
-import { trackComparison } from "../api/analytics";
-import { useAuth } from "../context/AuthContext";
 
 import StickyProductCards from "../components/Compare/StickyProductCards";
 import PhonePickerModal from "../components/Compare/PhonePickerModal";
@@ -26,7 +24,6 @@ import "react-toastify/dist/ReactToastify.css";
 const ComparePage: React.FC = () => {
   const { phoneIdentifiers } = useParams<{ phoneIdentifiers?: string }>();
   const navigate = useNavigate();
-  const { token } = useAuth();
 
   // Initialize comparison state
   const [comparisonState, comparisonActions] = useComparisonState();
@@ -66,17 +63,6 @@ const ComparePage: React.FC = () => {
       hasProcessedInitialUrl.current = true;
     }
   }, [phoneIdentifiers, navigate, comparisonActions]);
-
-  // Track comparison for authenticated users
-  useEffect(() => {
-    if (token && comparisonState.phones.length >= 2) {
-      // Debounce tracking
-      const timer = setTimeout(() => {
-        trackComparison(token);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [comparisonState.phones.length, token]);
 
   // Handle opening phone picker for adding
   const handleOpenAddPhone = () => {

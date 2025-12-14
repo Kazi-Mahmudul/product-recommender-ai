@@ -347,38 +347,38 @@ function App() {
       <main className="flex flex-col items-center min-h-screen pt-16">
         <div className="w-full max-w-7xl px-2 md:px-6 mx-auto">
           {/* Hero Section and Search Form */}
-          <section className="w-full mt-6 relative overflow-hidden rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-8 md:py-2 mb-12">
+          <section className="w-full mt-4 md:mt-6 relative overflow-hidden rounded-2xl md:rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-4 md:py-2 mb-8 md:mb-12">
             {/* Decorative elements - contained within the section */}
-            <div className="absolute top-0 right-0 w-72 h-72 bg-brand/10 rounded-full filter blur-3xl -z-10 animate-float"></div>
+            <div className="absolute top-0 right-0 w-48 md:w-72 h-48 md:h-72 bg-brand/10 rounded-full filter blur-3xl -z-10 animate-float"></div>
             <div
-              className="absolute bottom-0 left-0 w-72 h-72 bg-brand-darkGreen/10 rounded-full filter blur-3xl -z-10 animate-float"
+              className="absolute bottom-0 left-0 w-48 md:w-72 h-48 md:h-72 bg-brand-darkGreen/10 rounded-full filter blur-3xl -z-10 animate-float"
               style={{ animationDelay: "2s" }}
             ></div>
             <div
-              className="absolute top-1/4 right-1/4 w-16 h-16 rounded-full border-4 border-brand/20 animate-float"
+              className="absolute top-1/4 right-1/4 w-12 md:w-16 h-12 md:h-16 rounded-full border-2 md:border-4 border-brand/20 animate-float"
               style={{ animationDelay: "1s" }}
             ></div>
             <div
-              className="absolute bottom-1/3 left-1/3 w-10 h-10 rounded-md rotate-45 border-4 border-brand-darkGreen/30 animate-float"
+              className="absolute bottom-1/3 left-1/3 w-8 md:w-10 h-8 md:h-10 rounded-md rotate-45 border-2 md:border-4 border-brand-darkGreen/30 animate-float"
               style={{ animationDelay: "3s" }}
             ></div>
 
-            <div className="w-full px-4 py-10 md:py-0 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden relative">
+            <div className="w-full px-3 md:px-4 py-6 md:py-0 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 overflow-hidden relative">
               {/* Mobile BG image */}
               <div className="absolute inset-0 md:hidden bg-[url('https://i.ibb.co/JF7hWvmC/hero-bg.png')] bg-no-repeat bg-contain bg-right opacity-10 pointer-events-none" />
               {/* Left side content */}
               <div className="w-full md:w-1/2 text-center md:text-left z-10 px-2 md:px-0">
-                <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-brand/10 text-brand font-medium text-sm">
+                <div className="inline-block mb-2 md:mb-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full bg-brand/10 text-brand font-medium text-xs md:text-sm">
                   AI-Powered Smartphone Assistant
                 </div>
                 <h1
-                  className={`text-4xl md:text-6xl font-extrabold mb-6 leading-tight break-words ${darkMode ? "text-white" : "text-gray-900"}`}
+                  className={`text-2xl md:text-6xl font-extrabold mb-3 md:mb-6 leading-tight break-words ${darkMode ? "text-white" : "text-gray-900"}`}
                 >
                   Find Your <span className="text-brand">Perfect Phone</span> in
                   Bangladesh
                 </h1>
                 <p
-                  className={`text-lg md:text-xl mb-8 max-w-xl ${darkMode ? "text-gray-300" : "text-gray-700"}`}
+                  className={`text-sm md:text-xl mb-4 md:mb-8 max-w-xl ${darkMode ? "text-gray-300" : "text-gray-700"}`}
                 >
                   Ask anything about smartphones, compare models, or get
                   personalized recommendations tailored to your specific needs.
@@ -387,7 +387,7 @@ function App() {
                 {/* Search form */}
                 <form onSubmit={handleHomeSubmit} className="w-full max-w-xl">
                   <div
-                    className={`relative w-full flex items-center bg-white dark:bg-[#232323] border ${darkMode ? "border-gray-700" : "border-[#eae4da]"} rounded-2xl shadow-lg p-2 md:p-4 transition-all duration-200 hover:shadow-xl`}
+                    className={`relative w-full flex items-center bg-white dark:bg-[#232323] border ${darkMode ? "border-gray-700" : "border-[#eae4da]"} rounded-xl md:rounded-2xl shadow-lg p-2 md:p-4 transition-all duration-200 hover:shadow-xl`}
                   >
                     <input
                       value={homeInput}
@@ -418,7 +418,7 @@ function App() {
                 </form>
 
                 {/* Feature badges */}
-                <div className="flex flex-wrap gap-3 mt-8">
+                <div className="flex flex-wrap gap-2 md:gap-3 mt-4 md:mt-8 justify-center md:justify-start">
                   {[
                     { icon: "💡", text: "Smart AI Recommendations" },
                     { icon: "🔍", text: "Detailed Comparisons" },
@@ -427,11 +427,11 @@ function App() {
                   ].map((feature, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-gray-800/80 shadow-sm backdrop-blur-sm"
+                      className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-white/80 dark:bg-gray-800/80 shadow-sm backdrop-blur-sm"
                     >
-                      <span>{feature.icon}</span>
+                      <span className="text-xs md:text-base">{feature.icon}</span>
                       <span
-                        className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}
+                        className={`text-xs md:text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}
                       >
                         {feature.text}
                       </span>
@@ -447,7 +447,7 @@ function App() {
                   <img
                     src="https://i.ibb.co/JF7hWvmC/hero-bg.png"
                     alt="Smartphone with ePick interface"
-                    className="relative z-10 max-w-full h-[700px] object-contain"
+                    className="relative z-10 max-w-full h-[500px] object-contain"
                     onError={(e) => {
                       // Fallback if image doesn't exist
                       e.currentTarget.style.display = "none";
@@ -458,7 +458,7 @@ function App() {
             </div>
           </section>
           {/* Top Searched Phones and Brands Section - Side by side on desktop, stacked on mobile */}
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex flex-col lg:flex-row gap-3 md:gap-8">
             <div className="lg:w-2/3">
               <TopSearchedPhones darkMode={darkMode} />
             </div>
@@ -466,14 +466,14 @@ function App() {
               <BrandsSection />
             </div>
           </div>
-          <div className="my-8" />
+          <div className="my-3 md:my-8" />
           <TrendingPhones darkMode={darkMode} />
-          <div className="my-8" />
+          <div className="my-3 md:my-8" />
           <PopularComparisons />
-          <div className="my-8 lg:hidden">
+          <div className="my-3 md:my-8 lg:hidden">
             <BrandsSection />
           </div>
-          <div className="my-8" />
+          <div className="my-3 md:my-8" />
           <WhyChoosePeyechi darkMode={darkMode} />
           {/* Chat/Message Section */}
           {messages.length > 0 && (

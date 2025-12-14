@@ -10,65 +10,66 @@ interface ProsConsProps {
 
 const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGenerate }) => (
   <section
-    className="pros-cons-container rounded-2xl shadow-lg p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
+    className="pros-cons-container rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
     aria-labelledby="pros-cons-header"
   >
     {/* Header */}
-    <div className="flex items-center justify-between mb-4">
-      <h2 id="pros-cons-header" className="font-bold text-lg md:text-xl flex items-center gap-2 text-gray-900 dark:text-gray-100">
+    <div className="flex items-center justify-between mb-3 md:mb-4">
+      <h2 id="pros-cons-header" className="font-bold text-base md:text-lg flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100">
         <span role="img" aria-label="AI">🤖</span> AI-Generated Analysis
       </h2>
       <button
         onClick={onGenerate}
-        className="ml-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-60"
+        className="ml-2 px-3 py-1 md:px-4 md:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-[10px] md:text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-60"
         aria-busy={loading}
         aria-label={loading ? 'Generating pros and cons' : 'Regenerate pros and cons'}
         disabled={loading}
       >
         {loading ? (
-          <span className="flex items-center gap-2">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-            Analyzing...
+          <span className="flex items-center gap-1 md:gap-2">
+            <svg className="animate-spin h-3 w-3 md:h-4 md:w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+            <span className="hidden xs:inline">Analyzing...</span>
+            <span className="xs:hidden">...</span>
           </span>
         ) : (
-          <span>Regenerate</span>
+          <span className="text-[10px] md:text-xs">Regenerate</span>
         )}
       </button>
     </div>
     {/* Error State */}
     {error && (
-      <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-2 animate-shake" role="alert">
+      <div className="mb-3 md:mb-4 p-2 md:p-3 rounded-lg bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-1 md:gap-2 animate-shake" role="alert">
         <span role="img" aria-label="Error">❌</span>
-        <span>{error}</span>
+        <span className="text-xs md:text-sm">{error}</span>
         <button
           onClick={onGenerate}
-          className="ml-auto px-3 py-1 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition"
+          className="ml-auto px-2 py-1 md:px-3 md:py-1 bg-red-600 text-white rounded-full text-[10px] md:text-xs font-semibold hover:bg-red-700 transition"
         >Retry</button>
       </div>
     )}
     {/* Loading State */}
     {loading && !error && (
-      <div className="flex flex-col md:flex-row gap-6 animate-pulse" aria-live="polite">
+      <div className="flex flex-col gap-4 md:gap-6 animate-pulse" aria-live="polite">
         <div className="flex-1 space-y-2">
-          <div className="h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-3/4"></div>
-          <div className="h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-2/3"></div>
-          <div className="h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-1/2"></div>
+          <div className="h-3 md:h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-3/4"></div>
+          <div className="h-3 md:h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-2/3"></div>
+          <div className="h-3 md:h-4 bg-emerald-100 dark:bg-emerald-900 rounded w-1/2"></div>
         </div>
         <div className="flex-1 space-y-2">
-          <div className="h-4 bg-red-100 dark:bg-red-900 rounded w-3/4"></div>
-          <div className="h-4 bg-red-100 dark:bg-red-900 rounded w-2/3"></div>
+          <div className="h-3 md:h-4 bg-red-100 dark:bg-red-900 rounded w-3/4"></div>
+          <div className="h-3 md:h-4 bg-red-100 dark:bg-red-900 rounded w-2/3"></div>
         </div>
       </div>
     )}
     {/* Content */}
     {!loading && !error && (
-      <div className="pros-cons-content flex flex-col md:flex-row gap-8 transition-all duration-300">
+      <div className="pros-cons-content flex flex-col gap-4 md:gap-8 transition-all duration-300">
         {/* Pros */}
-        <div className="pros-section flex-1 bg-emerald-50 dark:bg-emerald-900 rounded-xl p-4 transition-all duration-300">
+        <div className="pros-section bg-emerald-50 dark:bg-emerald-900 rounded-lg md:rounded-xl p-3 md:p-4 transition-all duration-300">
           <div className="font-semibold text-emerald-700 dark:text-emerald-300 mb-2 flex items-center gap-1">
             <span role="img" aria-label="Pros">✅</span> PROS
           </div>
-          <ul className="text-emerald-800 dark:text-emerald-100 text-sm space-y-2 list-disc ml-5">
+          <ul className="text-emerald-800 dark:text-emerald-100 text-[10px] md:text-sm space-y-2 list-disc ml-4 md:ml-5">
             {pros.length > 0 ? pros.map((p, i) => (
               <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-emerald-100 dark:hover:bg-emerald-800 hover:scale-[1.02] rounded px-2 py-1">
                 {p}
@@ -77,11 +78,11 @@ const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGener
           </ul>
         </div>
         {/* Cons */}
-        <div className="cons-section flex-1 bg-red-50 dark:bg-red-900 rounded-xl p-4 transition-all duration-300">
+        <div className="cons-section bg-red-50 dark:bg-red-900 rounded-lg md:rounded-xl p-3 md:p-4 transition-all duration-300">
           <div className="font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-1">
             <span role="img" aria-label="Cons">❌</span> CONS
           </div>
-          <ul className="text-red-800 dark:text-red-100 text-sm space-y-2 list-disc ml-5">
+          <ul className="text-red-800 dark:text-red-100 text-[10px] md:text-sm space-y-2 list-disc ml-4 md:ml-5">
             {cons.length > 0 ? cons.map((c, i) => (
               <li key={i} className="pros-cons-item transition-all duration-300 hover:bg-red-100 dark:hover:bg-red-800 hover:scale-[1.02] rounded px-2 py-1">
                 {c}
@@ -92,7 +93,7 @@ const ProsCons: React.FC<ProsConsProps> = ({ pros, cons, loading, error, onGener
       </div>
     )}
     {/* Footer note */}
-    <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
+    <div className="mt-3 md:mt-4 text-[10px] md:text-xs text-gray-500 dark:text-gray-400 text-center">
       <span role="img" aria-label="Info">ℹ️</span> This analysis is generated by AI based on the phone's specifications and market context.
     </div>
   </section>

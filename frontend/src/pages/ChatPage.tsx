@@ -756,7 +756,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                     key={index}
                     className="w-full px-4 border-b border-black/5 dark:border-white/5 last:border-0"
                   >
-                    <div className="max-w-3xl mx-auto flex gap-5 py-6">
+                    <div className={`max-w-3xl mx-auto flex gap-5 py-6 ${chat.user ? 'flex-row-reverse' : 'flex-row'}`}>
                       {/* Avatar */}
                       <div className="flex-shrink-0 flex flex-col relative items-end">
                         {chat.user ? (
@@ -787,12 +787,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                       </div>
 
                       {/* Content */}
-                      <div className="relative flex-1 overflow-hidden min-w-0">
+                      <div className={`relative flex-1 overflow-hidden min-w-0 ${chat.user ? 'text-right' : 'text-left'}`}>
                         <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1">
                           {chat.user ? "You" : "Peyechi AI"}
                         </div>
 
-                        <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-100 text-[15px] leading-7">
+                        <div className={`prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-100 text-[15px] leading-7 ${chat.user ? 'text-right' : 'text-left'}`}>
                           {chat.user ? (
                             <p className="whitespace-pre-wrap">{chat.user}</p>
                           ) : (

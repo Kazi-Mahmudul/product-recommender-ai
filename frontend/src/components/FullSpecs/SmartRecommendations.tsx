@@ -185,41 +185,42 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     <ErrorBoundary fallback={renderErrorBoundaryFallback}>
       <div
         ref={recommendationsRef}
-        className={`rounded-2xl shadow-md p-6 border bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700 ${className}`}
+        className={`rounded-xl md:rounded-2xl shadow-md p-4 md:p-6 border bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700 ${className}`}
         role="region"
         aria-labelledby="recommendations-heading"
       >
-        <div className="mb-4 flex justify-between items-center">
+        <div className="mb-3 md:mb-4 flex justify-between items-center">
           <h2
             id="recommendations-heading"
-            className="text-lg font-bold text-gray-800 dark:text-white m-0"
+            className="text-base md:text-lg font-bold text-gray-800 dark:text-white m-0"
           >
             Alternatives Worth Checking
           </h2>
           <div className="flex items-center">
             {isRetrying && (
-              <span className="text-xs text-gray-500 mr-2" aria-live="polite">
+              <span className="text-[10px] md:text-xs text-gray-500 mr-1 md:mr-2" aria-live="polite">
                 Retrying {retryCount}/3...
               </span>
             )}
             <button
               onClick={handleRetry}
-              className="ml-2 px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 rounded-full text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              className="ml-1 md:ml-2 px-3 py-1 md:px-4 md:py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 rounded-full text-[10px] md:text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
               disabled={loading || isRetrying}
               aria-label="Refresh recommendations"
             >
-              {loading ? "Loading..." : "Refresh"}
+              <span className="text-[10px] md:text-xs">{loading ? "Loading..." : "Refresh"}</span>
             </button>
           </div>
         </div>
 
         {/* Loading state with skeleton cards */}
         {loading && (
-          <div className="flex flex-nowrap md:flex-wrap gap-4 overflow-x-auto md:overflow-x-visible pb-2">
+          <div className="flex flex-nowrap gap-3 md:gap-4 overflow-x-auto md:overflow-x-visible pb-2">
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={`skeleton-${index}`}
                 className="
+                  min-w-[150px] flex-shrink-0
                   md:min-w-0 md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] xl:w-[calc(25%-1rem)]
                 "
               >
@@ -255,7 +256,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         {!loading && !error && validRecommendations.length > 0 && (
           <div
             ref={containerRef}
-            className="flex flex-nowrap md:flex-wrap gap-4 overflow-x-auto md:overflow-x-visible pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+            className="flex flex-nowrap gap-3 md:gap-4 overflow-x-auto md:overflow-x-visible pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
             role="region"
             aria-label="Phone recommendations"
             onKeyDown={handleKeyDown}
@@ -265,7 +266,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
               <div
                 key={`recommendation-${recommendation?.phone?.slug || index}-${index}`}
                 className="
-                  min-w-[200px] flex-shrink-0
+                  min-w-[150px] flex-shrink-0
                   md:min-w-0 md:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.75rem)] xl:w-[calc(25%-0.75rem)]
                 "
               >

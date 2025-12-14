@@ -166,7 +166,7 @@ interface FullSpecsAccordionProps {
 const FullSpecsAccordion: React.FC<FullSpecsAccordionProps> = ({ phone }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   return (
-    <div className="rounded-2xl shadow border max-w-xl mx-auto bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+    <div className="rounded-xl md:rounded-2xl shadow border max-w-xl mx-auto bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700">
       {categoryFields.map((cat, idx) => {
         // Only show categories with at least one value
         const specs = cat.fields
@@ -185,15 +185,15 @@ const FullSpecsAccordion: React.FC<FullSpecsAccordionProps> = ({ phone }) => {
                 <span className="font-semibold text-sm md:text-base truncate text-gray-900 dark:text-white">{cat.key}</span>
               </div>
               <span className={`transition-transform duration-200 ${openIndex === idx ? "rotate-180" : "rotate-0"}`}>
-                <svg width="20" height="20" fill="none" stroke="#888" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                <svg width="18" height="18" className="md:w-20 md:h-20" fill="none" stroke="#888" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
               </span>
             </button>
             <div
               className={`overflow-hidden transition-all duration-300 ${openIndex === idx ? "max-h-96 py-1 md:py-2" : "max-h-0 py-0"} ${openIndex === idx ? 'bg-[#f8fafc] dark:bg-gray-800' : ''}`}
             >
-              <ul className="px-4 md:px-8 pb-1 md:pb-2">
+              <ul className="px-3 md:px-8 pb-1 md:pb-2">
                 {specs.map((spec) => (
-                  <li key={spec.label} className="flex justify-between py-1 md:py-2 text-xs md:text-sm border-b last:border-b-0 text-gray-700 border-gray-100 dark:text-gray-200 dark:border-gray-800" style={{wordBreak: 'break-word'}}>
+                  <li key={spec.label} className="flex justify-between py-1 md:py-2 text-[10px] md:text-sm border-b last:border-b-0 text-gray-700 border-gray-100 dark:text-gray-200 dark:border-gray-800" style={{wordBreak: 'break-word'}}>
                     <span className="font-medium text-gray-800 dark:text-gray-100 truncate">{spec.label}</span>
                     <span className="text-gray-600 dark:text-gray-300">{String(spec.value)}</span>
                   </li>

@@ -218,28 +218,28 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
 
   return (
     <section 
-      className="reviews-section rounded-2xl shadow-lg p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
+      className="reviews-section rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
       aria-labelledby="reviews-header"
     >
       {/* Header */}
-      <div className="mb-6">
-        <h2 id="reviews-header" className="font-bold text-xl md:text-2xl flex items-center gap-2 text-gray-900 dark:text-gray-100">
-          <Star className="text-yellow-500" size={24} />
+      <div className="mb-4 md:mb-6">
+        <h2 id="reviews-header" className="font-bold text-lg md:text-2xl flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100">
+          <Star className="text-yellow-500" size={20} />
           User Reviews & Ratings
         </h2>
         
         {/* Average Rating Summary */}
-        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+        <div className="mt-3 md:mt-4 flex flex-col items-start gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg md:rounded-xl">
           <div className="text-center">
-            <div className="text-3xl font-bold text-gray-900 dark:text-white">
+            <div className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
               {averageRating > 0 ? averageRating.toFixed(1) : '0.0'}
-              <span className="text-lg text-gray-500 dark:text-gray-400">/5</span>
+              <span className="text-base md:text-lg text-gray-500 dark:text-gray-400">/5</span>
             </div>
             <div className="flex items-center justify-center mt-1">
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  size={20}
+                  size={16}
                   className={`${i < Math.floor(averageRating) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300 dark:text-gray-600'}`}
                 />
               ))}
@@ -247,22 +247,22 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
           </div>
           
           <div className="flex-1 w-full">
-            <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+            <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-2">
               Based on {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
             </div>
             
             {/* Rating Distribution */}
-            <div className="space-y-2">
+            <div className="space-y-1 md:space-y-2">
               {ratingDistribution.map(({ rating, count, percentage }) => (
-                <div key={rating} className="flex items-center gap-2">
-                  <span className="text-sm w-8 text-gray-600 dark:text-gray-300">{rating}★</span>
-                  <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div key={rating} className="flex items-center gap-1 md:gap-2">
+                  <span className="text-xs md:text-sm w-6 md:w-8 text-gray-600 dark:text-gray-300">{rating}★</span>
+                  <div className="flex-1 h-1.5 md:h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-yellow-500 rounded-full transition-all duration-500"
                       style={{ width: `${percentage}%` }}
                     ></div>
                   </div>
-                  <span className="text-sm w-8 text-gray-600 dark:text-gray-300 text-right">{count}</span>
+                  <span className="text-xs md:text-sm w-6 md:w-8 text-gray-600 dark:text-gray-300 text-right">{count}</span>
                 </div>
               ))}
             </div>
@@ -271,27 +271,27 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
       </div>
       
       {/* Add Review Form */}
-      <div className="mb-8 p-4 border border-brand/30 dark:border-gray-700 rounded-xl bg-brand/5 dark:bg-gray-800 transition-all duration-300">
-        <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">Write a Review</h3>
+      <div className="mb-6 md:mb-8 p-3 md:p-4 border border-brand/30 dark:border-gray-700 rounded-lg md:rounded-xl bg-brand/5 dark:bg-gray-800 transition-all duration-300">
+        <h3 className="font-semibold text-base md:text-lg mb-2 md:mb-3 text-gray-900 dark:text-gray-100">Write a Review</h3>
         
         {submitSuccess && (
-          <div className="mb-4 p-3 rounded-lg bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 flex items-center gap-2 animate-fade-in">
+          <div className="mb-3 md:mb-4 p-2 md:p-3 rounded-lg bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 flex items-center gap-1 md:gap-2 animate-fade-in">
             <span>✅</span>
-            <span>Review submitted successfully!</span>
+            <span className="text-xs md:text-sm">Review submitted successfully!</span>
           </div>
         )}
         
         {submitError && (
-          <div className="mb-4 p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-2 animate-shake">
+          <div className="mb-3 md:mb-4 p-2 md:p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-1 md:gap-2 animate-shake">
             <span>❌</span>
-            <span>{submitError}</span>
+            <span className="text-xs md:text-sm">{submitError}</span>
           </div>
         )}
         
-        <form onSubmit={handleSubmitReview} className="space-y-4">
+        <form onSubmit={handleSubmitReview} className="space-y-3 md:space-y-4">
           {/* Star Rating */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
               Your Rating
             </label>
             <div className="flex gap-1">
@@ -304,7 +304,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                   aria-label={`Rate ${star} stars`}
                 >
                   <Star
-                    size={32}
+                    size={24}
                     className={`${
                       star <= newReview.rating 
                         ? 'text-yellow-500 fill-yellow-500' 
@@ -315,7 +315,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
               ))}
             </div>
             {newReview.rating > 0 && (
-              <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              <div className="mt-1 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                 {newReview.rating} star{newReview.rating !== 1 ? 's' : ''}
               </div>
             )}
@@ -323,15 +323,15 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
           
           {/* Review Text */}
           <div>
-            <label htmlFor="review-text" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="review-text" className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
               Your Review (Optional)
             </label>
             <textarea
               id="review-text"
               value={newReview.review_text}
               onChange={(e) => setNewReview(prev => ({ ...prev, review_text: e.target.value }))}
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand dark:bg-gray-800 dark:text-white transition-all duration-300"
+              rows={3}
+              className="w-full px-3 py-2 md:px-4 md:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand dark:bg-gray-800 dark:text-white transition-all duration-300 text-xs md:text-sm"
               placeholder="Share your experience with this phone..."
             />
           </div>
@@ -341,15 +341,15 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
             <button
               type="submit"
               disabled={submitting || newReview.rating === 0}
-              className="px-6 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:shadow-md"
+              className="px-4 py-1.5 md:px-6 md:py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 md:gap-2 hover:shadow-md text-xs md:text-sm"
             >
               {submitting ? (
                 <>
-                  <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4 md:h-5 md:w-5 text-white" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
-                  Submitting...
+                  <span className="text-xs md:text-sm">Submitting...</span>
                 </>
               ) : (
                 'Submit Review'
@@ -361,50 +361,50 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
       
       {/* Reviews List */}
       <div>
-        <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+        <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 text-gray-900 dark:text-gray-100">
           Customer Reviews
         </h3>
         
         {loading ? (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg animate-pulse">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+              <div key={i} className="p-3 md:p-4 border border-gray-200 dark:border-gray-700 rounded-lg animate-pulse">
+                <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
+                  <div className="h-3 md:h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 md:w-24"></div>
+                  <div className="h-3 md:h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 md:w-16"></div>
                 </div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-1 md:mb-2"></div>
+                <div className="h-2 md:h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-2">
+          <div className="p-3 md:p-4 rounded-lg bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-1 md:gap-2">
             <span>❌</span>
-            <span>{error}</span>
+            <span className="text-xs md:text-sm">{error}</span>
           </div>
         ) : reviews.length === 0 ? (
-          <div className="p-8 text-center rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="p-6 md:p-8 text-center rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="text-gray-500 dark:text-gray-400 mb-2">
-              <User size={48} className="mx-auto text-gray-300 dark:text-gray-600" />
+              <User size={32} className="mx-auto text-gray-300 dark:text-gray-600" />
             </div>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
               No reviews yet. Be the first to share your experience!
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {reviews.map((review) => (
               <div 
                 key={review.id} 
-                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow duration-300 animate-fade-in"
+                className="p-3 md:p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow duration-300 animate-fade-in"
               >
                 {review.isEditing ? (
                   // Edit mode
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     {/* Edit Rating */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         Your Rating
                       </label>
                       <div className="flex gap-1">
@@ -417,7 +417,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                             aria-label={`Rate ${star} stars`}
                           >
                             <Star
-                              size={24}
+                              size={20}
                               className={`${
                                 star <= (review.tempRating || 0)
                                   ? 'text-yellow-500 fill-yellow-500' 
@@ -431,7 +431,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                     
                     {/* Edit Review Text */}
                     <div>
-                      <label htmlFor={`edit-review-text-${review.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label htmlFor={`edit-review-text-${review.id}`} className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                         Your Review
                       </label>
                       <textarea
@@ -439,24 +439,24 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                         value={review.tempReviewText || ''}
                         onChange={(e) => handleEditReviewTextChange(review.id, e.target.value)}
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand dark:bg-gray-800 dark:text-white transition-all duration-300"
+                        className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand dark:bg-gray-800 dark:text-white transition-all duration-300 text-xs md:text-sm"
                         placeholder="Share your experience with this phone..."
                       />
                     </div>
                     
                     {/* Edit Actions */}
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1 md:gap-2">
                       <button
                         type="button"
                         onClick={() => cancelEditing(review.id)}
-                        className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium rounded-lg transition-colors duration-300"
+                        className="px-3 py-1.5 md:px-4 md:py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium rounded-lg transition-colors duration-300 text-xs md:text-sm"
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
                         onClick={() => saveReview(review.id)}
-                        className="px-4 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-colors duration-300 hover:shadow-md"
+                        className="px-3 py-1.5 md:px-4 md:py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-colors duration-300 hover:shadow-md text-xs md:text-sm"
                         disabled={!review.tempRating}
                       >
                         Save
@@ -467,13 +467,13 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                   // View mode
                   <>
                     {/* Review Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between mb-1 md:mb-2">
+                      <div className="flex items-center gap-1 md:gap-2">
                         <div className="flex items-center">
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}
-                              size={16}
+                              size={14}
                               className={`${
                                 i < review.rating 
                                   ? 'text-yellow-500 fill-yellow-500' 
@@ -482,41 +482,41 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                             />
                           ))}
                         </div>
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-gray-100">
                           Anonymous User
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                        <Calendar size={14} />
+                      <div className="flex items-center gap-1 text-[10px] md:text-sm text-gray-500 dark:text-gray-400">
+                        <Calendar size={12} />
                         <span>{formatDate(review.created_at)}</span>
                       </div>
                     </div>
                     
                     {/* Review Text */}
                     {review.review_text && (
-                      <div className="text-gray-700 dark:text-gray-300 mt-2">
+                      <div className="text-gray-700 dark:text-gray-300 mt-1 md:mt-2 text-xs md:text-sm">
                         {review.review_text}
                       </div>
                     )}
                     
                     {/* Edit/Delete Actions - Only show for the review author */}
                     {review.session_id === currentSessionId && (
-                      <div className="flex justify-end gap-2 mt-3">
+                      <div className="flex justify-end gap-1 md:gap-2 mt-2 md:mt-3">
                         <button
                           onClick={() => startEditing(review.id)}
-                          className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300"
+                          className="flex items-center gap-1 text-xs md:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300"
                           aria-label="Edit review"
                         >
-                          <Edit size={16} />
-                          <span>Edit</span>
+                          <Edit size={14} />
+                          <span className="hidden xs:inline">Edit</span>
                         </button>
                         <button
                           onClick={() => handleDeleteReview(review.id)}
-                          className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-300"
+                          className="flex items-center gap-1 text-xs md:text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-300"
                           aria-label="Delete review"
                         >
-                          <Trash2 size={16} />
-                          <span>Delete</span>
+                          <Trash2 size={14} />
+                          <span className="hidden xs:inline">Delete</span>
                         </button>
                       </div>
                     )}
