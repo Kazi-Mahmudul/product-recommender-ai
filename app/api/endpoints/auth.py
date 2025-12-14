@@ -307,31 +307,55 @@ async def upload_profile_picture(
     try:
         # Process image: resize to 200x200
         logger.info(f"Processing profile picture upload for user ID {current_user.id}")
-        image = Image.open(BytesIO(contents))
         
-        # Convert to RGB if necessary (for PNG with transparency)
-        if image.mode in ('RGBA', 'LA', 'P'):
+        # Validate file type
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must be an image"
+            )
+        
+        # Validation for file size (max 5MB)
+        MAX_FILE_SIZE = 5 * 1024 * 1024
+        content = contents # Use the already read contents
+        
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File size too large (max 5MB)"
+            )
+            
+        # Open image with Pillow
+        image = Image.open(BytesIO(content))
+        
+        # Resize image if too large (max 400x400)
+        max_size = (400, 400)
+        if image.width > max_size[0] or image.height > max_size[1]:
+            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+        
+        # Convert to RGB if authentication RGBA (to save as JPEG)
+        if image.mode == 'RGBA':
             background = Image.new('RGB', image.size, (255, 255, 255))
-            if image.mode == 'P':
-                image = image.convert('RGBA')
-            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+            background.paste(image, mask=image.split()[3])
             image = background
-        
-        # Resize to 200x200
-        image.thumbnail((200, 200), Image.Resampling.LANCZOS)
-        
-        # Convert to base64 for storage (simple solution without external storage)
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+                
+        # Determine format to save
+        format_to_save = "JPEG"
+            
+        # Convert image to base64
         buffered = BytesIO()
-        image.save(buffered, format="JPEG", quality=85)
-        img_base64 = base64.b64encode(buffered.getvalue()).decode()
-        
+        image.save(buffered, format=format_to_save, optimize=True, quality=85)
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+            
         # Create data URL
-        picture_url = f"data:image/jpeg;base64,{img_base64}"
-        logger.info(f"Generated profile picture URL (length: {len(picture_url)})")
-        
-        # Update user profile picture
+        mime_type = f"image/{format_to_save.lower()}"
+        picture_url = f"data:{mime_type};base64,{img_str}"
+            
+        # Update user profile
         updated_user = update_profile_picture(db, current_user.id, picture_url)
-        
+            
         if not updated_user:
             logger.error(f"Failed to update profile picture for user ID {current_user.id}")
             raise HTTPException(

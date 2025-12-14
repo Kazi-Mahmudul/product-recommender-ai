@@ -497,7 +497,8 @@ Return only the name of the single most appropriate badge from the list above, w
                     price_difference_text = f"Phone B is {percentage}% more expensive than Phone A."
         
         # Create enhanced prompt with better context and guidelines
-        prompt = f"""Compare these two smartphones and identify the key advantages of Phone B over Phone A.
+        # Create enhanced prompt with better context and guidelines
+        prompt = f"""Compare the {candidate_phone.brand} {candidate_phone.name} against the {target_phone.brand} {target_phone.name} and identify ONLY the key advantages of the {candidate_phone.name}.
 
 HIGHLIGHT CATEGORIES (with emoji):
 - Display improvements (🔥) - Better screen quality, higher refresh rate, larger display, etc.
@@ -509,25 +510,25 @@ HIGHLIGHT CATEGORIES (with emoji):
 - Storage improvements (💾) - More storage space, faster storage, etc.
 - RAM improvements (🧠) - More RAM, faster memory, etc.
 
-PHONE COMPARISON:
-Phone A (Reference): {target_phone.brand} {target_phone.name} - {target_category.upper()} category
+COMPARISON CONTEXT:
+Target Phone: {target_phone.brand} {target_phone.name} ({target_category.upper()})
 {target_specs}
 
-Phone B (Candidate): {candidate_phone.brand} {candidate_phone.name} - {candidate_category.upper()} category
+Candidate Phone: {candidate_phone.brand} {candidate_phone.name} ({candidate_category.upper()})
 {candidate_specs}
 
 {price_difference_text}
 
 HIGHLIGHT GUIDELINES:
-1. Identify ONLY the genuine advantages of Phone B over Phone A based on specifications
-2. Focus on the most significant and meaningful differences between the phones
-3. Be specific and quantitative where possible (e.g., "20% larger battery" instead of just "larger battery")
-4. If there are no clear advantages for a category, do not include it
-5. Prioritize highlights that would be most important to consumers in the {candidate_category} category
-6. Each highlight must start with the appropriate emoji from the categories above
+1. Identify up to 3 genuine advantages of the {candidate_phone.name} over the {target_phone.name}.
+2. Start each highlight with the corresponding emoji.
+3. Keep highlights short (max 4-5 words) and concise.
+4. DO NOT use generic terms like "Phone A", "Phone B", "Candidate", "Target", or "The device".
+5. DO NOT mention the other phone's name in the highlight. Just state the advantage (e.g., "🔥 120Hz AMOLED Display" instead of "🔥 Better display than Phone A").
+6. Be specific (e.g., "⚡ 5000mAh Battery" instead of "⚡ Larger Battery").
+7. If there are no clear advantages, return nothing.
 
-Return a list of up to 3 highlights in the format: "emoji Specific Description" (e.g. "🔥 120Hz smoother display").
-Each highlight should be on a new line with no additional text or explanation.
+Return only the list of highlights, one per line.
 """
         return prompt
     

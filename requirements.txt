@@ -55,3 +55,6 @@ pyyaml>=6.0.0
 # Date/Time Dependencies (explicit versions for compatibility)
 pytz>=2023.3
 python-dateutil>=2.8.2
+
+# Image Processing
+Pillow>=10.0.0
