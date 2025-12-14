@@ -1123,6 +1123,81 @@ async def log_chat_analytics(
         logger.error(f"Error logging chat analytics: {str(e)}")
 
 
+# -------------------------------------------------------------------------
+# History Management Endpoints
+# -------------------------------------------------------------------------
+
+@router.get("/history", response_model=List[chat_history_schemas.ChatSession])
+async def get_chat_history(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Get chat history for the current user.
+    """
+    try:
+        sessions = chat_history_crud.get_user_sessions(
+            db, 
+            user_id=current_user.id, 
+            limit=limit, 
+            offset=offset
+        )
+        return sessions
+    except Exception as e:
+        logger.error(f"Failed to fetch chat history: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch chat history: {str(e)}")
+
+
+@router.get("/history/{session_id}", response_model=chat_history_schemas.ChatSession)
+async def get_chat_session_details(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Get detailed chat session with messages.
+    """
+    try:
+        session = chat_history_crud.get_session(db, session_id, current_user.id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Load messages
+        messages = chat_history_crud.get_session_messages(db, session_id)
+        session.messages = messages
+        return session
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch chat session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch chat session")
+
+
+@router.delete("/history/{session_id}")
+async def delete_chat_session(
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Delete a chat session.
+    """
+    try:
+        success = chat_history_crud.delete_session(db, session_id, current_user.id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return {"status": "success", "message": "Session deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete chat session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete chat session")
+
+
+
 @router.get("/health")
 async def chat_health_check():
     """Health check endpoint for chat service."""

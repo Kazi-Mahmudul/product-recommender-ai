@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import axios from 'axios';
 import { useLocation, useNavigate } from "react-router-dom";
 import IntelligentResponseHandler from "../components/IntelligentResponseHandler";
 import ChatErrorBoundary from "../components/ChatErrorBoundary";
@@ -72,6 +73,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   // Revert to SmartChatService (Direct Gemini) by default as per user request for better response quality
   const [useRAGPipeline, setUseRAGPipeline] = useState(true);
   const [smartChatState, setSmartChatState] = useState<ChatState>(() => smartChatService.getChatState());
+  const [refreshHistoryTrigger, setRefreshHistoryTrigger] = useState(0);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const handleSendMessageRef = useRef<((initialMessage?: string) => Promise<void>) | null>(null);
   const { isMobile } = useMobileResponsive();
@@ -121,8 +123,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
     try {
       setIsLoading(true);
+
+      // Fetch the session with its messages
       const session = await chatAPIService.getChatSession(token, selectedSessionId);
 
+      if (!session || !session.messages) {
+        toast.error('Failed to load conversation');
+        return;
+      }
+
+      // Clear current context before loading new session
+      chatContextManager.clearSession();
+
+      // Update session ID
       setSessionId(session.id);
 
       // Convert backend messages to RAGChatMessage
@@ -134,16 +147,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         metadata: msg.metadata
       }));
 
+      // Add messages to context manager (for local session storage)
+      convertedMessages.forEach(msg => {
+        chatContextManager.addMessage(msg);
+      });
+
+      // Update state with loaded messages
       setRagMessages(convertedMessages);
       setChatHistory(convertRAGToLegacyFormat(convertedMessages));
       setShowWelcome(false);
-      if (isMobile) setMobileMenuOpen(false); // Close sidebar on mobile after selection
 
-      // If switching sessions, we might want to ensure RAG pipeline is active for historical consistency?
-      // Or keep using SmartChat for new queries? 
-      // User prefers SmartChat quality, so we keep `useRAGPipeline` false for new interactions.
+      // Close sidebar on mobile after selection
+      if (isMobile) setMobileMenuOpen(false);
 
     } catch (error) {
+      console.error('Failed to load session:', error);
       toast.error("Failed to load conversation");
     } finally {
       setIsLoading(false);
@@ -237,7 +255,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)} px`;
     }
   }, [message]);
 
@@ -257,7 +275,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
     // Create error message for chat
     const errorChatMessage: RAGChatMessage = {
-      id: `error-${Date.now()}`,
+      id: `error - ${Date.now()} `,
       type: 'assistant',
       content: {
         response_type: 'text',
@@ -330,7 +348,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
       // Add user message immediately
       const userMessage: RAGChatMessage = {
-        id: `user-${Date.now()}`,
+        id: `user - ${Date.now()} `,
         type: 'user',
         content: messageToSend,
         timestamp: new Date(),
@@ -341,7 +359,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
       // Add loading message
       const loadingMessage: RAGChatMessage = {
-        id: `loading-${Date.now()}`,
+        id: `loading - ${Date.now()} `,
         type: 'assistant',
         content: 'Processing your request...',
         timestamp: new Date(),
@@ -361,7 +379,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         if (useRAGPipeline) {
           setLoadingStage('processing');
 
-          // Use HTTP client with proper error handling - using Legacy RAG endpoint as requested
+
+          // Prepare headers with authorization token
+          const headers: Record<string, string> = {};
+          if (axios.defaults.headers.common['Authorization']) {
+            headers['Authorization'] = axios.defaults.headers.common['Authorization'] as string;
+          }
+
+          // Use HTTP client with proper error handling and auth - using Legacy RAG endpoint as requested
           const ragResponse: any = await httpClient.post(apiConfig.getNaturalLanguageRagURL(), {
             query: messageToSend,
             conversation_history: ragMessages.map(msg => ({
@@ -374,17 +399,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
               first_query: ragMessages.length === 0,
               total_messages: ragMessages.length
             }
+          }, {
+            headers: headers
           });
 
           setLoadingStage('receiving');
           // Only log in development mode
           if (process.env.NODE_ENV === 'development') {
-            console.log(`✅ Received RAG response (Legacy Endpoint):`, ragResponse);
+            console.log(`✅ Received RAG response(Legacy Endpoint): `, ragResponse);
           }
 
           // Replace loading message with actual response
           const assistantMessage: RAGChatMessage = {
-            id: `assistant-${Date.now()}`,
+            id: `assistant - ${Date.now()} `,
             type: 'assistant',
             content: ragResponse,
             timestamp: new Date(),
@@ -425,6 +452,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
           setLoadingStage('complete');
 
+          // Refresh history sidebar if user is logged in
+          if (token) {
+            setRefreshHistoryTrigger(prev => prev + 1);
+          }
+
         } else {
           // Fallback to existing smart chat service
           const response = await smartChatService.sendQuery(messageToSend);
@@ -442,7 +474,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
             // Create assistant message with fallback response
             const assistantMessage: RAGChatMessage = {
-              id: `assistant-fallback-${Date.now()}`,
+              id: `assistant - fallback - ${Date.now()} `,
               type: 'assistant',
               content: fallbackResponse,
               timestamp: new Date(),
@@ -493,14 +525,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         if (navigationId && processedNavigationIds.has(navigationId)) {
           // Only log in development mode
           if (process.env.NODE_ENV === 'development') {
-            console.log(`⚠️ Skipping duplicate navigation from ${source}:`, navigationId);
+            console.log(`⚠️ Skipping duplicate navigation from ${source}: `, navigationId);
           }
           return;
         }
 
         // Only log in development mode
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🚀 Processing initial message from ${source}:`, location.state.initialMessage);
+          console.log(`🚀 Processing initial message from ${source}: `, location.state.initialMessage);
         }
         setHasProcessedInitialMessage(true);
 
@@ -590,6 +622,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
     }
   }, []); // No dependencies needed
 
+
   const handleNewChat = () => {
     // Clear session storage
     chatContextManager.clearSession();
@@ -618,14 +651,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
     <div className="flex h-screen pt-16 sm:pt-20 overflow-hidden bg-white dark:bg-[#343541]">
       <style>
         {`
-          @keyframes dropIn {
-            0% { transform: translateY(-100%); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
+@keyframes dropIn {
+  0 % { transform: translateY(-100 %); opacity: 0; }
+  100 % { transform: translateY(0); opacity: 1; }
+}
+          .animate - drop -in {
+  animation: dropIn 0.8s cubic- bezier(0.34, 1.56, 0.64, 1) forwards;
           }
-          .animate-drop-in {
-            animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-          }
-        `}
+`}
       </style>
       <ChatErrorBoundary
         darkMode={darkMode}
@@ -642,6 +675,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
           onNewChat={handleNewChat}
           darkMode={darkMode}
           variant={isMobile ? 'overlay' : 'sidebar'}
+          refreshTrigger={refreshHistoryTrigger}
         />
 
         {/* Main Interface */}

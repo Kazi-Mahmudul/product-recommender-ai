@@ -8,9 +8,12 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
 
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
-const CHAT_ENDPOINT = `${API_BASE_URL}/chat`;
-const RAG_ENDPOINT = `${API_BASE_URL}/natural-language/rag-query`;
+import { apiConfig } from '../services/apiConfig';
+
+// API Configuration
+const config = apiConfig.getConfig();
+const CHAT_ENDPOINT = `${config.baseURL}/api/v1/chat`;
+const RAG_ENDPOINT = `${config.baseURL}/api/v1/natural-language/rag-query`;
 
 // Request/Response interfaces
 export interface ChatQueryRequest {

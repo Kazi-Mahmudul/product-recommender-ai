@@ -12,6 +12,7 @@ interface HistorySidebarProps {
     onNewChat: () => void;
     darkMode: boolean;
     variant?: 'overlay' | 'sidebar';
+    refreshTrigger?: number; // Add refresh trigger
 }
 
 const HistorySidebar: React.FC<HistorySidebarProps> = ({
@@ -21,7 +22,8 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
     currentSessionId,
     onNewChat,
     darkMode,
-    variant = 'overlay'
+    variant = 'overlay',
+    refreshTrigger = 0
 }) => {
     const { user, token } = useAuth();
     const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -29,10 +31,10 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if ((isOpen || variant === 'sidebar') && token) {
+        if (token) {
             fetchHistory();
         }
-    }, [isOpen, variant, token]);
+    }, [isOpen, variant, token, refreshTrigger]);
 
     const fetchHistory = async () => {
         if (!token) return;

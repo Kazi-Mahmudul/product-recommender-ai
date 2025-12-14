@@ -776,7 +776,9 @@ async def rag_enhanced_query(
     RAG-enhanced query endpoint that integrates GEMINI service with database knowledge.
     Keys history persistence and wraps the core logic.
     """
+
     try:
+
         # Handle History Persistence for Logged-in Users
         db_session = None
         session_id = request.session_id
@@ -813,7 +815,7 @@ async def rag_enhanced_query(
                     db_session.id, 
                     role="user", 
                     content=request.query
-                )
+)
             except Exception as e:
                 logger.error(f"Failed to persist user message: {e}")
 
