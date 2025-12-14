@@ -23,6 +23,7 @@ interface AuthContextType {
   setUser: (user: EnhancedUser | null) => void;
   googleLogin: () => Promise<void>;
   updateProfile: (profileData: { first_name?: string; last_name?: string }) => Promise<void>;
+  uploadProfilePicture: (file: File) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -199,6 +200,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const uploadProfilePicture = async (file: File) => {
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    setLoading(true);
+    try {
+      const data = await authApi.uploadProfilePicture(token, file);
+      if (data.success !== false) {
+        // Fetch updated user info
+        const userData = await authApi.getCurrentUser(token);
+        setUser(enhanceUserData(userData));
+      } else {
+        throw new Error(data.detail || data.message || 'Profile picture upload failed');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -209,7 +232,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin, updateProfile, uploadProfilePicture }}>
       {children}
     </AuthContext.Provider>
   );

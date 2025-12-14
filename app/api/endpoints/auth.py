@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, File, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from datetime import timedelta
 import logging
+import secrets
+import time
 from typing import Optional
 import uuid
 import os
-
+from urllib.parse import urlencode
 # Import local modules
 from app.core.database import get_db
 from app.core.config import settings
@@ -14,7 +18,7 @@ from app.crud.auth import (
 )
 from app.schemas.auth import (
     UserSignup, UserLogin, EmailVerificationRequest,
-    Token, UserResponse, MessageResponse
+    Token, UserResponse, MessageResponse, UserProfileUpdate
 )
 from app.utils.auth import verify_password, create_access_token, get_password_hash
 from app.utils.email import send_verification_email
@@ -231,6 +235,119 @@ def get_current_user_info(current_user = Depends(get_current_verified_user)):
     - Returns user details
     """
     return current_user
+
+@router.put("/me", response_model=UserResponse)
+def update_current_user_profile(
+    profile_data: UserProfileUpdate,
+    current_user = Depends(get_current_verified_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update current user profile information.
+    
+    - Requires valid JWT token
+    - Updates first_name and/or last_name
+    - Returns updated user details
+    """
+    from app.crud.auth import update_user_profile
+    
+    updated_user = update_user_profile(
+        db,
+        current_user.id,
+        first_name=profile_data.first_name,
+        last_name=profile_data.last_name
+    )
+    
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile"
+        )
+    
+    return updated_user
+
+@router.post("/me/profile-picture", response_model=UserResponse)
+async def upload_profile_picture(
+    file: UploadFile = File(...),
+    current_user = Depends(get_current_verified_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload user profile picture.
+    
+    - Requires valid JWT token
+    - Accepts image files (JPEG, PNG, GIF, WebP)
+    - Max file size: 5MB
+    - Returns updated user details with profile_picture_url
+    """
+    from app.crud.auth import update_profile_picture
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+        )
+    
+    # Read file content
+    contents = await file.read()
+    
+    # Validate file size (5MB max)
+    max_size = 5 * 1024 * 1024  # 5MB
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds 5MB limit"
+        )
+    
+    try:
+        # Process image: resize to 200x200
+        logger.info(f"Processing profile picture upload for user ID {current_user.id}")
+        image = Image.open(BytesIO(contents))
+        
+        # Convert to RGB if necessary (for PNG with transparency)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+            image = background
+        
+        # Resize to 200x200
+        image.thumbnail((200, 200), Image.Resampling.LANCZOS)
+        
+        # Convert to base64 for storage (simple solution without external storage)
+        buffered = BytesIO()
+        image.save(buffered, format="JPEG", quality=85)
+        img_base64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        # Create data URL
+        picture_url = f"data:image/jpeg;base64,{img_base64}"
+        logger.info(f"Generated profile picture URL (length: {len(picture_url)})")
+        
+        # Update user profile picture
+        updated_user = update_profile_picture(db, current_user.id, picture_url)
+        
+        if not updated_user:
+            logger.error(f"Failed to update profile picture for user ID {current_user.id}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update profile picture"
+            )
+        
+        logger.info(f"Successfully updated profile picture for user ID {current_user.id}")
+        return updated_user
+        
+    except Exception as e:
+        logger.error(f"Error processing profile picture: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process image: {str(e)}"
+        )
 
 @router.post("/logout", response_model=MessageResponse)
 def logout():
@@ -548,6 +665,16 @@ if GOOGLE_AUTH_AVAILABLE:
             
             first_name = user_info.get("given_name", "")
             last_name = user_info.get("family_name", "")
+            picture = user_info.get("picture", "")
+            email_verified = user_info.get("verified_email", False)
+            
+            # Prepare Google profile data
+            google_profile_data = {
+                "picture": picture,
+                "given_name": first_name,
+                "family_name": last_name,
+                "email_verified": email_verified
+            }
             
             # Check if user exists, else create
             user = get_user_by_email(db, email)
@@ -567,7 +694,9 @@ if GOOGLE_AUTH_AVAILABLE:
                     first_name=first_name,
                     last_name=last_name,
                     is_verified=True,  # Google OAuth users are automatically verified
-                    is_admin=is_admin
+                    is_admin=is_admin,
+                    auth_provider='google',
+                    google_profile=google_profile_data
                 )
                 db.add(user)
                 db.commit()
@@ -580,6 +709,9 @@ if GOOGLE_AUTH_AVAILABLE:
                 user.is_verified = True  # type: ignore
                 # Check if user should have admin status based on email
                 user.is_admin = user.email in settings.admin_emails_list  # type: ignore
+                # Update auth provider and Google profile
+                user.auth_provider = 'google'  # type: ignore
+                user.google_profile = google_profile_data  # type: ignore
                 db.commit()
                 db.refresh(user)
             else:
@@ -587,8 +719,12 @@ if GOOGLE_AUTH_AVAILABLE:
                 # Check if user should have admin status based on email
                 if user.is_admin != (user.email in settings.admin_emails_list):  # type: ignore
                     user.is_admin = user.email in settings.admin_emails_list  # type: ignore
-                    db.commit()
-                    db.refresh(user)
+                
+                # Update Google profile data if user signed in with Google
+                user.auth_provider = 'google'  # type: ignore
+                user.google_profile = google_profile_data  # type: ignore
+                db.commit()
+                db.refresh(user)
                 
                 # If user exists and tries to sign up again, we'll handle this on the frontend
 

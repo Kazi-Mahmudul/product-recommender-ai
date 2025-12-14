@@ -9,6 +9,7 @@ interface UserProfileModalProps {
   onClose: () => void;
   darkMode?: boolean;
   onProfileUpdate?: (updatedData: Partial<EnhancedUser>) => Promise<void>;
+  onProfilePictureUpload?: (file: File) => Promise<void>;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -17,6 +18,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   darkMode = false,
   onProfileUpdate,
+  onProfilePictureUpload,
 }) => {
   // Handle escape key
   useEffect(() => {
@@ -68,6 +70,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             user={user}
             darkMode={darkMode}
             onProfileUpdate={onProfileUpdate}
+            onProfilePictureUpload={onProfilePictureUpload}
             className="animate-in slide-in-from-bottom-4 duration-300"
           />
         </div>

@@ -213,3 +213,132 @@ def get_all_users(db: Session) -> List[User]:
     except Exception as e:
         logger.error(f"Error fetching all users: {str(e)}")
         return []
+
+def update_user_profile(db: Session, user_id: int, first_name: Optional[str] = None, last_name: Optional[str] = None) -> Optional[User]:
+    """
+    Update user profile information.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        first_name: Optional new first name
+        last_name: Optional new last name
+        
+    Returns:
+        User: Updated user object or None if error
+    """
+    try:
+        user = get_user_by_id(db, user_id)
+        if not user:
+            logger.warning(f"User not found for profile update: {user_id}")
+            return None
+        
+        # Update fields if provided
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Updated profile for user ID {user_id}")
+        return user
+    except Exception as e:
+        logger.error(f"Error updating user profile for ID {user_id}: {str(e)}")
+        db.rollback()
+        return None
+
+def track_user_search(db: Session, user_id: int) -> Optional[User]:
+    """
+    Track a user search by incrementing total_searches in usage_stats.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        
+    Returns:
+        User: Updated user object or None if error
+    """
+    try:
+        user = get_user_by_id(db, user_id)
+        if not user:
+            return None
+        
+        # Initialize usage_stats if None
+        if user.usage_stats is None:
+            user.usage_stats = {"total_searches": 0, "total_comparisons": 0}
+        
+        # Increment search count
+        user.usage_stats["total_searches"] = user.usage_stats.get("total_searches", 0) + 1
+        user.last_activity = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Tracked search for user ID {user_id}")
+        return user
+    except Exception as e:
+        logger.error(f"Error tracking search for user ID {user_id}: {str(e)}")
+        db.rollback()
+        return None
+
+def track_user_comparison(db: Session, user_id: int) -> Optional[User]:
+    """
+    Track a user comparison by incrementing total_comparisons in usage_stats.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        
+    Returns:
+        User: Updated user object or None if error
+    """
+    try:
+        user = get_user_by_id(db, user_id)
+        if not user:
+            return None
+        
+        # Initialize usage_stats if None
+        if user.usage_stats is None:
+            user.usage_stats = {"total_searches": 0, "total_comparisons": 0}
+        
+        # Increment comparison count
+        user.usage_stats["total_comparisons"] = user.usage_stats.get("total_comparisons", 0) + 1
+        user.last_activity = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Tracked comparison for user ID {user_id}")
+        return user
+    except Exception as e:
+        logger.error(f"Error tracking comparison for user ID {user_id}: {str(e)}")
+        db.rollback()
+        return None
+
+def update_profile_picture(db: Session, user_id: int, picture_url: str) -> Optional[User]:
+    """
+    Update user's profile picture URL.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        picture_url: URL to the profile picture
+        
+    Returns:
+        User: Updated user object or None if error
+    """
+    try:
+        user = get_user_by_id(db, user_id)
+        if not user:
+            logger.warning(f"User not found for profile picture update: {user_id}")
+            return None
+        
+        user.profile_picture_url = picture_url
+        
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Updated profile picture for user ID {user_id}")
+        return user
+    except Exception as e:
+        logger.error(f"Error updating profile picture for user ID {user_id}: {str(e)}")
+        db.rollback()
+        return None

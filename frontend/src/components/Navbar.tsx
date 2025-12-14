@@ -103,7 +103,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/phones?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/phones?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchOpen(false);
       setSearchQuery("");
     }
@@ -267,8 +267,8 @@ const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={() => setDarkMode(!darkMode)}
           className={`p-2.5 rounded-full transition-all duration-200 ${darkMode
-              ? "bg-neutral-800/30 text-neutral-100 hover:bg-brand/10 hover:text-brand"
-              : "bg-neutral-100 text-neutral-700 hover:bg-brand/10 hover:text-brand"
+            ? "bg-neutral-800/30 text-neutral-100 hover:bg-brand/10 hover:text-brand"
+            : "bg-neutral-100 text-neutral-700 hover:bg-brand/10 hover:text-brand"
             }`}
           aria-label="Toggle dark mode"
         >
@@ -302,8 +302,8 @@ const Navbar: React.FC<NavbarProps> = ({
                   <button
                     key={item.path}
                     className={`block w-full text-left px-5 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800/30 transition-colors duration-200 ${location.pathname === item.path
-                        ? "font-medium text-brand"
-                        : "text-neutral-700 dark:text-neutral-100"
+                      ? "font-medium text-brand"
+                      : "text-neutral-700 dark:text-neutral-100"
                       }`}
                     onClick={() => {
                       setDropdownOpen(false);

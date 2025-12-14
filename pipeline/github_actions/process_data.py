@@ -435,6 +435,99 @@ def get_camera_score(phone):
 
     return round(score, 2)
 
+def validate_phone_data(df):
+    """
+    Validate phone data and filter out phones with null/unknown critical fields.
+    
+    Args:
+        df: DataFrame with phone data
+        
+    Returns:
+        tuple: (valid_df, rejected_df, rejection_reasons)
+    """
+    logger = setup_logging()
+    
+    # Critical fields that must not be null or "unknown"
+    critical_fields = ['brand', 'name', 'price']
+    
+    # Track rejection reasons
+    rejection_reasons = []
+    
+    # Create a mask for valid phones
+    valid_mask = pd.Series([True] * len(df), index=df.index)
+    
+    for field in critical_fields:
+        if field in df.columns:
+            # Check for null values
+            null_mask = df[field].isna()
+            
+            # Check for "unknown" or empty strings
+            unknown_mask = df[field].astype(str).str.lower().str.strip().isin(['unknown', 'none', 'null', 'n/a', ''])
+            
+            # Combine masks
+            invalid_mask = null_mask | unknown_mask
+            
+            # Track rejections
+            for idx in df[invalid_mask].index:
+                rejection_reasons.append({
+                    'index': idx,
+                    'name': df.loc[idx, 'name'] if 'name' in df.columns and not pd.isna(df.loc[idx, 'name']) else 'Unknown',
+                    'field': field,
+                    'value': df.loc[idx, field] if field in df.columns else None
+                })
+            
+            # Update valid mask
+            valid_mask &= ~invalid_mask
+        else:
+            # If critical field is missing entirely, mark all as invalid
+            logger.warning(f"Critical field '{field}' is missing from dataframe")
+            valid_mask = pd.Series([False] * len(df), index=df.index)
+            for idx in df.index:
+                rejection_reasons.append({
+                    'index': idx,
+                    'name': df.loc[idx, 'name'] if 'name' in df.columns and not pd.isna(df.loc[idx, 'name']) else 'Unknown',
+                    'field': field,
+                    'value': 'MISSING_COLUMN'
+                })
+    
+    # Also check for completely empty rows (all critical fields are null)
+    all_null_mask = df[critical_fields].isna().all(axis=1)
+    for idx in df[all_null_mask].index:
+        if idx not in [r['index'] for r in rejection_reasons]:
+            rejection_reasons.append({
+                'index': idx,
+                'name': 'Unknown',
+                'field': 'ALL_FIELDS',
+                'value': 'ALL_NULL'
+            })
+    valid_mask &= ~all_null_mask
+    
+    # Split into valid and rejected dataframes
+    valid_df = df[valid_mask].copy()
+    rejected_df = df[~valid_mask].copy()
+    
+    # Log results
+    logger.info(f"📊 Data validation results:")
+    logger.info(f"   ✅ Valid phones: {len(valid_df)}")
+    logger.info(f"   ❌ Rejected phones: {len(rejected_df)}")
+    
+    if len(rejected_df) > 0:
+        logger.warning(f"⚠️ Rejected {len(rejected_df)} phones due to missing/unknown critical fields:")
+        # Group rejections by field
+        from collections import defaultdict
+        rejections_by_field = defaultdict(list)
+        for reason in rejection_reasons:
+            rejections_by_field[reason['field']].append(reason['name'])
+        
+        for field, names in rejections_by_field.items():
+            logger.warning(f"   - {field}: {len(names)} phones")
+            # Log first few examples
+            examples = names[:5]
+            if examples:
+                logger.warning(f"     Examples: {', '.join(examples)}")
+    
+    return valid_df, rejected_df, rejection_reasons
+
 def engineer_features(df, processor_df):
     """Apply feature engineering to the DataFrame"""
     import pandas as pd
@@ -445,25 +538,59 @@ def engineer_features(df, processor_df):
     
     # Price cleanup & categories
     if "price" in processed_df:
+        # Store original price string for reference
+        processed_df["price_raw"] = processed_df["price"].astype(str)
+        
         # Clean price column by removing currency symbols, leading dots, and commas but preserving digits and text
-        processed_df["price"] = (
+        processed_df["price_cleaned"] = (
             processed_df["price"]
             .astype(str)
             .str.replace('৳', '', regex=False)    # Remove Taka symbol
             .str.replace('à§³', '', regex=False)  # Remove encoded Taka symbol
             .str.replace('?', '', regex=False)    # Remove question marks
             .str.replace(',', '', regex=False)    # Remove commas
-            .str.replace(r'^\.', '', regex=True)  # Remove leading dots (the main issue!)
+            .str.replace(r'^\\.', '', regex=True)  # Remove leading dots (the main issue!)
             .str.strip()
         )
         
         # Extract numeric price value
         processed_df["price_original"] = (
-            processed_df["price"]
+            processed_df["price_cleaned"]
             .astype(str)
-            .str.extract(r'(\d+(?:\.\d+)?)')[0]  # Extract first number found
+            .str.extract(r'(\\d+(?:\\.\\d+)?)')[0]  # Extract first number found
             .astype(float)
         )
+        
+        # Extract the text part (e.g., "Official", "Unofficial", etc.)
+        processed_df["price_text"] = (
+            processed_df["price_cleaned"]
+            .astype(str)
+            .str.replace(r'\\d+', '', regex=True)  # Remove digits
+            .str.strip()
+            .str.strip('()')  # Remove parentheses
+            .str.strip()
+        )
+        
+        # Format price with commas and text
+        def format_price_with_commas(row):
+            if pd.isna(row['price_original']):
+                return row['price_raw']
+            
+            # Format number with commas
+            price_num = int(row['price_original']) if row['price_original'] == int(row['price_original']) else row['price_original']
+            formatted_price = f"{price_num:,}"
+            
+            # Add text if exists
+            if row['price_text'] and row['price_text'].strip():
+                return f"{formatted_price} ({row['price_text']})"
+            else:
+                return formatted_price
+        
+        processed_df["price"] = processed_df.apply(format_price_with_commas, axis=1)
+        
+        # Drop temporary columns
+        processed_df.drop(columns=["price_raw", "price_cleaned", "price_text"], inplace=True, errors='ignore')
+        
         processed_df["price_category"] = pd.cut(
             processed_df["price_original"],
             bins=[0, 20000, 40000, 60000, 100000, float('inf')],
@@ -638,9 +765,28 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
         
         logger.info("🔧 Starting integrated data processing...")
         
-        # Apply feature engineering
+        # Validate data first - reject phones with missing critical fields
+        logger.info("🔍 Validating phone data...")
+        valid_df, rejected_df, rejection_reasons = validate_phone_data(df)
+        
+        if len(rejected_df) > 0:
+            logger.warning(f"⚠️ {len(rejected_df)} phones were rejected and will not be processed")
+        
+        if len(valid_df) == 0:
+            logger.error("❌ No valid phones to process after validation")
+            return {
+                'status': 'failed',
+                'processing_method': 'integrated',
+                'error': 'All phones were rejected due to missing critical fields',
+                'records_processed': 0,
+                'records_rejected': len(rejected_df),
+                'quality_score': 0.0,
+                'execution_time_seconds': round(time.time() - start_time, 2)
+            }
+        
+        # Apply feature engineering to valid phones only
         logger.info("⚙️ Starting feature engineering...")
-        processed_df = engineer_features(df, processor_df)
+        processed_df = engineer_features(valid_df, processor_df)
         logger.info(f"   ✅ Feature engineering completed: {len(processed_df.columns)} total columns")
         
         # Basic quality estimation
@@ -651,6 +797,7 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
             'status': 'success',
             'processing_method': 'integrated',
             'records_processed': int(len(processed_df)),
+            'records_rejected': int(len(rejected_df)),
             'quality_score': round(float(quality_score), 2),
             'quality_passed': bool(quality_score >= 70),
             'cleaning_issues_count': 0,

@@ -46,13 +46,27 @@ export async function resendVerification(email: string) {
 }
 
 export async function updateProfile(token: string, profileData: { first_name?: string; last_name?: string }) {
-  const res = await fetch(`${API_BASE}/profile`, {
+  const res = await fetch(`${API_BASE}/me`, {
     method: "PUT",
-    headers: { 
+    headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}` 
+      "Authorization": `Bearer ${token}`
     },
     body: JSON.stringify(profileData)
+  });
+  return res.json();
+}
+
+export async function uploadProfilePicture(token: string, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/me/profile-picture`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    },
+    body: formData
   });
   return res.json();
 }

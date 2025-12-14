@@ -20,6 +20,7 @@ export interface EnhancedUser {
   first_name?: string;
   last_name?: string;
   profile_picture?: string;
+  profile_picture_url?: string;
   is_verified: boolean;
   is_admin: boolean;
   created_at: string;

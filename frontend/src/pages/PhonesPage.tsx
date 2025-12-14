@@ -22,6 +22,8 @@ import { useFilterCache } from "../hooks/useFilterCache";
 import debounce from "lodash/debounce";
 import { fuzzySearchPhones, SearchResult } from "../api/search";
 import { getSecureApiBase } from '../cache-buster';
+import { trackSearch } from "../api/analytics";
+import { useAuth } from "../context/AuthContext";
 
 const PhonesPage: React.FC = () => {
   const [phones, setPhones] = useState<Phone[]>([]);
@@ -33,6 +35,8 @@ const PhonesPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const isMobile = useRef(window.innerWidth < 768);
+
+  const { token } = useAuth();
 
   // Update isMobile ref on window resize
   useEffect(() => {
@@ -48,12 +52,25 @@ const PhonesPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>(
     searchParamsToFilters(searchParams)
   );
-  
+
   // Extract search query from URL params and set it to state
   useEffect(() => {
     const query = searchParams.get("q") || "";
     setSearchQuery(query);
   }, [searchParams]);
+
+  // Track search queries for authenticated users
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (token && query && query.length > 2) {
+      // Debounce tracking to avoid duplicates
+      const timer = setTimeout(() => {
+        trackSearch(token);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, token]);
+
   const { filterOptions } = useFilterCache(fetchFilterOptions);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -215,7 +232,7 @@ const PhonesPage: React.FC = () => {
         setSearchFocused(false);
       }
     }
-    
+
     if (searchFocused) {
       document.addEventListener("mousedown", handleClick);
     }
@@ -232,16 +249,16 @@ const PhonesPage: React.FC = () => {
   };
 
   // Custom function to fetch phones with search support
-  const fetchPhonesWithSearch = async ({ 
-    page = 1, 
-    pageSize = 20, 
-    sort = "default", 
+  const fetchPhonesWithSearch = async ({
+    page = 1,
+    pageSize = 20,
+    sort = "default",
     filters,
     search
-  }: { 
-    page?: number; 
-    pageSize?: number; 
-    sort?: SortOrder; 
+  }: {
+    page?: number;
+    pageSize?: number;
+    sort?: SortOrder;
     filters?: FilterState;
     search?: string;
   } = {}): Promise<{ items: Phone[], total: number }> => {
@@ -457,11 +474,10 @@ const PhonesPage: React.FC = () => {
                   setShowFilters(!showFilters);
                 }
               }}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl ${
-                activeFiltersCount > 0
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl ${activeFiltersCount > 0
                   ? "bg-brand text-white"
                   : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-              } transition-colors`}
+                } transition-colors`}
             >
               {activeFiltersCount > 0 ? (
                 <>

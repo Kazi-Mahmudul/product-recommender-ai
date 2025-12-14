@@ -49,3 +49,79 @@ async def track_page_view(
         db.rollback()
         # Don't fail the request if tracking fails
         return {"success": False, "session_id": session_id}
+
+@router.post("/track-search")
+def track_search(
+    current_user=Depends(lambda: None),  # Will be replaced with proper import
+    db: Session = Depends(get_db)
+):
+    """
+    Track a user search.
+    
+    - Requires valid JWT token
+    - Increments total_searches in usage_stats
+    - Updates last_activity timestamp
+    """
+    from app.api.deps import get_current_verified_user
+    from app.crud.auth import track_user_search
+    from fastapi import HTTPException, status
+    
+    # Get current user (will raise 401 if not authenticated)
+    current_user = get_current_verified_user()
+    
+    try:
+        result = track_user_search(db, current_user.id)
+        
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to track search"
+            )
+        
+        return {"success": True, "message": "Search tracked successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error tracking search: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to track search"
+        )
+
+@router.post("/track-comparison")
+def track_comparison(
+    current_user=Depends(lambda: None),  # Will be replaced with proper import
+    db: Session = Depends(get_db)
+):
+    """
+    Track a user comparison.
+    
+    - Requires valid JWT token
+    - Increments total_comparisons in usage_stats
+    - Updates last_activity timestamp
+    """
+    from app.api.deps import get_current_verified_user
+    from app.crud.auth import track_user_comparison
+    from fastapi import HTTPException, status
+    
+    # Get current user (will raise 401 if not authenticated)
+    current_user = get_current_verified_user()
+    
+    try:
+        result = track_user_comparison(db, current_user.id)
+        
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to track comparison"
+            )
+        
+        return {"success": True, "message": "Comparison tracked successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error tracking comparison: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to track comparison"
+        )

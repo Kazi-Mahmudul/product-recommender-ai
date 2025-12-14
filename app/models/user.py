@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -16,6 +16,10 @@ class User(Base):
         created_at: Account creation timestamp
         first_name: User's first name
         last_name: User's last name
+        usage_stats: JSON object tracking user activity
+        last_activity: Last activity timestamp
+        profile_picture_url: URL to user's profile picture
+        auth_provider: Authentication provider (email, google)
     """
     __tablename__ = "users"
 
@@ -27,6 +31,11 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
+    usage_stats = Column(JSON, default={"total_searches": 0, "total_comparisons": 0}, nullable=True)
+    last_activity = Column(DateTime(timezone=True), nullable=True)
+    profile_picture_url = Column(String(500), nullable=True)
+    auth_provider = Column(String(50), default='email', nullable=False)
+    google_profile = Column(JSON, nullable=True)
     
     # Relationship
     email_verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")

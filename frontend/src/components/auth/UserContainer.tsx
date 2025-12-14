@@ -24,7 +24,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
   });
 
   const { isMobile } = useResponsiveLayout();
-  const { updateProfile } = useAuth();
+  const { updateProfile, uploadProfilePicture } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const prevIsMobile = useRef(isMobile);
 
@@ -97,6 +97,15 @@ export const UserContainer: React.FC<UserContainerProps> = ({
     }
   }, [updateProfile]);
 
+  const handleProfilePictureUpload = useCallback(async (file: File) => {
+    try {
+      await uploadProfilePicture(file);
+      // Success - the user state will be updated automatically by the AuthContext
+    } catch (error) {
+      console.error('Profile picture upload failed:', error);
+      throw error; // Re-throw so the UserProfile component can handle the error
+    }
+  }, [uploadProfilePicture]);
 
 
   // Mobile layout (compact for sidebar)
@@ -175,6 +184,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
           onClose={handleProfileModalClose}
           darkMode={darkMode}
           onProfileUpdate={handleProfileUpdate}
+          onProfilePictureUpload={handleProfilePictureUpload}
         />
       </div>
     );
@@ -274,6 +284,7 @@ export const UserContainer: React.FC<UserContainerProps> = ({
         onClose={handleProfileModalClose}
         darkMode={darkMode}
         onProfileUpdate={handleProfileUpdate}
+        onProfilePictureUpload={handleProfilePictureUpload}
       />
     </div>
   );

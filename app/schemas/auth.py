@@ -176,6 +176,10 @@ class UserResponse(BaseModel):
         created_at: Account creation timestamp
         first_name: User's first name
         last_name: User's last name
+        profile_picture_url: URL to user's profile picture
+        auth_provider: Authentication provider (email or google)
+        usage_stats: User usage statistics
+        last_activity: Last activity timestamp
     """
     id: int
     email: str
@@ -184,6 +188,11 @@ class UserResponse(BaseModel):
     created_at: datetime
     first_name: Optional[str]
     last_name: Optional[str]
+    profile_picture_url: Optional[str] = None
+    auth_provider: Optional[str] = 'email'
+    usage_stats: Optional[dict] = None
+    last_activity: Optional[datetime] = None
+    google_profile: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -194,6 +203,43 @@ class UserResponse(BaseModel):
                 "is_verified": True,
                 "is_admin": False,
                 "created_at": "2023-01-01T00:00:00Z",
+                "first_name": "John",
+                "last_name": "Doe",
+                "profile_picture_url": "data:image/jpeg;base64,...",
+                "auth_provider": "email",
+                "usage_stats": {"total_searches": 0, "total_comparisons": 0},
+                "last_activity": None,
+                "google_profile": None
+            }
+        }
+
+class UserProfileUpdate(BaseModel):
+    """
+    Schema for user profile update requests.
+    
+    Attributes:
+        first_name: User's first name (optional)
+        last_name: User's last name (optional)
+    """
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+    @validator('first_name', 'last_name')
+    def validate_name(cls, v):
+        """
+        Validate name fields if provided.
+        """
+        if v is not None:
+            if not v.strip():
+                raise ValueError('Name cannot be empty')
+            if len(v.strip()) < 2:
+                raise ValueError('Name must be at least 2 characters long')
+            return v.strip()
+        return v
+
+    class Config:
+        schema_extra = {
+            "example": {
                 "first_name": "John",
                 "last_name": "Doe"
             }

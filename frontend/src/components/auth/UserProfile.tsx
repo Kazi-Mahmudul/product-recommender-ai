@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Calendar, Mail, Shield, Clock, Globe, Edit2, Save, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Calendar, Mail, Shield, Clock, Globe, Edit2, Save, X, Camera, Upload } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { EnhancedUser } from '../../types/auth';
 import { authAlerts } from '../../utils/authAlerts';
@@ -9,6 +9,7 @@ interface UserProfileProps {
   darkMode?: boolean;
   className?: string;
   onProfileUpdate?: (updatedData: Partial<EnhancedUser>) => Promise<void>;
+  onProfilePictureUpload?: (file: File) => Promise<void>;
 }
 
 interface EditableFields {
@@ -20,7 +21,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   user,
   darkMode = false,
   className = '',
-  onProfileUpdate
+  onProfileUpdate,
+  onProfilePictureUpload
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<EditableFields>({
@@ -28,6 +30,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     last_name: user.last_name || ''
   });
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update edit data when user prop changes (after successful update)
   React.useEffect(() => {
@@ -57,7 +61,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       const now = new Date();
       const diffInMs = now.getTime() - date.getTime();
       const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-      
+
       if (diffInDays === 0) return 'Today';
       if (diffInDays === 1) return 'Yesterday';
       if (diffInDays < 7) return `${diffInDays} days ago`;
@@ -111,7 +115,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
   const handleSave = async () => {
     if (!onProfileUpdate) return;
-    
+
     setIsUpdating(true);
     try {
       await onProfileUpdate(editData);
@@ -132,6 +136,48 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
   const handleInputChange = (field: keyof EditableFields, value: string) => {
     setEditData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handle profile picture upload
+  const handleProfilePictureClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !onProfilePictureUpload) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      await authAlerts.showAuthError('Please select a valid image file (JPEG, PNG, GIF, or WebP)', darkMode);
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      await authAlerts.showAuthError('Image size must be less than 5MB', darkMode);
+      return;
+    }
+
+    setIsUploadingPicture(true);
+    try {
+      await onProfilePictureUpload(file);
+      await authAlerts.showProfileUpdateSuccess(darkMode);
+    } catch (error) {
+      console.error('Failed to upload profile picture:', error);
+      await authAlerts.showAuthError(
+        error instanceof Error ? error.message : 'Failed to upload profile picture. Please try again.',
+        darkMode
+      );
+    } finally {
+      setIsUploadingPicture(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   // Check if user can edit (not Google OAuth users for name fields)
@@ -179,12 +225,37 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             </div>
           )}
 
-          <Avatar 
-            user={user}
-            size="xl"
-            className="mb-4"
-          />
-          
+          {/* Avatar with upload button */}
+          <div className="relative mb-4">
+            <Avatar
+              user={user}
+              size="xl"
+            />
+            {onProfilePictureUpload && (
+              <button
+                onClick={handleProfilePictureClick}
+                disabled={isUploadingPicture}
+                className="absolute bottom-0 right-0 p-2 rounded-full bg-brand hover:bg-brand-dark text-white shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Upload profile picture"
+                title="Upload profile picture"
+              >
+                {isUploadingPicture ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Camera size={20} />
+                )}
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleFileChange}
+              className="hidden"
+              aria-label="Profile picture file input"
+            />
+          </div>
+
           {/* Editable name section */}
           {isEditing && canEditName ? (
             <div className="space-y-3 mb-3 w-full max-w-sm">
@@ -210,7 +281,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               {fullName}
             </h2>
           )}
-          
+
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 break-all max-w-xs">
             {user.email}
           </p>
@@ -246,7 +317,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
                 <Calendar size={16} className="text-neutral-500 dark:text-neutral-400" />
@@ -298,7 +369,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 Searches
               </div>
             </div>
-            
+
             <div className="bg-neutral-50 dark:bg-neutral-700/50 rounded-lg p-3 text-center">
               <div className="text-lg font-semibold text-brand">
                 {user.usage_stats?.total_comparisons || 0}
@@ -308,7 +379,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               </div>
             </div>
           </div>
-          
+
           {user.usage_stats?.favorite_phones && user.usage_stats.favorite_phones.length > 0 && (
             <div className="mt-4">
               <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">
@@ -331,7 +402,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               </div>
             </div>
           )}
-          
+
           {user.usage_stats?.last_activity && (
             <div className="mt-4 text-center">
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
