@@ -142,9 +142,6 @@ class GeminiRAGService:
             
             # Call existing GEMINI service with retry logic
             # Use shorter timeout and no retries for localhost to avoid hanging
-            if "localhost" in self.gemini_service_url:
-                logger.warning("Skipping Gemini RAG call for localhost - returning fallback")
-                return self._create_fallback_response(query, "AI service skipped for local dev")
             
             request_timeout = self.timeout
             effective_retries = self.max_retries

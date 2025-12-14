@@ -14,13 +14,21 @@ start "Peyechi Backend" cmd /k "cd /d %~dp0 && python -m uvicorn app.main:app --
 :: Wait a bit for backend to init (optional, but good for UX)
 timeout /t 5
 
+:: Start AI Service (Node.js)
+echo Starting AI Service on port 8001...
+start "Peyechi AI Service" cmd /k "cd /d %~dp0backend\gemini_service && set PORT=8001&& node index.js"
+
+:: Wait a bit
+timeout /t 2
+
 :: Start Frontend
 echo Starting Frontend on port 3000...
-start "Peyechi Frontend" cmd /k "cd /d %~dp0frontend && set REACT_APP_API_BASE=http://localhost:8000&& set REACT_APP_GEMINI_API=http://localhost:8000&& npm start"
+start "Peyechi Frontend" cmd /k "cd /d %~dp0frontend && set REACT_APP_API_BASE=http://localhost:8000&& set REACT_APP_GEMINI_API=http://localhost:8001&& npm start"
 
 echo ===================================================
 echo Local Environment Started!
 echo Backend: http://localhost:8000/docs
+echo AI Service: http://localhost:8001
 echo Frontend: http://localhost:3000
 echo ===================================================
 pause

@@ -24,6 +24,12 @@ from app.services.error_handler import (
 )
 import logging
 
+
+from app.api import deps
+from app.models.user import User
+from app.crud import chat_history as chat_history_crud
+from app.services.error_handling_service import error_service
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -763,13 +769,92 @@ async def process_legacy_query(request: ContextualQueryRequest, db: Session):
 @router.post("/rag-query")
 async def rag_enhanced_query(
     request: IntelligentQueryRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ):
     """
     RAG-enhanced query endpoint that integrates GEMINI service with database knowledge.
-    This endpoint provides grounded, accurate responses by combining AI understanding
-    with phone database information.
+    Keys history persistence and wraps the core logic.
     """
+    try:
+        # Handle History Persistence for Logged-in Users
+        db_session = None
+        session_id = request.session_id
+        is_new_session = False
+        
+        if not session_id:
+            session_id = str(uuid.uuid4())
+            is_new_session = True
+            
+        if current_user:
+            try:
+                # Check if session exists or create new
+                if not is_new_session:
+                    try:
+                        session_uuid = uuid.UUID(session_id)
+                        db_session = chat_history_crud.get_session(db, session_uuid, current_user.id)
+                    except ValueError:
+                        # Invalid UUID provided, treat as new session
+                        session_id = str(uuid.uuid4())
+                        is_new_session = True
+                
+                if not db_session:
+                    # Create title from first few words of query
+                    title = " ".join(request.query.split()[:5])
+                    if len(title) > 50:
+                        title = title[:47] + "..."
+                    
+                    db_session = chat_history_crud.create_session(db, current_user.id, title=title)
+                    session_id = str(db_session.id)
+                
+                # Save User Message
+                chat_history_crud.add_message(
+                    db, 
+                    db_session.id, 
+                    role="user", 
+                    content=request.query
+                )
+            except Exception as e:
+                logger.error(f"Failed to persist user message: {e}")
+
+        # Call the internal logic
+        final_response = await process_rag_query_logic(request, db)
+        
+        # Save Assistant Response for Logged-in Users
+        if current_user and db_session:
+            try:
+                chat_history_crud.add_message(
+                    db,
+                    db_session.id,
+                    role="assistant",
+                    content=final_response.get("content", {}),
+                    metadata={
+                        "response_type": final_response.get("response_type", "text"),
+                        "session_id": session_id
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to persist assistant message: {e}")
+
+        # Ensure session_id matches
+        final_response["session_id"] = session_id
+        return final_response
+
+    except Exception as e:
+        logger.error(f"Error in RAG pipeline wrapper: {str(e)}", exc_info=True)
+        return JSONResponse(content={
+            "response_type": "text",
+            "content": {"text": "I encountered an error while processing your request. Please try again later."},
+            "error": str(e)
+        }, status_code=500)
+
+
+# Internal logic - no decorator
+async def process_rag_query_logic(
+    request: IntelligentQueryRequest,
+    db: Session
+):
+    # Wrap body in try block to handle exceptions
     try:
         # Try to import RAG services, but fall back if they're not available
         try:

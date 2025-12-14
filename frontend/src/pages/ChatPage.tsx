@@ -69,6 +69,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [sessionId, setSessionId] = useState<string>("");
+  // Revert to SmartChatService (Direct Gemini) by default as per user request for better response quality
   const [useRAGPipeline, setUseRAGPipeline] = useState(true);
   const [smartChatState, setSmartChatState] = useState<ChatState>(() => smartChatService.getChatState());
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -79,10 +80,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   useEffect(() => {
     // Check if we're coming from homepage with an initial message
     const hasInitialMessage = location.state?.initialMessage;
-
-    // If user is logged in, we might want to start fresh or load last session? 
-    // Current logic: Start fresh unless a session is selected from sidebar.
-    // If not logged in, use local session logic.
 
     const initializeSession = () => {
       // Logic for selected session is handled by handleSelectSession
@@ -105,17 +102,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       }));
 
       setRagMessages(convertedMessages);
-      setChatHistory(convertRAGToLegacyFormat(convertedMessages));
 
-      if (convertedMessages.length === 0) {
-        setShowWelcome(true);
-      } else {
+      // If using RAG pipeline, converting RAG messages to legacy format
+      // If using SmartChatService, it manages its own state, but we sync context manager
+      if (convertedMessages.length > 0) {
+        setChatHistory(convertRAGToLegacyFormat(convertedMessages));
         setShowWelcome(false);
+      } else {
+        setShowWelcome(true);
       }
     };
 
     initializeSession();
-  }, []); // Run once on mount
+  }, [location.state?.initialMessage]); // Run when initial message changes or on mount
 
   const handleSelectSession = async (selectedSessionId: string) => {
     if (!token) return;
@@ -139,6 +138,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       setChatHistory(convertRAGToLegacyFormat(convertedMessages));
       setShowWelcome(false);
       if (isMobile) setMobileMenuOpen(false); // Close sidebar on mobile after selection
+
+      // If switching sessions, we might want to ensure RAG pipeline is active for historical consistency?
+      // Or keep using SmartChat for new queries? 
+      // User prefers SmartChat quality, so we keep `useRAGPipeline` false for new interactions.
+
     } catch (error) {
       toast.error("Failed to load conversation");
     } finally {
@@ -357,14 +361,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         if (useRAGPipeline) {
           setLoadingStage('processing');
 
-          // Use ChatAPIService which handles correct endpoint and headers
-          const ragResponse: any = await chatAPIService.sendChatQuery({
+          // Use HTTP client with proper error handling - using Legacy RAG endpoint as requested
+          const ragResponse: any = await httpClient.post(apiConfig.getNaturalLanguageRagURL(), {
             query: messageToSend,
             conversation_history: ragMessages.map(msg => ({
               type: msg.type,
               content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
             })),
             session_id: sessionId,
+            // Add context to help with first query filtering
             context: {
               first_query: ragMessages.length === 0,
               total_messages: ragMessages.length
@@ -374,36 +379,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
           setLoadingStage('receiving');
           // Only log in development mode
           if (process.env.NODE_ENV === 'development') {
-            console.log(`✅ Received RAG response:`, ragResponse);
+            console.log(`✅ Received RAG response (Legacy Endpoint):`, ragResponse);
           }
-
-          // Adapt backend response to frontend component structure
-          // Backend puts suggestions at root, IntelligentResponseHandler expects them in content
-          const adaptedContent = {
-            ...ragResponse.content,
-            suggestions: ragResponse.suggestions || ragResponse.content?.suggestions || []
-          };
-
-          // Determine default formatting hints based on response type if not provided
-          const defaultFormatting = {
-            text_style: 'conversational',
-            show_suggestions: true,
-            display_as: ragResponse.response_type === 'recommendations' ? 'cards' :
-              ragResponse.response_type === 'comparison' ? 'comparison_chart' : undefined
-          };
-
-          const adaptedResponse = {
-            response_type: ragResponse.response_type,
-            content: adaptedContent,
-            formatting_hints: ragResponse.formatting_hints || defaultFormatting,
-            metadata: ragResponse.metadata
-          };
 
           // Replace loading message with actual response
           const assistantMessage: RAGChatMessage = {
             id: `assistant-${Date.now()}`,
             type: 'assistant',
-            content: adaptedResponse,
+            content: ragResponse,
             timestamp: new Date(),
             metadata: {
               response_type: ragResponse.response_type,
