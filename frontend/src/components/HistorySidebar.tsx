@@ -39,7 +39,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
         setLoading(true);
         try {
             const data = await chatAPIService.getChatHistory(token);
-            setSessions(data.sessions);
+            setSessions(data?.sessions || []);
             setError(null);
         } catch (err) {
             setError('Failed to load history');
@@ -65,6 +65,8 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
 
     const groupSessions = (sessions: ChatSession[]) => {
         const groups: { [key: string]: ChatSession[] } = {};
+
+        if (!Array.isArray(sessions)) return groups;
 
         sessions.forEach(session => {
             const date = new Date(session.updated_at);

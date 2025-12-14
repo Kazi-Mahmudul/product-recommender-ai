@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import axios from 'axios';
 import * as authApi from '../api/auth';
 import { EnhancedUser } from '../types/auth';
 
@@ -76,6 +77,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
+
+
+  // ... (imports)
+
   // Fetch user info if token exists
   useEffect(() => {
     const fetchUser = async () => {
@@ -84,8 +89,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!currentToken) {
         setUser(null);
         setLoading(false);
+        delete axios.defaults.headers.common['Authorization'];
         return;
       }
+
+      // Set default header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${currentToken}`;
 
       setLoading(true);
       try {
@@ -94,9 +103,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(enhanceUserData(data));
         } else {
           setUser(null);
+          delete axios.defaults.headers.common['Authorization'];
         }
       } catch {
         setUser(null);
+        delete axios.defaults.headers.common['Authorization'];
       }
       setLoading(false);
     };
@@ -106,8 +117,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initialToken = getToken();
     if (initialToken) {
       setToken(initialToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${initialToken}`;
     }
   }, []);
+
+  // Update header when token changes (e.g. login/logout)
+  useEffect(() => {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  }, [token]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);

@@ -151,29 +151,31 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const convertRAGToLegacyFormat = (ragMessages: RAGChatMessage[]): ChatMessage[] => {
     const legacyHistory: ChatMessage[] = [];
 
-    for (let i = 0; i < ragMessages.length; i += 2) {
-      const userMsg = ragMessages[i];
-      const botMsg = ragMessages[i + 1];
-
-      if (userMsg && userMsg.type === 'user') {
-        // Convert bot content to proper format
+    ragMessages.forEach(msg => {
+      if (msg.type === 'user') {
+        legacyHistory.push({
+          user: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+          bot: "",
+          phones: []
+        });
+      } else {
+        // Assistant message
         let botContent: string | FormattedResponse = "";
-        if (botMsg) {
-          if (typeof botMsg.content === 'string') {
-            botContent = botMsg.content;
-          } else if (typeof botMsg.content === 'object') {
-            // Assume it's already a FormattedResponse or convert it
-            botContent = botMsg.content as FormattedResponse;
-          }
+
+        if (typeof msg.content === 'string') {
+          botContent = msg.content;
+        } else if (typeof msg.content === 'object') {
+          // Assume it's already a FormattedResponse or convert it
+          botContent = msg.content as FormattedResponse;
         }
 
         legacyHistory.push({
-          user: userMsg.content as string,
+          user: "", // Empty string makes it falsy in rendering check
           bot: botContent,
-          phones: typeof botMsg?.content === 'object' ? (botMsg.content as any)?.content?.phones || [] : []
+          phones: typeof msg.content === 'object' ? (msg.content as any)?.content?.phones || [] : []
         });
       }
-    }
+    });
 
     return legacyHistory;
   };
@@ -355,15 +357,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         if (useRAGPipeline) {
           setLoadingStage('processing');
 
-          // Use HTTP client with proper error handling - using RAG endpoint
-          const ragResponse: any = await httpClient.post(apiConfig.getNaturalLanguageRagURL(), {
+          // Use ChatAPIService which handles correct endpoint and headers
+          const ragResponse: any = await chatAPIService.sendChatQuery({
             query: messageToSend,
             conversation_history: ragMessages.map(msg => ({
               type: msg.type,
               content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
             })),
-            session_id: sessionId, // Pass session ID to backend
-            // Add context to help with first query filtering
+            session_id: sessionId,
             context: {
               first_query: ragMessages.length === 0,
               total_messages: ragMessages.length
@@ -376,11 +377,33 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
             console.log(`✅ Received RAG response:`, ragResponse);
           }
 
+          // Adapt backend response to frontend component structure
+          // Backend puts suggestions at root, IntelligentResponseHandler expects them in content
+          const adaptedContent = {
+            ...ragResponse.content,
+            suggestions: ragResponse.suggestions || ragResponse.content?.suggestions || []
+          };
+
+          // Determine default formatting hints based on response type if not provided
+          const defaultFormatting = {
+            text_style: 'conversational',
+            show_suggestions: true,
+            display_as: ragResponse.response_type === 'recommendations' ? 'cards' :
+              ragResponse.response_type === 'comparison' ? 'comparison_chart' : undefined
+          };
+
+          const adaptedResponse = {
+            response_type: ragResponse.response_type,
+            content: adaptedContent,
+            formatting_hints: ragResponse.formatting_hints || defaultFormatting,
+            metadata: ragResponse.metadata
+          };
+
           // Replace loading message with actual response
           const assistantMessage: RAGChatMessage = {
             id: `assistant-${Date.now()}`,
             type: 'assistant',
-            content: ragResponse,
+            content: adaptedResponse,
             timestamp: new Date(),
             metadata: {
               response_type: ragResponse.response_type,
@@ -588,8 +611,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
     // Clear session storage
     chatContextManager.clearSession();
 
-    // Generate new session ID
-    const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    // Generate new UUID for session
+    const newSessionId = crypto.randomUUID();
     setSessionId(newSessionId);
 
     // Clear local state
