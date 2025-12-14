@@ -19,7 +19,12 @@ from app.core.config import settings
 from app.services.gemini_rag_service import GeminiRAGService
 from app.services.knowledge_retrieval import KnowledgeRetrievalService
 from app.services.response_formatter import ResponseFormatterService
+from app.services.response_formatter import ResponseFormatterService
 from app.services.error_handling_service import error_service, track_performance, ChatErrorHandler
+from app.api import deps
+from app.models.user import User
+from app.crud import chat_history as chat_history_crud
+from app.schemas import chat_history as chat_history_schemas
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +64,8 @@ class ChatResponse(BaseModel):
 async def process_chat_query(
     request: ChatQueryRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ) -> ChatResponse:
     """
     Main entry point for chat queries. Processes user queries through the RAG pipeline.
@@ -86,7 +92,47 @@ async def process_chat_query(
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
         # Generate session ID if not provided
-        session_id = request.session_id or str(uuid.uuid4())
+        session_id = request.session_id
+        if not session_id:
+            session_id = str(uuid.uuid4())
+            is_new_session = True
+        else:
+            is_new_session = False
+
+        # Handle History Persistence for Logged-in Users
+        db_session = None
+        if current_user:
+            try:
+                # Check if session exists or create new
+                if not is_new_session:
+                    try:
+                        session_uuid = uuid.UUID(session_id)
+                        db_session = chat_history_crud.get_session(db, session_uuid, current_user.id)
+                    except ValueError:
+                        # Invalid UUID provided, treat as new session
+                        session_id = str(uuid.uuid4())
+                        is_new_session = True
+                
+                if not db_session:
+                    # Create title from first few words of query
+                    title = " ".join(request.query.split()[:5])
+                    if len(title) > 50:
+                        title = title[:47] + "..."
+                    
+                    db_session = chat_history_crud.create_session(db, current_user.id, title=title)
+                    session_id = str(db_session.id)
+                
+                # Save User Message
+                chat_history_crud.add_message(
+                    db, 
+                    db_session.id, 
+                    role="user", 
+                    content=request.query
+                )
+            except Exception as e:
+                logger.error(f"[{request_id}] Failed to persist user message: {e}")
+                # Continue without persistence if DB fails
+        
         
         # Step 1: Parse query with GEMINI service
         logger.info(f"[{request_id}] Step 1: Parsing query with GEMINI service")
@@ -171,6 +217,23 @@ async def process_chat_query(
             processing_time=processing_time
         )
         
+        # Save Assistant Response for Logged-in Users
+        if current_user and db_session:
+            try:
+                chat_history_crud.add_message(
+                    db,
+                    db_session.id,
+                    role="assistant",
+                    content=chat_response.content,
+                    metadata={
+                        "response_type": chat_response.response_type,
+                        "data_sources": chat_response.metadata.get("data_sources"),
+                        "suggestions": chat_response.suggestions
+                    }
+                )
+            except Exception as e:
+                logger.error(f"[{request_id}] Failed to persist assistant message: {e}")
+
         logger.info(f"[{request_id}] Successfully processed query in {processing_time:.2f}s")
         
         # Log analytics in background
@@ -800,74 +863,110 @@ async def enhance_with_knowledge(
                     break
             
             # Get basic recommendations
-            phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)  # Use default 5 for fallback
+            phones = phone_crud.get_phones_by_filters(db, fallback_filters, limit=5)
             
-            if phones:
-                formatted_phones = []
-                for phone_dict in phones:
-                    formatted_phone = {
-                        "id": phone_dict.get("id"),
-                        "name": phone_dict.get("name"),
-                        "brand": phone_dict.get("brand"),
-                        "model": phone_dict.get("model"),
-                        "slug": phone_dict.get("slug"),
-                        "price": phone_dict.get("price_original") or phone_dict.get("price"),
-                        "url": phone_dict.get("url"),
-                        "img_url": phone_dict.get("img_url"),
-                        "chipset": phone_dict.get("chipset"),
-                        "ram": phone_dict.get("ram"),
-                        "internal_storage": phone_dict.get("internal_storage"),
-                        "primary_camera_resolution": phone_dict.get("primary_camera_resolution"),
-                        "battery_type": phone_dict.get("battery_type"),
-                        "capacity": phone_dict.get("capacity"),
-                        "operating_system": phone_dict.get("operating_system"),
-                        "overall_device_score": phone_dict.get("overall_device_score"),
-                        "camera_score": phone_dict.get("camera_score"),
-                        "battery_score": phone_dict.get("battery_score"),
-                        "performance_score": phone_dict.get("performance_score"),
-                        "display_score": phone_dict.get("display_score"),
-                        
-                        # Key specifications for display
-                        "key_specs": {
-                            "display": f"{phone_dict.get('screen_size_inches', 'N/A')} {phone_dict.get('display_type', '')}".strip(),
-                            "processor": phone_dict.get("chipset", "N/A"),
-                            "memory": phone_dict.get("ram", "N/A"),
-                            "storage": phone_dict.get("internal_storage", "N/A"),
-                            "camera": phone_dict.get("primary_camera_resolution", "N/A"),
-                            "battery": phone_dict.get("capacity", "N/A"),
-                            "os": phone_dict.get("operating_system", "N/A")
-                        }
+            formatted_phones = []
+            for phone_dict in phones:
+                formatted_phones.append({
+                    "id": phone_dict.get("id"),
+                    "name": phone_dict.get("name"),
+                    "brand": phone_dict.get("brand"),
+                    "price": phone_dict.get("price_original") or phone_dict.get("price"),
+                    "img_url": phone_dict.get("img_url"),
+                    # Add minimal specs for fallback
+                    "key_specs": {
+                        "display": f"{phone_dict.get('screen_size_inches', 'N/A')} {phone_dict.get('display_type', '')}".strip(),
+                        "processor": phone_dict.get("chipset", "N/A"),
+                         "camera": phone_dict.get("primary_camera_resolution", "N/A"),
+                        "battery": phone_dict.get("capacity", "N/A")
                     }
-                    formatted_phones.append(formatted_phone)
+                })
                 
-                return {
-                    "type": "recommendations",
-                    "phones": formatted_phones,
-                    "reasoning": f"Here are some phone recommendations based on your query",
-                    "filters_applied": fallback_filters,
-                    "total_found": len(formatted_phones),
-                    "fallback_mode": True
-                }
-            else:
-                # No phones found, return helpful message
-                return {
-                    "type": "text",
-                    "text": "I couldn't find specific phones matching your query, but I'm here to help! Try asking about specific phone brands, price ranges, or features.",
-                    "reasoning": "No matches found in fallback mode",
-                    "fallback_mode": True
-                }
-                
-        except Exception as fallback_error:
-            logger.error(f"[{request_id}] Fallback also failed: {str(fallback_error)}")
+            return {
+                "type": "recommendations",
+                "phones": formatted_phones,
+                "reasoning": "I encountered an issue processing your specific request, but based on your query, here are some popular phones that might interest you.",
+                "filters_applied": fallback_filters,
+                "total_found": len(formatted_phones)
+            }
             
-            # Final fallback response
+        except Exception as fallback_error:
+            logger.error(f"[{request_id}] Fallback failed: {str(fallback_error)}")
+            # Ultimate safety net
             return {
                 "type": "text",
-                "text": "I'm having trouble processing your request right now, but I'm still here to help! Could you try rephrasing your question?",
-                "error": True,
-                "reasoning": "Service temporarily unavailable",
-                "fallback_mode": True
+                "text": "I apologize, but I'm currently unable to access my phone database. Please try again in a few moments.",
+                "reasoning": "System error",
+                "suggestions": ["Try again later", "Check your connection"]
             }
+
+# -------------------------------------------------------------------------
+# Chat History Management Endpoints
+# -------------------------------------------------------------------------
+
+@router.get("/history", response_model=chat_history_schemas.ChatHistoryList)
+def get_chat_history(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Get all chat sessions for the current logged-in user.
+    """
+    sessions = chat_history_crud.get_user_sessions(db, current_user.id, limit=limit, offset=offset)
+    # Convert to Pydantic models (handled by response_model, but good to check)
+    return {
+        "sessions": sessions,
+        "total_count": len(sessions) # Basic count for now
+    }
+
+@router.get("/history/{session_id}", response_model=chat_history_schemas.ChatSession)
+def get_chat_session_details(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Get detailed messages for a specific chat session.
+    """
+    try:
+        uuid_id = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+
+    session = chat_history_crud.get_session(db, uuid_id, current_user.id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    # Eager load messages via relationships or separate query? 
+    # Relationship is defined, so standard Pydantic serialization works if session.messages is populated.
+    # However, for efficiency/pagination we might want to query messages separately in future.
+    # For now, let's trust the relationship default (lazy=True usually) but accessing it loads.
+    
+    return session
+
+@router.delete("/history/{session_id}")
+def delete_chat_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Delete a chat session.
+    """
+    try:
+        uuid_id = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+        
+    success = chat_history_crud.delete_session(db, uuid_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    return {"status": "success", "message": "Session deleted"}
+
+
 
 
 async def format_response(

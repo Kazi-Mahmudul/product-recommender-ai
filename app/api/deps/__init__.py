@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -87,3 +88,40 @@ def get_current_verified_user(current_user = Depends(get_current_user)):
         )
     
     return current_user
+
+# Optional security scheme that returns None if header is missing
+optional_security = HTTPBearer(auto_error=False)
+
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the current authenticated user if provided, otherwise None.
+    Does NOT raise exceptions for invalid/missing tokens.
+    """
+    if not credentials:
+        return None
+        
+    try:
+        # Verify and decode the token
+        payload = verify_token(credentials.credentials)
+        if payload is None:
+            return None
+        
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+            
+        try:
+            user_id_int = int(user_id)
+        except ValueError:
+            return None
+            
+        # Get user from database
+        user = get_user_by_id(db, user_id=user_id_int)
+        return user
+        
+    except Exception:
+        # If any error occurs during validation/retrieval, just treat as anonymous
+        return None

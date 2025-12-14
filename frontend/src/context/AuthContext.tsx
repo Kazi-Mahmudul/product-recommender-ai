@@ -69,7 +69,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...userData,
       auth_provider: userData.auth_provider || 'email',
       last_login: userData.last_login || new Date().toISOString(),
-      profile_picture: userData.profile_picture || userData.google_profile?.picture,
+      // Prioritize explicit profile_picture_url > profile_picture > google_profile.picture
+      profile_picture: userData.profile_picture_url || userData.profile_picture || userData.google_profile?.picture,
       google_profile: userData.google_profile || undefined,
       usage_stats: userData.usage_stats || undefined
     };

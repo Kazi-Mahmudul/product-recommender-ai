@@ -85,7 +85,32 @@ export interface ChatResponse {
     request_id?: string;
   };
   session_id?: string;
+
   processing_time?: number;
+}
+
+export interface ChatSession {
+  id: string;
+  user_id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  messages?: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: any;
+  created_at: string;
+  metadata?: any;
+}
+
+export interface ChatHistoryList {
+  sessions: ChatSession[];
+  total_count: number;
 }
 
 export interface ChatError {
@@ -125,13 +150,15 @@ class ChatAPIService {
    */
   async sendChatQuery(request: ChatQueryRequest): Promise<ChatResponse> {
     console.log('🚀 Sending chat query to RAG pipeline:', request.query);
-    
+
     try {
       const response = await this.executeWithRetry(async () => {
         return await axios.post<ChatResponse>(`${CHAT_ENDPOINT}/query`, request, {
           timeout: REQUEST_TIMEOUT,
           headers: {
             'Content-Type': 'application/json',
+            ...(request.session_id ? { 'X-Session-Id': request.session_id } : {}),
+            ...(axios.defaults.headers.common['Authorization'] ? { 'Authorization': axios.defaults.headers.common['Authorization'] } : {})
           },
         });
       });
@@ -149,7 +176,7 @@ class ChatAPIService {
    */
   async sendRAGQuery(request: ChatQueryRequest): Promise<ChatResponse> {
     console.log('🔄 Sending query to RAG-enhanced endpoint:', request.query);
-    
+
     try {
       const response = await this.executeWithRetry(async () => {
         return await axios.post<ChatResponse>(RAG_ENDPOINT, request, {
@@ -179,10 +206,10 @@ class ChatAPIService {
     rag_integration: 'working' | 'failed';
   }> {
     console.log('🧪 Testing RAG integration with query:', query);
-    
+
     try {
-      const response = await axios.post(`${RAG_ENDPOINT.replace('/rag-query', '/rag-test')}`, 
-        { query }, 
+      const response = await axios.post(`${RAG_ENDPOINT.replace('/rag-query', '/rag-test')}`,
+        { query },
         {
           timeout: REQUEST_TIMEOUT,
           headers: {
@@ -219,9 +246,9 @@ class ChatAPIService {
       ]);
 
       return {
-        chat_service: chatHealth.status === 'fulfilled' && chatHealth.value.status === 200 
+        chat_service: chatHealth.status === 'fulfilled' && chatHealth.value.status === 200
           ? 'healthy' : 'unhealthy',
-        rag_pipeline: ragHealth.status === 'fulfilled' && ragHealth.value.status === 200 
+        rag_pipeline: ragHealth.status === 'fulfilled' && ragHealth.value.status === 200
           ? 'healthy' : 'unhealthy',
         timestamp: Date.now()
       };
@@ -236,6 +263,57 @@ class ChatAPIService {
   }
 
   /**
+   * Get chat history for authenticated user
+   */
+  async getChatHistory(token: string, limit: number = 50, offset: number = 0): Promise<ChatHistoryList> {
+    try {
+      const response = await axios.get<ChatHistoryList>(`${CHAT_ENDPOINT}/history`, {
+        params: { limit, offset },
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to fetch chat history:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get specific chat session details
+   */
+  async getChatSession(token: string, sessionId: string): Promise<ChatSession> {
+    try {
+      const response = await axios.get<ChatSession>(`${CHAT_ENDPOINT}/history/${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Failed to fetch chat session:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Delete a chat session
+   */
+  async deleteChatSession(token: string, sessionId: string): Promise<void> {
+    try {
+      await axios.delete(`${CHAT_ENDPOINT}/history/${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to delete chat session:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
    * Execute request with retry logic
    */
   private async executeWithRetry<T>(
@@ -246,17 +324,17 @@ class ChatAPIService {
       return await operation();
     } catch (error) {
       const axiosError = error as AxiosError;
-      
+
       // Check if we should retry
       if (attempt < this.retryConfig.maxRetries && this.shouldRetry(axiosError)) {
         const delay = this.calculateDelay(attempt);
-        
+
         console.log(`🔄 Retrying request (attempt ${attempt + 1}/${this.retryConfig.maxRetries}) after ${delay}ms`);
-        
+
         await this.sleep(delay);
         return this.executeWithRetry(operation, attempt + 1);
       }
-      
+
       throw error;
     }
   }
@@ -310,7 +388,7 @@ class ChatAPIService {
   private handleError(error: any): ChatError {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError;
-      
+
       // Network error
       if (!axiosError.response) {
         return {
@@ -326,8 +404,8 @@ class ChatAPIService {
 
       // Rate limiting
       if (response.status === 429) {
-        const retryAfter = response.headers['retry-after'] 
-          ? parseInt(response.headers['retry-after']) * 1000 
+        const retryAfter = response.headers['retry-after']
+          ? parseInt(response.headers['retry-after']) * 1000
           : 60000; // Default to 1 minute
 
         return {

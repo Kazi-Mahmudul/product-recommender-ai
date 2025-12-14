@@ -9,6 +9,10 @@ import { useMobileResponsive } from "../hooks/useMobileResponsive";
 import { chatContextManager } from "../services/chatContextManager";
 import { apiConfig } from "../services/apiConfig";
 import { httpClient } from "../services/httpClient";
+import { useAuth } from "../context/AuthContext";
+import HistorySidebar from "../components/HistorySidebar";
+import { chatAPIService } from "../api/chat";
+import { toast } from "react-toastify";
 
 // Enhanced chat message interface for RAG pipeline
 interface RAGChatMessage {
@@ -58,7 +62,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [ragMessages, setRagMessages] = useState<RAGChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [, setLoadingStage] = useState<'sending' | 'processing' | 'receiving' | 'complete'>('processing');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const { user, token } = useAuth();
+  const [loadingStage, setLoadingStage] = useState<'sending' | 'processing' | 'receiving' | 'complete'>('processing');
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [sessionId, setSessionId] = useState<string>("");
@@ -70,26 +77,24 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
   // Initialize session on component mount
   useEffect(() => {
+    // Check if we're coming from homepage with an initial message
+    const hasInitialMessage = location.state?.initialMessage;
+
+    // If user is logged in, we might want to start fresh or load last session? 
+    // Current logic: Start fresh unless a session is selected from sidebar.
+    // If not logged in, use local session logic.
+
     const initializeSession = () => {
-      // Check if we're coming from homepage with an initial message
-      const hasInitialMessage = location.state?.initialMessage;
-      
-      let existingHistory: any[] = [];
-      let currentSessionId: string;
-      
-      if (hasInitialMessage) {
-        // If coming from homepage, start fresh - clear any existing session
-        chatContextManager.clearSession();
-        currentSessionId = chatContextManager.getSessionId(); // This will generate a new one
-        existingHistory = [];
-      } else {
-        // Normal case - load existing session if any
-        existingHistory = chatContextManager.getConversationHistory();
-        currentSessionId = chatContextManager.getSessionId();
+      // Logic for selected session is handled by handleSelectSession
+      // Here we just handle initial load / anonymous session
+
+      if (!sessionId) {
+        const newSessionId = chatContextManager.getSessionId();
+        setSessionId(newSessionId);
       }
-      
-      setSessionId(currentSessionId);
-      
+
+      const existingHistory = chatContextManager.getConversationHistory();
+
       // Convert chat context manager messages to local RAG messages format
       const convertedMessages: RAGChatMessage[] = existingHistory.map(msg => ({
         id: msg.id,
@@ -98,28 +103,58 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         timestamp: msg.timestamp,
         metadata: msg.metadata
       }));
-      
+
       setRagMessages(convertedMessages);
-      
-      // Convert RAG messages to legacy format for existing UI
-      const legacyHistory = convertRAGToLegacyFormat(convertedMessages);
-      setChatHistory(legacyHistory);
-      
-      // Show welcome if no existing messages
-      setShowWelcome(convertedMessages.length === 0);
+      setChatHistory(convertRAGToLegacyFormat(convertedMessages));
+
+      if (convertedMessages.length === 0) {
+        setShowWelcome(true);
+      } else {
+        setShowWelcome(false);
+      }
     };
-    
+
     initializeSession();
-  }, [location.state?.initialMessage]); // Add location.state?.initialMessage as dependency
+  }, []); // Run once on mount
+
+  const handleSelectSession = async (selectedSessionId: string) => {
+    if (!token) return;
+
+    try {
+      setIsLoading(true);
+      const session = await chatAPIService.getChatSession(token, selectedSessionId);
+
+      setSessionId(session.id);
+
+      // Convert backend messages to RAGChatMessage
+      const convertedMessages: RAGChatMessage[] = (session.messages || []).map(msg => ({
+        id: msg.id,
+        type: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+        metadata: msg.metadata
+      }));
+
+      setRagMessages(convertedMessages);
+      setChatHistory(convertRAGToLegacyFormat(convertedMessages));
+      setShowWelcome(false);
+      if (isMobile) setMobileMenuOpen(false); // Close sidebar on mobile after selection
+    } catch (error) {
+      toast.error("Failed to load conversation");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   // Helper function to convert RAG messages to legacy format
   const convertRAGToLegacyFormat = (ragMessages: RAGChatMessage[]): ChatMessage[] => {
     const legacyHistory: ChatMessage[] = [];
-    
+
     for (let i = 0; i < ragMessages.length; i += 2) {
       const userMsg = ragMessages[i];
       const botMsg = ragMessages[i + 1];
-      
+
       if (userMsg && userMsg.type === 'user') {
         // Convert bot content to proper format
         let botContent: string | FormattedResponse = "";
@@ -131,7 +166,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
             botContent = botMsg.content as FormattedResponse;
           }
         }
-        
+
         legacyHistory.push({
           user: userMsg.content as string,
           bot: botContent,
@@ -139,7 +174,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         });
       }
     }
-    
+
     return legacyHistory;
   };
 
@@ -149,14 +184,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       const unsubscribe = smartChatService.subscribe((newState) => {
         setSmartChatState(newState);
         setIsLoading(newState.isLoading);
-        
+
         // Convert smart chat messages to legacy format for existing UI
         const legacyChatHistory: ChatMessage[] = [];
-        
+
         for (let i = 0; i < newState.messages.length; i += 2) {
           const userMsg = newState.messages[i];
           const botMsg = newState.messages[i + 1];
-          
+
           if (userMsg && userMsg.sender === 'user') {
             legacyChatHistory.push({
               user: userMsg.text,
@@ -165,10 +200,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
             });
           }
         }
-        
+
         setChatHistory(legacyChatHistory);
       });
-      
+
       return unsubscribe;
     }
   }, [useRAGPipeline]);
@@ -184,51 +219,36 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   // Initialize welcome message
   useEffect(() => {
     if (smartChatState.messages.length === 0 && showWelcome) {
-      setChatHistory([
-        {
-          user: "",
-          bot: `👋 Welcome to Peyechi AI - Your Smartphone Advisor for Bangladesh! 
-
-I can help you:
-• Find the perfect phone for your budget 💰
-• Compare devices side-by-side 📊
-• Get latest prices and specs 📱
-• Answer any smartphone questions ❓
-
-How can I help you today?`,
-        },
-      ]);
+      // NOTE: Removed legacy text injection since we want the beautiful suggestions UI
+      // to handle the welcome state.
+      setChatHistory([]); // Clear history so welcome screen shows
     }
   }, [smartChatState.messages.length, showWelcome]);
 
-  // Simple debounced input handler
-  const debouncedInputHandler = useCallback(
-    ((fn: (value: string) => void, delay: number) => {
-      let timeoutId: NodeJS.Timeout;
-      return (value: string) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => fn(value), delay);
-      };
-    })((value: string) => {
-      setMessage(value);
-    }, 150),
-    []
-  );
+  // Auto-resize textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [message]);
 
   // Enhanced error handling helper function
   const handleError = useCallback((error: any, currentMessages: RAGChatMessage[], sessionId: string) => {
     let errorMsg = 'An unexpected error occurred. Please try again.';
     let recoverySuggestions = ['Try again', 'Refresh the page', 'Contact support'];
-    
+
     try {
       errorMsg = httpClient.getErrorMessage(error);
       recoverySuggestions = httpClient.getErrorSuggestions(error);
     } catch {
       // Use default error message if httpClient methods fail
     }
-    
+
     setError(errorMsg);
-    
+
     // Create error message for chat
     const errorChatMessage: RAGChatMessage = {
       id: `error-${Date.now()}`,
@@ -251,12 +271,12 @@ How can I help you today?`,
         session_id: sessionId
       }
     };
-    
+
     // Update messages
     const finalMessages = [...currentMessages, errorChatMessage];
     setRagMessages(finalMessages);
     setChatHistory(convertRAGToLegacyFormat(finalMessages));
-    
+
     // Add to context manager
     chatContextManager.addMessage({
       id: errorChatMessage.id,
@@ -276,12 +296,31 @@ How can I help you today?`,
       if (process.env.NODE_ENV === 'development') {
         console.log(`🚀 Sending query via ${useRAGPipeline ? 'RAG Pipeline' : 'Smart Chat Service'}: "${messageToSend}"`);
       }
-      
+
       setMessage("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'; // Reset height immediately
+      }
       setError(null);
       setShowWelcome(false);
       setIsLoading(true);
       setLoadingStage('sending');
+
+      // Guest User Notification
+      if (!user) {
+        const searchCount = parseInt(localStorage.getItem('guest_search_count') || '0');
+        if (searchCount === 0 || searchCount % 5 === 0) {
+          toast("Sign in to save your chat history!", {
+            style: {
+              borderRadius: '10px',
+              background: darkMode ? '#333' : '#fff',
+              color: darkMode ? '#fff' : '#333',
+            },
+            autoClose: 4000
+          });
+        }
+        localStorage.setItem('guest_search_count', (searchCount + 1).toString());
+      }
 
       // Add user message immediately
       const userMessage: RAGChatMessage = {
@@ -315,7 +354,7 @@ How can I help you today?`,
       try {
         if (useRAGPipeline) {
           setLoadingStage('processing');
-          
+
           // Use HTTP client with proper error handling - using RAG endpoint
           const ragResponse: any = await httpClient.post(apiConfig.getNaturalLanguageRagURL(), {
             query: messageToSend,
@@ -323,7 +362,7 @@ How can I help you today?`,
               type: msg.type,
               content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
             })),
-            session_id: sessionId,
+            session_id: sessionId, // Pass session ID to backend
             // Add context to help with first query filtering
             context: {
               first_query: ragMessages.length === 0,
@@ -358,7 +397,7 @@ How can I help you today?`,
             timestamp: userMessage.timestamp,
             metadata: userMessage.metadata
           };
-          
+
           const assistantContextMessage = {
             id: assistantMessage.id,
             type: assistantMessage.type,
@@ -366,35 +405,35 @@ How can I help you today?`,
             timestamp: assistantMessage.timestamp,
             metadata: assistantMessage.metadata
           };
-          
+
           chatContextManager.addMessage(userContextMessage);
           chatContextManager.addMessage(assistantContextMessage);
 
           // Update local state (remove loading message, add real response)
           const finalMessages = [...ragMessages, userMessage, assistantMessage];
           setRagMessages(finalMessages);
-          
+
           // Convert to legacy format for existing UI
           const legacyHistory = convertRAGToLegacyFormat(finalMessages);
           setChatHistory(legacyHistory);
-          
+
           setLoadingStage('complete');
 
         } else {
           // Fallback to existing smart chat service
           const response = await smartChatService.sendQuery(messageToSend);
         }
-        
+
       } catch (err) {
         // Remove loading message from UI
         const messagesWithoutLoading = ragMessages.concat([userMessage]);
-        
+
         // Try fallback if RAG fails
         if (useRAGPipeline) {
           try {
             setLoadingStage('processing');
             const fallbackResponse = await smartChatService.sendQuery(messageToSend);
-            
+
             // Create assistant message with fallback response
             const assistantMessage: RAGChatMessage = {
               id: `assistant-fallback-${Date.now()}`,
@@ -407,13 +446,13 @@ How can I help you today?`,
                 session_id: sessionId
               }
             };
-            
+
             const finalMessages = [...messagesWithoutLoading, assistantMessage];
             setRagMessages(finalMessages);
             setChatHistory(convertRAGToLegacyFormat(finalMessages));
-            
+
             setUseRAGPipeline(false); // Switch to fallback mode
-            
+
           } catch (fallbackErr) {
             handleError(fallbackErr, messagesWithoutLoading, sessionId);
           }
@@ -436,29 +475,29 @@ How can I help you today?`,
   // Handle initial message from navigation
   const [hasProcessedInitialMessage, setHasProcessedInitialMessage] = useState(false);
   const [processedNavigationIds, setProcessedNavigationIds] = useState<Set<string>>(new Set());
-  
+
   useEffect(() => {
     // Use a slight delay to ensure session initialization is complete
     const timer = setTimeout(() => {
       if (location.state?.initialMessage && !hasProcessedInitialMessage && handleSendMessageRef.current) {
         const navigationId = location.state.navigationId;
         const source = location.state.source || 'unknown';
-        
+
         // Check if we've already processed this specific navigation
         if (navigationId && processedNavigationIds.has(navigationId)) {
           // Only log in development mode
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`⚠️ Skipping duplicate navigation from ${source}:`, navigationId);
-        }
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`⚠️ Skipping duplicate navigation from ${source}:`, navigationId);
+          }
           return;
         }
-        
+
         // Only log in development mode
         if (process.env.NODE_ENV === 'development') {
           console.log(`🚀 Processing initial message from ${source}:`, location.state.initialMessage);
         }
         setHasProcessedInitialMessage(true);
-        
+
         // Mark this navigation as processed
         if (navigationId) {
           setProcessedNavigationIds(prev => {
@@ -467,15 +506,15 @@ How can I help you today?`,
             return newSet;
           });
         }
-        
+
         // Process the message
         handleSendMessageRef.current(location.state.initialMessage);
-        
+
         // Clear the navigation state to prevent reprocessing
         navigate(location.pathname, { replace: true, state: {} });
       }
     }, 100); // Small delay to ensure proper initialization order
-    
+
     return () => clearTimeout(timer);
   }, [location.state?.initialMessage, location.state?.navigationId, hasProcessedInitialMessage, navigate, location.pathname]); // Remove handleSendMessage from dependencies
 
@@ -490,7 +529,7 @@ How can I help you today?`,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getErrorMessage = (error: Error): string => {
     const message = error.message.toLowerCase();
-    
+
     if (message.includes('network') || message.includes('fetch')) {
       return "I'm having trouble connecting to my services. Please check your internet connection and try again.";
     } else if (message.includes('timeout')) {
@@ -509,7 +548,7 @@ How can I help you today?`,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getRecoverySuggestions = (error: Error): string[] => {
     const message = error.message.toLowerCase();
-    
+
     if (message.includes('network') || message.includes('fetch')) {
       return [
         "Check your internet connection",
@@ -548,11 +587,11 @@ How can I help you today?`,
   const handleNewChat = () => {
     // Clear session storage
     chatContextManager.clearSession();
-    
+
     // Generate new session ID
     const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     setSessionId(newSessionId);
-    
+
     // Clear local state
     setRagMessages([]);
     setChatHistory([]);
@@ -561,277 +600,257 @@ How can I help you today?`,
     setUseRAGPipeline(true); // Reset to RAG pipeline
     setHasProcessedInitialMessage(false); // Reset initial message processing
     setProcessedNavigationIds(new Set()); // Clear processed navigation IDs
-    
+
     // Clear navigation state to prevent any leftover initial messages
     navigate(location.pathname, { replace: true, state: {} });
-    
+
     // Clear smart chat service as fallback
     smartChatService.clearChat();
   };
 
   return (
-    <div className="pt-16 sm:pt-20">
-    <ChatErrorBoundary 
-      darkMode={darkMode}
-      onError={(error, errorInfo) => {
-        console.error('Chat page error:', error, errorInfo);
-        // Could send to error tracking service here
-      }}
-    >
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-5rem)] p-2 sm:p-4 md:p-6">
-        <div
-          className={`w-full max-w-4xl mx-auto rounded-2xl sm:rounded-3xl shadow-2xl ${
-            darkMode ? "bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700" : "bg-gradient-to-br from-white to-gray-50 border-gray-200"
-          } border flex flex-col overflow-hidden backdrop-blur-sm h-[calc(100vh-6rem)] sm:h-[calc(100vh-7rem)]`}
-        >
-        {/* Header */}
-        <div
-          className={`flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b backdrop-blur-md ${darkMode ? "bg-gray-800/80 border-gray-600" : "bg-white/80 border-gray-200"}`}
-        >
-          <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-            {/* AI Logo */}
-            <div className="relative flex-shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-brand to-brand-darkGreen flex items-center justify-center shadow-lg">
-                <svg 
-                  className="w-5 h-5 sm:w-6 sm:h-6 text-white" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" 
-                  />
-                </svg>
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full border-2 border-white dark:border-gray-800 animate-pulse shadow-sm"></div>
-            </div>
-            
-            {/* Title and Subtitle */}
-            <div className="min-w-0 flex-1">
-              <h1 className="font-bold text-lg sm:text-2xl bg-gradient-to-r from-brand to-brand-darkGreen bg-clip-text text-transparent truncate">
-                Peyechi AI
-              </h1>
-              <p className={`text-xs sm:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} hidden sm:block`}>
-                Your Smart Phone Assistant
-              </p>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'} sm:hidden`}>
-                Smart Assistant
-              </p>
-            </div>
-          </div>
-          
-          {/* New Chat Button */}
-          <div className="flex-shrink-0">
-            <button
-              className="px-3 py-2 sm:px-6 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-semibold bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-brand/30 active:scale-95 shadow-sm hover:shadow-md"
-              onClick={handleNewChat}
-              aria-label="Start a new chat conversation"
-            >
-              <span className="hidden sm:inline">New Chat</span>
-              <span className="sm:hidden">New</span>
-            </button>
-          </div>
-        </div>
+    <div className="flex h-screen pt-16 sm:pt-20 overflow-hidden bg-white dark:bg-[#343541]">
+      <style>
+        {`
+          @keyframes dropIn {
+            0% { transform: translateY(-100%); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+          }
+          .animate-drop-in {
+            animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          }
+        `}
+      </style>
+      <ChatErrorBoundary
+        darkMode={darkMode}
+        onError={(error, errorInfo) => {
+          console.error('Chat page error:', error, errorInfo);
+        }}
+      >
+        {/* Sidebar */}
+        <HistorySidebar
+          isOpen={isMobile ? mobileMenuOpen : desktopSidebarOpen}
+          onClose={() => isMobile ? setMobileMenuOpen(false) : setDesktopSidebarOpen(false)}
+          onSelectSession={handleSelectSession}
+          currentSessionId={sessionId}
+          onNewChat={handleNewChat}
+          darkMode={darkMode}
+          variant={isMobile ? 'overlay' : 'sidebar'}
+        />
 
-        {/* Chat Area */}
-        <div 
-          ref={chatContainerRef} 
-          className="px-3 sm:px-6 py-4 sm:py-6 space-y-6 sm:space-y-8 pb-24 sm:pb-32 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
-        >
-          <div className="flex flex-col space-y-4">
-            {chatHistory.map((chat, index) => (
-              <div key={index}>
-                {chat.user && (
-                  <div className="flex justify-end mb-3 sm:mb-4">
-                    <div className="rounded-2xl sm:rounded-3xl px-4 sm:px-6 py-3 sm:py-4 max-w-[85%] sm:max-w-md shadow-lg bg-gradient-to-r from-brand to-brand-darkGreen text-white text-sm sm:text-base font-medium whitespace-pre-wrap transform hover:scale-[1.02] transition-transform duration-200">
-                      {chat.user}
-                    </div>
-                  </div>
-                )}
+        {/* Main Interface */}
+        <div className="flex-1 flex flex-col relative h-full min-w-0 bg-white dark:bg-[#343541]">
 
-                {/* Handle all response types with IntelligentResponseHandler */}
-                <div className="flex justify-start">
-                  <ChatErrorBoundary 
-                    darkMode={darkMode}
-                    fallback={
-                      <div className={`max-w-xs rounded-2xl px-5 py-3 shadow-md ${
-                        darkMode ? 'bg-red-900/20 text-red-200 border border-red-800' : 'bg-red-50 text-red-800 border border-red-200'
-                      }`}>
-                        <p className="text-sm">Unable to display response. Please try asking again.</p>
-                        <button
-                          onClick={() => handleRetry()}
-                          className="mt-2 px-3 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 rounded-full hover:bg-red-200 dark:hover:bg-red-700 transition"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    }
-                  >
-                    <IntelligentResponseHandler
-                      response={chat.bot}
-                      darkMode={darkMode}
-                      originalQuery={chat.user || ""}
-                      onSuggestionClick={(suggestion) => {
-                        const queryToSend = suggestion.contextualQuery || suggestion.query;
-                        if (handleSendMessageRef.current) {
-                          handleSendMessageRef.current(queryToSend);
-                        }
-                      }}
-                      onDrillDownClick={(option) => {
-                        let query = option.contextualQuery || "";
-                        if (!query) {
-                          switch (option.command) {
-                            case "full_specs":
-                              query = "show full specifications for these phones";
-                              break;
-                            case "chart_view":
-                              query = "compare these phones in chart view";
-                              break;
-                            case "detail_focus":
-                              query = `tell me more about the ${option.target || "features"} of these phones`;
-                              break;
-                            default:
-                              query = option.label || "show full specifications for these phones";
-                          }
-                        }
-                        if (handleSendMessageRef.current) {
-                          handleSendMessageRef.current(query);
-                        }
-                      }}
-                      isLoading={index === chatHistory.length - 1 && isLoading}
-                      isWelcomeMessage={chat.user === "" && index === 0}
-                    />
-                  </ChatErrorBoundary>
-                </div>
-
-                {/* Welcome Suggestions */}
-                {index === 0 && showWelcome && (
-                  <div className="flex flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6 justify-center px-2">
-                    {SUGGESTED_QUERIES.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl border text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 hover:shadow-md ${
-                          darkMode
-                            ? "bg-gradient-to-r from-gray-800 to-gray-700 border-gray-600 text-gray-200 hover:from-brand hover:to-brand-darkGreen hover:text-white hover:border-brand"
-                            : "bg-gradient-to-r from-gray-50 to-white border-gray-200 text-gray-700 hover:from-brand hover:to-brand-darkGreen hover:text-white hover:border-brand"
-                        }`}
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        disabled={isLoading}
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat Input */}
-        <div className="fixed bottom-0 left-0 w-full flex justify-center z-30 pb-4 sm:pb-6 pointer-events-none">
-          <div className="w-full max-w-2xl mx-auto px-3 sm:px-4 md:px-6 pointer-events-auto">
-            <div
-              className={`flex items-center backdrop-blur-md border shadow-2xl rounded-2xl sm:rounded-3xl py-3 sm:py-4 px-4 sm:px-6 mb-2 sm:mb-3 ${
-                darkMode 
-                  ? "bg-gray-800/90 border-gray-600" 
-                  : "bg-white/90 border-gray-200"
-              }`}
-            >
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => {
-                  // Use debounced handler for better performance
-                  if (e.target.value.length > 50) {
-                    debouncedInputHandler(e.target.value);
-                  } else {
-                    setMessage(e.target.value);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && handleSendMessageRef.current) {
-                    handleSendMessageRef.current();
-                  }
-                }}
-                className={`flex-1 bg-transparent text-base sm:text-lg focus:outline-none placeholder-gray-400 ${
-                  darkMode ? "text-white" : "text-gray-900"
-                }`}
-                placeholder={isMobile ? "Ask about phones..." : "Ask me anything about smartphones..."}
-                disabled={isLoading}
-              />
+          {/* Header - Minimalist & Clean */}
+          <div className="h-12 border-b flex-shrink-0 flex items-center justify-between px-4 bg-white/95 dark:bg-[#343541]/95 backdrop-blur-sm sticky top-0 z-20 border-black/5 dark:border-white/10">
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  if (handleSendMessageRef.current) {
-                    handleSendMessageRef.current();
-                  }
-                }}
-                disabled={isLoading || !message.trim()}
-                className="ml-3 sm:ml-4 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl text-brand hover:text-brand-darkGreen focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 hover:shadow-lg active:scale-95"
-                aria-label="Send message"
+                onClick={() => isMobile ? setMobileMenuOpen(true) : setDesktopSidebarOpen(!desktopSidebarOpen)}
+                className="p-2 -ml-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300 transition-colors"
+                title={isMobile ? "Open Menu" : (desktopSidebarOpen ? "Close Sidebar" : "Open Sidebar")}
               >
-                {isLoading ? (
-                  <InlineSpinner darkMode={darkMode} size="md" />
+                {isMobile || !desktopSidebarOpen ? (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
                 ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 sm:h-6 sm:w-6"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                   </svg>
                 )}
               </button>
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="font-bold text-black dark:text-white text-lg tracking-tight animate-drop-in">
+                  Peyechi AI
+                </span>
+              </div>
             </div>
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-red-200 dark:border-red-800 backdrop-blur-sm">
-                <p className="text-red-600 dark:text-red-400 text-sm font-medium mb-2 sm:mb-3">
-                  {error}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleRetry()}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 rounded-lg sm:rounded-xl hover:bg-red-200 dark:hover:bg-red-700 transition-all duration-200 hover:scale-105 active:scale-95"
-                  >
-                    Try Again
-                  </button>
-                  <button
-                    onClick={handleNewChat}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg sm:rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 hover:scale-105 active:scale-95"
-                  >
-                    New Chat
-                  </button>
-                  <button
-                    onClick={() => handleRetry("Show me popular phones")}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 rounded-lg sm:rounded-xl hover:bg-blue-200 dark:hover:bg-blue-700 transition-all duration-200 hover:scale-105 active:scale-95"
-                  >
-                    Popular Phones
-                  </button>
+          </div>
+
+          {/* Messages Container */}
+          <div
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-600 scroll-smooth"
+          >
+            {/* Empty State / Welcome showing suggestions */}
+            {showWelcome && (
+              <div className="flex flex-col items-center justify-center min-h-full px-4 text-center space-y-4 md:space-y-8 animate-fade-in-up pb-32">
+                <div className="bg-white dark:bg-[#444654] p-3 md:p-5 rounded-2xl md:rounded-3xl shadow-lg ring-1 ring-black/5 dark:ring-white/10 mb-0 md:mb-2 inline-flex relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-brand/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <svg className="w-8 h-8 md:w-12 md:h-12 text-brand relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+
+                <div className="space-y-1 md:space-y-2">
+                  <h2 className="text-xl md:text-3xl font-bold text-gray-800 dark:text-gray-100 tracking-tight">
+                    Peyechi AI
+                  </h2>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm md:text-lg">
+                    Your Personal Smartphone Expert
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3 w-full max-w-2xl px-2 md:px-4 mt-4 md:mt-8">
+                  {SUGGESTED_QUERIES.slice(0, 4).map((query, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSuggestionClick(query)}
+                      className="text-left p-3 md:p-4 rounded-xl text-xs md:text-sm transition-all duration-200 border border-gray-200 dark:border-gray-700
+                             hover:bg-gray-50 dark:hover:bg-[#40414F]
+                             text-gray-600 dark:text-gray-300 shadow-sm hover:shadow-md group"
+                    >
+                      <span className="font-medium text-gray-900 dark:text-gray-100 block mb-0.5 md:mb-1 group-hover:text-brand transition-colors">Suggestion</span>
+                      {query}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
-            <div
-              className={`text-xs text-center mt-2 px-4 ${
-                darkMode ? "text-gray-500" : "text-gray-600"
-              }`}
-            >
-              <span className="hidden sm:inline">Ask me about smartphones in Bangladesh</span>
-              <span className="sm:hidden">Ask about phones</span>
+
+            {/* Message Stream - Only shown when not welcoming or has history */}
+            {!showWelcome && (
+              <div className="flex flex-col pb-48 pt-4">
+                {chatHistory.map((chat, index) => (
+                  <div
+                    key={index}
+                    className="w-full px-4 border-b border-black/5 dark:border-white/5 last:border-0"
+                  >
+                    <div className="max-w-3xl mx-auto flex gap-5 py-6">
+                      {/* Avatar */}
+                      <div className="flex-shrink-0 flex flex-col relative items-end">
+                        {chat.user ? (
+                          <div className="w-8 h-8 rounded-sm bg-purple-600 flex items-center justify-center text-white font-semibold text-xs overflow-hidden">
+                            {user?.profile_picture ? (
+                              <img
+                                src={user.profile_picture}
+                                alt={user.first_name || "User"}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  if (e.currentTarget.parentElement) {
+                                    e.currentTarget.parentElement.innerText = user?.first_name?.charAt(0).toUpperCase() || "U";
+                                  }
+                                }}
+                              />
+                            ) : (
+                              user?.first_name?.charAt(0).toUpperCase() || "U"
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-sm bg-brand flex items-center justify-center text-white">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="relative flex-1 overflow-hidden min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1">
+                          {chat.user ? "You" : "Peyechi AI"}
+                        </div>
+
+                        <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-100 text-[15px] leading-7">
+                          {chat.user ? (
+                            <p className="whitespace-pre-wrap">{chat.user}</p>
+                          ) : (
+                            <ChatErrorBoundary darkMode={darkMode}>
+                              <IntelligentResponseHandler
+                                response={chat.bot}
+                                darkMode={darkMode}
+                                originalQuery={chat.user || ""}
+                                onSuggestionClick={(s) => handleSuggestionClick(s.contextualQuery || s.query)}
+                                onDrillDownClick={(o) => {
+                                  if (handleSendMessageRef.current) handleSendMessageRef.current(o.label || "more info")
+                                }}
+                                isLoading={index === chatHistory.length - 1 && isLoading}
+                                isWelcomeMessage={false}
+                              />
+                            </ChatErrorBoundary>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Loading State */}
+                {isLoading && loadingStage === 'sending' && (
+                  <div className="w-full px-4">
+                    <div className="max-w-3xl mx-auto flex gap-5 py-6">
+                      <div className="w-8 h-8 rounded-sm bg-brand flex items-center justify-center text-white">
+                        <InlineSpinner darkMode={darkMode} />
+                      </div>
+                      <div className="flex-1 py-1">
+                        <div className="animate-pulse h-4 w-4 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Input Area (Centered & Floating) */}
+          <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent dark:from-[#343541] dark:via-[#343541] pt-10 pb-6 px-4 z-20">
+            <div className="max-w-3xl mx-auto">
+              {error && (
+                <div className="mb-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center justify-between text-sm text-red-600 dark:text-red-400">
+                  <span>{error}</span>
+                  <button onClick={() => handleRetry()} className="font-medium hover:underline">Retry</button>
+                </div>
+              )}
+
+              <div className="relative flex items-end gap-2 bg-white dark:bg-[#40414F] shadow-lg rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden focus-within:ring-1 focus-within:ring-black/10 dark:focus-within:ring-white/10">
+                <textarea
+                  ref={textareaRef}
+                  value={message}
+                  onChange={(e) => {
+                    setMessage(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && handleSendMessageRef.current) {
+                      e.preventDefault();
+                      handleSendMessageRef.current();
+                    }
+                  }}
+                  placeholder="Send a message..."
+                  className="w-full max-h-[200px] py-3.5 pl-4 pr-12 bg-transparent border-0 focus:ring-0 resize-none text-gray-900 dark:text-white placeholder:text-gray-400 text-base m-0 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
+                  rows={1}
+                  style={{ height: 'auto', minHeight: '60px', maxHeight: '80px' }} // Increased min-height
+                  disabled={isLoading}
+                />
+                <button
+                  onClick={() => handleSendMessageRef.current && handleSendMessageRef.current()}
+                  disabled={isLoading || !message.trim()}
+                  className="mr-2 md:mr-0 md:ml-2 flex items-center justify-center text-brand hover:text-brand-darkGreen rounded-xl px-6 py-6 transition-all duration-200"
+                >
+                  {isLoading ? <InlineSpinner darkMode={false} size="sm" /> : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 md:h-6 md:w-6"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <div className="text-center mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                Peyechi AI can make mistakes. Consider checking important information.
+              </div>
             </div>
           </div>
         </div>
-        </div>
-      </div>
-    </ChatErrorBoundary>
+      </ChatErrorBoundary>
     </div>
   );
 };
