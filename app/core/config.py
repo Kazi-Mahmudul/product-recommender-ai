@@ -46,6 +46,17 @@ class Settings(BaseSettings):
                 origins = [origin.strip() for origin in self._cors_origins_str.split(",")]
                 origins = [origin for origin in origins if origin]  # Filter out empty strings
             
+            # Always ensure main production domains are included, even if env var is set
+            production_domains = [
+                "https://peyechi.com",
+                "https://www.peyechi.com",
+                "https://peyechi.vercel.app"
+            ]
+            
+            for domain in production_domains:
+                if domain not in origins:
+                    origins.append(domain)
+
             # Always ensure localhost origins are included for development
             localhost_origins = [
                 "http://localhost:3000",
