@@ -466,8 +466,6 @@ function App() {
               <BrandsSection />
             </div>
           </div>
-          <div className="my-3 md:my-8" />
-          <TrendingPhones darkMode={darkMode} />
           <div className="my-3" />
           <PopularComparisons />
           <div className="my-3 md:my-8 lg:hidden">

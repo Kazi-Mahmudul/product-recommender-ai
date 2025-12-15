@@ -33,7 +33,7 @@ const sliderSettings = {
     responsive: [
         {
             breakpoint: 1024, // lg screens
-            settings: { 
+            settings: {
                 slidesToShow: 2,
                 swipeToSlide: true,
                 draggable: true
@@ -41,8 +41,8 @@ const sliderSettings = {
         },
         {
             breakpoint: 768, // md screens - show 1 card on mobile
-            settings: { 
-                slidesToShow: 1, 
+            settings: {
+                slidesToShow: 1,
                 slidesToScroll: 1,
                 dots: false, // Explicitly hide dots on mobile
                 swipeToSlide: true,
@@ -100,7 +100,7 @@ const PopularComparisons: React.FC = () => {
 
             <Slider {...sliderSettings} className="popular-comparisons-slider">
                 {pairs.map((pair, index) => (
-                    <div key={`${pair.phone1.slug}-${pair.phone2.slug}`} className="px-1">
+                    <div key={`${pair.phone1.slug}-${pair.phone2.slug}`} className="px-1 md:px-5">
                         <div className="h-full">
                             <div
                                 className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
@@ -148,32 +148,29 @@ const PopularComparisons: React.FC = () => {
                                 <div className="p-3 md:p-6">
                                     {/* Phone 1 Details */}
                                     <div className="mb-2 md:mb-3 pb-2 md:pb-3 border-b border-gray-200 dark:border-gray-700">
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                                {pair.phone1.brand}
-                                            </p>
-                                            <p className="text-[10px] md:text-sm font-bold text-brand">
-                                                {pair.phone1.price}
-                                            </p>
-                                        </div>
+                                        <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                            {pair.phone1.brand}
+                                        </p>
                                         <h3 className="text-xs md:text-sm font-bold text-gray-900 dark:text-white mt-1 line-clamp-1">
                                             {pair.phone1.name}
                                         </h3>
+                                        <p className="text-[10px] md:text-sm font-bold text-brand">
+                                            {pair.phone1.price}
+                                        </p>
+
                                     </div>
 
                                     {/* Phone 2 Details */}
                                     <div className="mb-3 md:mb-4">
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                                {pair.phone2.brand}
-                                            </p>
-                                            <p className="text-[10px] md:text-sm font-bold text-brand">
-                                                {pair.phone2.price}
-                                            </p>
-                                        </div>
+                                        <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                            {pair.phone2.brand}
+                                        </p>
                                         <h3 className="text-xs md:text-sm font-bold text-gray-900 dark:text-white mt-1 line-clamp-1">
                                             {pair.phone2.name}
                                         </h3>
+                                        <p className="text-[10px] md:text-sm font-bold text-brand">
+                                            {pair.phone2.price}
+                                        </p>
                                     </div>
 
                                     {/* Ask AI Button */}
@@ -182,8 +179,8 @@ const PopularComparisons: React.FC = () => {
                                         className="mx-auto flex items-center justify-center gap-1 px-3 py-2 bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md text-xs"
                                     >
                                         <Zap size={14} />
-                                        <span className="hidden xs:inline">Ask AI to Compare</span>
-                                        <span className="xs:hidden">Ask AI</span>
+                                        <span className="hidden md:flex">Ask AI to Compare</span>
+                                        <span className="flex md:hidden">Ask AI</span>
                                     </button>
                                 </div>
                             </div>
