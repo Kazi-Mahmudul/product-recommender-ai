@@ -42,13 +42,13 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
   const handleMouseEnter = () => {
     onMouseEnter(phone?.slug || "");
   };
-  
+
   // Select the primary badge using our badge selector utility
   const primaryBadge = selectPrimaryBadge({
     phone,
     badges
   });
-  
+
   // Ensure phone object has all required properties with fallbacks
   const safePhone = {
     id: phone?.id || 0,
@@ -67,19 +67,19 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
     storage_gb: phone?.storage_gb,
     screen_size_inches: phone?.screen_size_inches,
   };
-  
+
   // Create accessible description for screen readers
   const getAccessibleDescription = () => {
     const specs = [];
     if (safePhone.main_camera) specs.push(`Main camera: ${safePhone.main_camera}`);
     else if (safePhone.primary_camera_mp) specs.push(`${safePhone.primary_camera_mp} megapixel camera`);
-    
+
     if (safePhone.front_camera) specs.push(`Front camera: ${safePhone.front_camera}`);
     if (safePhone.battery_capacity_numeric) specs.push(`${safePhone.battery_capacity_numeric} mAh battery`);
     if (safePhone.ram_gb) specs.push(`${safePhone.ram_gb} gigabytes of RAM`);
     if (safePhone.storage_gb) specs.push(`${safePhone.storage_gb} gigabytes of storage`);
     if (safePhone.screen_size_inches) specs.push(`${safePhone.screen_size_inches} inch screen`);
-    
+
     return `${safePhone.brand} ${safePhone.name}. Price: BDT ${safePhone.price}. ${specs.join(', ')}. ${highlights.join(', ')}`;
   };
 
@@ -101,7 +101,7 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
       tabIndex={0}
       role="button"
       aria-label={`View details for ${safePhone.brand} ${safePhone.name}`}
-      aria-describedby={`card-desc-${safePhone.slug}`} 
+      aria-describedby={`card-desc-${safePhone.slug}`}
       data-testid={`recommendation-card-${safePhone.slug}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -124,19 +124,19 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
               e.currentTarget.src = "/no-image-placeholder.svg";
             }}
           />
-          
+
           {/* Single Primary Badge */}
           {primaryBadge && (
             <div className="absolute top-0 left-0 right-0 flex justify-center">
               <span
                 className={`
                   inline-block text-[10px] md:text-xs px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-sm font-medium transform -translate-y-1 md:-translate-y-2
-                  ${primaryBadge.type === 'value' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 
-                    primaryBadge.type === 'feature' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
-                    'bg-amber-50 text-amber-700 border border-amber-100'}
-                  dark:${primaryBadge.type === 'value' ? 'bg-blue-900/30 text-blue-300 border-blue-800/50' : 
-                    primaryBadge.type === 'feature' ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/50' : 
-                    'bg-amber-900/30 text-amber-300 border-amber-800/50'}
+                  ${primaryBadge.type === 'value' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                    primaryBadge.type === 'feature' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                      'bg-amber-50 text-amber-700 border border-amber-100'}
+                  dark:${primaryBadge.type === 'value' ? 'bg-blue-900/30 text-blue-300 border-blue-800/50' :
+                    primaryBadge.type === 'feature' ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/50' :
+                      'bg-amber-900/30 text-amber-300 border-amber-800/50'}
                 `}
               >
                 {primaryBadge.label}
@@ -223,10 +223,10 @@ const RecommendationCard = forwardRef<HTMLDivElement, RecommendationCardProps>((
           </div>
         </div>
       )}
-      
+
       {/* Hidden description for screen readers */}
-      <span 
-        id={`card-desc-${safePhone.id}`} 
+      <span
+        id={`card-desc-${safePhone.id}`}
         className="sr-only"
       >
         {getAccessibleDescription()}

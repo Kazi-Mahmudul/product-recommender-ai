@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate} from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Phone } from "../api/phones";
 import {
   parseComparisonUrl,
@@ -172,7 +172,7 @@ const ComparePage: React.FC = () => {
     <ComparisonErrorBoundary>
       <ToastContainer />
       <div className="min-h-screen bg-[#fdfbf9] dark:bg-[#121212] pt-16">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-2 sm:py-4 md:py-6 lg:py-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-8 md:py-10 lg:py-16">
           {/* Page Header */}
           <div className="text-center mb-6 sm:mb-8 lg:mb-10 px-2">
             <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">

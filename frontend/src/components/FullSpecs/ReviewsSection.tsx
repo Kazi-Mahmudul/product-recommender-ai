@@ -65,38 +65,38 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
   // Handle form submission
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate rating
     if (newReview.rating === 0) {
       setSubmitError('Please select a star rating.');
       return;
     }
-    
+
     try {
       setSubmitting(true);
       setSubmitError(null);
-      
+
       const reviewData = {
         slug: phoneSlug,
         rating: newReview.rating,
         review_text: newReview.review_text || undefined
       };
-      
+
       const createdReview = await createReview(reviewData);
-      
+
       // Add the new review to the list
       setReviews(prev => [{
         ...createdReview,
         isEditing: false
       }, ...prev]);
       setSubmitSuccess(true);
-      
+
       // Reset form
       setNewReview({
         rating: 0,
         review_text: ''
       });
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSubmitSuccess(false), 3000);
     } catch (err) {
@@ -113,7 +113,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays === 0) return 'Today';
     if (diffInDays === 1) return '1 day ago';
     if (diffInDays < 7) return `${diffInDays} days ago`;
@@ -130,28 +130,28 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
 
   // Start editing a review
   const startEditing = (reviewId: number) => {
-    setReviews(prev => prev.map(review => 
-      review.id === reviewId 
-        ? { 
-            ...review, 
-            isEditing: true,
-            tempRating: review.rating,
-            tempReviewText: review.review_text || ''
-          } 
+    setReviews(prev => prev.map(review =>
+      review.id === reviewId
+        ? {
+          ...review,
+          isEditing: true,
+          tempRating: review.rating,
+          tempReviewText: review.review_text || ''
+        }
         : review
     ));
   };
 
   // Cancel editing a review
   const cancelEditing = (reviewId: number) => {
-    setReviews(prev => prev.map(review => 
-      review.id === reviewId 
-        ? { 
-            ...review, 
-            isEditing: false,
-            tempRating: undefined,
-            tempReviewText: undefined
-          } 
+    setReviews(prev => prev.map(review =>
+      review.id === reviewId
+        ? {
+          ...review,
+          isEditing: false,
+          tempRating: undefined,
+          tempReviewText: undefined
+        }
         : review
     ));
   };
@@ -167,14 +167,14 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
         review_text: review.tempReviewText || undefined
       });
 
-      setReviews(prev => prev.map(r => 
-        r.id === reviewId 
-          ? { 
-              ...updatedReview,
-              isEditing: false,
-              tempRating: undefined,
-              tempReviewText: undefined
-            } 
+      setReviews(prev => prev.map(r =>
+        r.id === reviewId
+          ? {
+            ...updatedReview,
+            isEditing: false,
+            tempRating: undefined,
+            tempReviewText: undefined
+          }
           : r
       ));
     } catch (err) {
@@ -200,36 +200,36 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
 
   // Handle rating change during editing
   const handleEditRatingSelect = (reviewId: number, rating: number) => {
-    setReviews(prev => prev.map(review => 
-      review.id === reviewId 
-        ? { ...review, tempRating: rating } 
+    setReviews(prev => prev.map(review =>
+      review.id === reviewId
+        ? { ...review, tempRating: rating }
         : review
     ));
   };
 
   // Handle review text change during editing
   const handleEditReviewTextChange = (reviewId: number, text: string) => {
-    setReviews(prev => prev.map(review => 
-      review.id === reviewId 
-        ? { ...review, tempReviewText: text } 
+    setReviews(prev => prev.map(review =>
+      review.id === reviewId
+        ? { ...review, tempReviewText: text }
         : review
     ));
   };
 
   return (
-    <section 
-      className="reviews-section rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
+    <section
+      className="reviews-section rounded-xl md:rounded-2xl shadow-lg p-4 md:p-8 lg:p-10 border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 transition-colors duration-300"
       aria-labelledby="reviews-header"
     >
       {/* Header */}
       <div className="mb-4 md:mb-6">
-        <h2 id="reviews-header" className="font-bold text-lg md:text-2xl flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100">
-          <Star className="text-yellow-500" size={20} />
+        <h2 id="reviews-header" className="font-bold text-lg md:text-xl md:text-2xl flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100">
+          <Star className="text-yellow-500" size={24} />
           User Reviews & Ratings
         </h2>
-        
+
         {/* Average Rating Summary */}
-        <div className="mt-3 md:mt-4 flex flex-col items-start gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg md:rounded-xl">
+        <div className="mt-3 md:mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg md:rounded-xl">
           <div className="text-center">
             <div className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
               {averageRating > 0 ? averageRating.toFixed(1) : '0.0'}
@@ -239,25 +239,25 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  size={16}
+                  size={20}
                   className={`${i < Math.floor(averageRating) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300 dark:text-gray-600'}`}
                 />
               ))}
             </div>
           </div>
-          
+
           <div className="flex-1 w-full">
             <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-2">
               Based on {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
             </div>
-            
+
             {/* Rating Distribution */}
             <div className="space-y-1 md:space-y-2">
               {ratingDistribution.map(({ rating, count, percentage }) => (
                 <div key={rating} className="flex items-center gap-1 md:gap-2">
                   <span className="text-xs md:text-sm w-6 md:w-8 text-gray-600 dark:text-gray-300">{rating}★</span>
                   <div className="flex-1 h-1.5 md:h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-yellow-500 rounded-full transition-all duration-500"
                       style={{ width: `${percentage}%` }}
                     ></div>
@@ -269,25 +269,25 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
           </div>
         </div>
       </div>
-      
+
       {/* Add Review Form */}
       <div className="mb-6 md:mb-8 p-3 md:p-4 border border-brand/30 dark:border-gray-700 rounded-lg md:rounded-xl bg-brand/5 dark:bg-gray-800 transition-all duration-300">
         <h3 className="font-semibold text-base md:text-lg mb-2 md:mb-3 text-gray-900 dark:text-gray-100">Write a Review</h3>
-        
+
         {submitSuccess && (
           <div className="mb-3 md:mb-4 p-2 md:p-3 rounded-lg bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 flex items-center gap-1 md:gap-2 animate-fade-in">
             <span>✅</span>
             <span className="text-xs md:text-sm">Review submitted successfully!</span>
           </div>
         )}
-        
+
         {submitError && (
           <div className="mb-3 md:mb-4 p-2 md:p-3 rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 flex items-center gap-1 md:gap-2 animate-shake">
             <span>❌</span>
             <span className="text-xs md:text-sm">{submitError}</span>
           </div>
         )}
-        
+
         <form onSubmit={handleSubmitReview} className="space-y-3 md:space-y-4">
           {/* Star Rating */}
           <div>
@@ -304,12 +304,11 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                   aria-label={`Rate ${star} stars`}
                 >
                   <Star
-                    size={24}
-                    className={`${
-                      star <= newReview.rating 
-                        ? 'text-yellow-500 fill-yellow-500' 
-                        : 'text-gray-300 dark:text-gray-600'
-                    } transition-colors duration-200`}
+                    size={32}
+                    className={`${star <= newReview.rating
+                      ? 'text-yellow-500 fill-yellow-500'
+                      : 'text-gray-300 dark:text-gray-600'
+                      } transition-colors duration-200`}
                   />
                 </button>
               ))}
@@ -320,7 +319,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
               </div>
             )}
           </div>
-          
+
           {/* Review Text */}
           <div>
             <label htmlFor="review-text" className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -330,12 +329,12 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
               id="review-text"
               value={newReview.review_text}
               onChange={(e) => setNewReview(prev => ({ ...prev, review_text: e.target.value }))}
-              rows={3}
+              rows={4}
               className="w-full px-3 py-2 md:px-4 md:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand dark:bg-gray-800 dark:text-white transition-all duration-300 text-xs md:text-sm"
               placeholder="Share your experience with this phone..."
             />
           </div>
-          
+
           {/* Submit Button */}
           <div className="flex justify-end">
             <button
@@ -358,13 +357,13 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
           </div>
         </form>
       </div>
-      
+
       {/* Reviews List */}
       <div>
         <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 text-gray-900 dark:text-gray-100">
           Customer Reviews
         </h3>
-        
+
         {loading ? (
           <div className="space-y-3 md:space-y-4">
             {[...Array(3)].map((_, i) => (
@@ -395,8 +394,8 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
         ) : (
           <div className="space-y-3 md:space-y-4">
             {reviews.map((review) => (
-              <div 
-                key={review.id} 
+              <div
+                key={review.id}
                 className="p-3 md:p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow duration-300 animate-fade-in"
               >
                 {review.isEditing ? (
@@ -418,17 +417,16 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                           >
                             <Star
                               size={20}
-                              className={`${
-                                star <= (review.tempRating || 0)
-                                  ? 'text-yellow-500 fill-yellow-500' 
-                                  : 'text-gray-300 dark:text-gray-600'
-                              } transition-colors duration-200`}
+                              className={`${star <= (review.tempRating || 0)
+                                ? 'text-yellow-500 fill-yellow-500'
+                                : 'text-gray-300 dark:text-gray-600'
+                                } transition-colors duration-200`}
                             />
                           </button>
                         ))}
                       </div>
                     </div>
-                    
+
                     {/* Edit Review Text */}
                     <div>
                       <label htmlFor={`edit-review-text-${review.id}`} className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
@@ -443,7 +441,7 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                         placeholder="Share your experience with this phone..."
                       />
                     </div>
-                    
+
                     {/* Edit Actions */}
                     <div className="flex justify-end gap-1 md:gap-2">
                       <button
@@ -474,11 +472,10 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                             <Star
                               key={i}
                               size={14}
-                              className={`${
-                                i < review.rating 
-                                  ? 'text-yellow-500 fill-yellow-500' 
-                                  : 'text-gray-300 dark:text-gray-600'
-                              }`}
+                              className={`${i < review.rating
+                                ? 'text-yellow-500 fill-yellow-500'
+                                : 'text-gray-300 dark:text-gray-600'
+                                }`}
                             />
                           ))}
                         </div>
@@ -491,14 +488,14 @@ const ReviewsSection: React.FC<ReviewsSectionProps> = ({ phoneSlug, averageRatin
                         <span>{formatDate(review.created_at)}</span>
                       </div>
                     </div>
-                    
+
                     {/* Review Text */}
                     {review.review_text && (
                       <div className="text-gray-700 dark:text-gray-300 mt-1 md:mt-2 text-xs md:text-sm">
                         {review.review_text}
                       </div>
                     )}
-                    
+
                     {/* Edit/Delete Actions - Only show for the review author */}
                     {review.session_id === currentSessionId && (
                       <div className="flex justify-end gap-1 md:gap-2 mt-2 md:mt-3">

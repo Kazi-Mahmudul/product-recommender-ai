@@ -4,31 +4,31 @@ import { Phone } from "../../api/phones";
 // SVG icons (Lucide style, inline for now)
 const icons = {
   Display: (
-    <svg width="22" height="22" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M8 21h8" /></svg>
   ),
   Performance: (
-    <svg width="22" height="22" fill="none" stroke="#0ea5e9" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#0ea5e9" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
   ),
   Camera: (
-    <svg width="22" height="22" fill="none" stroke="#f59e42" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#f59e42" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><circle cx="12" cy="13.5" r="3.5" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
   ),
   Battery: (
-    <svg width="22" height="22" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2" /><path d="M22 11v2" /></svg>
   ),
   Storage: (
-    <svg width="22" height="22" fill="none" stroke="#6366f1" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14"/><path d="M17 5v14"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#6366f1" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 5v14" /><path d="M17 5v14" /></svg>
   ),
   Build: (
-    <svg width="22" height="22" fill="none" stroke="#64748b" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#64748b" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /></svg>
   ),
   OS: (
-    <svg width="22" height="22" fill="none" stroke="#06b6d4" strokeWidth="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#06b6d4" strokeWidth="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 4v16" /></svg>
   ),
   Connectivity: (
-    <svg width="22" height="22" fill="none" stroke="#fbbf24" strokeWidth="2" viewBox="0 0 24 24"><path d="M2 8.82A15.94 15.94 0 0 1 12 4c3.18 0 6.18 1 8.82 2.82"/><path d="M22 15.18A15.94 15.94 0 0 1 12 20c-3.18 0-6.18-1-8.82-2.82"/><path d="M16 12a4 4 0 0 0-8 0"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#fbbf24" strokeWidth="2" viewBox="0 0 24 24"><path d="M2 8.82A15.94 15.94 0 0 1 12 4c3.18 0 6.18 1 8.82 2.82" /><path d="M22 15.18A15.94 15.94 0 0 1 12 20c-3.18 0-6.18-1-8.82-2.82" /><path d="M16 12a4 4 0 0 0-8 0" /></svg>
   ),
   Security: (
-    <svg width="22" height="22" fill="none" stroke="#ef4444" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <svg width="22" height="22" fill="none" stroke="#ef4444" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
   ),
 };
 
@@ -182,18 +182,18 @@ const FullSpecsAccordion: React.FC<FullSpecsAccordionProps> = ({ phone }) => {
             >
               <div className="flex items-center gap-2 md:gap-3">
                 <span className="shrink-0">{cat.icon}</span>
-                <span className="font-semibold text-sm md:text-base truncate text-gray-900 dark:text-white">{cat.key}</span>
+                <span className="font-semibold text-sm md:text-lg truncate text-gray-900 dark:text-white">{cat.key}</span>
               </div>
               <span className={`transition-transform duration-200 ${openIndex === idx ? "rotate-180" : "rotate-0"}`}>
-                <svg width="18" height="18" className="md:w-20 md:h-20" fill="none" stroke="#888" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                <svg width="18" height="18" className="md:w-6 md:h-6" fill="none" stroke="#888" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
               </span>
             </button>
             <div
               className={`overflow-hidden transition-all duration-300 ${openIndex === idx ? "max-h-96 py-1 md:py-2" : "max-h-0 py-0"} ${openIndex === idx ? 'bg-[#f8fafc] dark:bg-gray-800' : ''}`}
             >
-              <ul className="px-3 md:px-8 pb-1 md:pb-2">
+              <ul className="px-3 md:px-4 md:px-8 pb-1 md:pb-2">
                 {specs.map((spec) => (
-                  <li key={spec.label} className="flex justify-between py-1 md:py-2 text-[10px] md:text-sm border-b last:border-b-0 text-gray-700 border-gray-100 dark:text-gray-200 dark:border-gray-800" style={{wordBreak: 'break-word'}}>
+                  <li key={spec.label} className="flex justify-between py-1 md:py-2 text-[10px] md:text-base border-b last:border-b-0 text-gray-700 border-gray-100 dark:text-gray-200 dark:border-gray-800" style={{ wordBreak: 'break-word' }}>
                     <span className="font-medium text-gray-800 dark:text-gray-100 truncate">{spec.label}</span>
                     <span className="text-gray-600 dark:text-gray-300">{String(spec.value)}</span>
                   </li>

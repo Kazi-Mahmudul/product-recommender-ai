@@ -75,8 +75,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <li key={item.path}>
                   <button
                     className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl transition-all duration-200 ${isActive(item.path)
-                        ? 'bg-brand text-white font-medium shadow-md'
-                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      ? 'bg-brand text-white font-medium shadow-md'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                       }`}
                     onClick={() => { onClose(); navigate(item.path); }}
                   >
@@ -96,10 +96,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <li key={item.path}>
                       <button
                         className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl transition-all duration-200 ${isActive(item.path)
-                            ? 'bg-brand text-white font-medium shadow-md'
-                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                          ? 'bg-brand text-white font-medium shadow-md'
+                          : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                           }`}
-                        onClick={() => { onClose(); navigate(item.path); }}
+                        onClick={() => {
+                          onClose();
+                          // Pass current location so user can be redirected back after login
+                          navigate(item.path, { state: { from: location } });
+                        }}
                       >
                         <span className={isActive(item.path) ? 'text-white' : 'text-brand'}>{item.icon}</span>
                         {item.label}

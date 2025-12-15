@@ -24,7 +24,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
   // For carousel, but fallback to single image
   const images = phone.img_url ? [phone.img_url] : ["/no-image-placeholder.svg"];
   const [imgIdx, setImgIdx] = useState(0);
-  
+
   // Use comparison context to check selection state
   const { isPhoneSelected } = useComparison();
   const isSelected = isPhoneSelected(phone.slug!);
@@ -40,9 +40,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
   ];
 
   return (
-    <section className="rounded-xl md:rounded-2xl shadow-lg p-3 md:p-6 flex flex-col gap-4 md:gap-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full">
+    <section className="rounded-xl md:rounded-2xl shadow-lg p-3 md:p-4 sm:md:p-6 flex flex-col md:flex-row items-center gap-4 md:gap-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 w-full">
       {/* Image/Carousel */}
-      <div className="flex flex-col items-center w-full max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm xl:max-w-md mx-auto">
+      <div className="flex flex-col items-center w-full md:w-1/2 max-w-xs sm:max-w-sm md:max-w-xs lg:max-w-sm xl:max-w-md">
         <div className="relative w-full flex justify-center items-center">
           <img
             src={images[imgIdx]}
@@ -87,21 +87,21 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
         )}
       </div>
       {/* Info & Specs */}
-      <div className="flex-1 flex flex-col gap-2 w-full">
+      <div className="flex-1 flex flex-col gap-2 w-full md:w-1/2">
         {/* Name, price, brand, status, release, made by, UI, OS */}
         <div className="mb-2">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1 break-words">{phone.name}</h1>
-          <div className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">Tk. {phone.price}</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] sm:text-xs text-gray-600 dark:text-gray-300 mb-1">
-            <span><FaUser className="inline mr-1 text-gray-400 text-[10px] sm:text-xs" />{phone.brand}</span>
-            {(phone as any).release_date && <span><FaCalendarAlt className="inline mr-1 text-gray-400 text-[10px] sm:text-xs" />{(phone as any).release_date}</span>}
-            {(phone as any).made_by && <span><FaUser className="inline mr-1 text-gray-400 text-[10px] sm:text-xs" />{(phone as any).made_by}</span>}
-            {(phone as any).user_interface && <span><FaMicrochip className="inline mr-1 text-gray-400 text-[10px] sm:text-xs" />{(phone as any).user_interface}</span>}
+          <h1 className="text-lg sm:text-xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1 break-words">{phone.name}</h1>
+          <div className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1">Tk. {phone.price}</div>
+          <div className="flex flex-wrap gap-x-3 md:gap-x-4 gap-y-1 text-[10px] sm:text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-1">
+            <span><FaUser className="inline mr-1 text-gray-400" />{phone.brand}</span>
+            {(phone as any).release_date && <span><FaCalendarAlt className="inline mr-1 text-gray-400" />{(phone as any).release_date}</span>}
+            {(phone as any).made_by && <span><FaUser className="inline mr-1 text-gray-400" />{(phone as any).made_by}</span>}
+            {(phone as any).user_interface && <span><FaMicrochip className="inline mr-1 text-gray-400" />{(phone as any).user_interface}</span>}
             {(phone as any).operating_system && <span><FaMicrochip className="inline mr-1 text-gray-400 text-[10px] sm:text-xs" />{(phone as any).operating_system}</span>}
           </div>
         </div>
         {/* Specs grid */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px] sm:text-xs mb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-x-3 md:gap-x-4 gap-y-2 text-[10px] sm:text-xs md:text-sm mb-2">
           {specs.map(spec => (
             <div key={spec.label} className="flex items-center gap-1 text-gray-700 dark:text-gray-200">
               {spec.icon}
@@ -120,18 +120,17 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
           </button>
           <button
             onClick={onAddToCompare}
-            className={`flex-1 rounded-lg px-2 py-1.5 md:px-3 md:py-2 font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 text-xs md:text-sm ${
-              isSelected
-                ? 'bg-brand hover:bg-brand-darkGreen text-white hover:text-black focus:ring-brand'
-                : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
-            }`}
+            className={`flex-1 rounded-lg px-2 py-1.5 md:px-3 md:py-2 font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 text-xs md:text-sm ${isSelected
+              ? 'bg-brand hover:bg-brand-darkGreen text-white hover:text-black focus:ring-brand'
+              : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
+              }`}
             title={isSelected ? 'Remove from comparison' : 'Add to comparison'}
           >
             {isSelected ? 'Added to Compare' : 'Compare'}
           </button>
         </div>
         {/* Tagline */}
-        <div className="mt-2 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 italic min-h-[1.5em]">
+        <div className="mt-2 text-[10px] sm:text-xs md:text-sm text-gray-500 dark:text-gray-400 italic min-h-[1.5em]">
           {loadingTagline ? <span className="animate-pulse">Generating summary...</span> : tagline}
         </div>
       </div>

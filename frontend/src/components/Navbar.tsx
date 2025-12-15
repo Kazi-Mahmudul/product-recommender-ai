@@ -307,7 +307,8 @@ const Navbar: React.FC<NavbarProps> = ({
                       }`}
                     onClick={() => {
                       setDropdownOpen(false);
-                      navigate(item.path);
+                      // Pass current location so user can be redirected back after login
+                      navigate(item.path, { state: { from: location } });
                     }}
                   >
                     {item.label}

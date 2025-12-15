@@ -29,7 +29,7 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
 }) => {
   const getStageMessage = () => {
     if (message) return message;
-    
+
     switch (stage) {
       case 'sending':
         return 'Sending your query...';
@@ -76,21 +76,17 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
     return (
       <div className={`flex items-center space-x-2 ${compact ? 'py-2' : 'py-3'}`}>
         <div className="flex space-x-1">
-          <div className={`w-2 h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '0ms' }} />
-          <div className={`w-2 h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '150ms' }} />
-          <div className={`w-2 h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '300ms' }} />
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '0ms' }} />
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '150ms' }} />
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '300ms' }} />
         </div>
-        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          AI is typing...
-        </span>
       </div>
     );
   }
 
   return (
-    <div className={`flex items-center space-x-3 ${compact ? 'py-2' : 'py-3 px-4'} ${
-      darkMode ? 'text-gray-300' : 'text-gray-700'
-    }`}>
+    <div className={`flex items-center space-x-3 ${compact ? 'py-2' : 'py-3 px-4'} ${darkMode ? 'text-gray-300' : 'text-gray-700'
+      }`}>
       <div className={`flex-shrink-0 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
         {getStageIcon()}
       </div>
@@ -114,22 +110,17 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
  */
 export const TypingIndicator: React.FC<{ darkMode: boolean }> = ({ darkMode }) => {
   return (
-    <div className={`max-w-xs rounded-2xl px-5 py-3 shadow-md ${
-      darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-800'
-    }`}>
+    <div className={`max-w-xs rounded-2xl px-5 py-3 shadow-md ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-800'
+      }`}>
       <div className="flex items-center space-x-2">
         <div className="flex space-x-1">
-          <div className={`w-2 h-2 rounded-full animate-bounce ${
-            darkMode ? 'bg-gray-400' : 'bg-gray-600'
-          }`} style={{ animationDelay: '0ms' }} />
-          <div className={`w-2 h-2 rounded-full animate-bounce ${
-            darkMode ? 'bg-gray-400' : 'bg-gray-600'
-          }`} style={{ animationDelay: '150ms' }} />
-          <div className={`w-2 h-2 rounded-full animate-bounce ${
-            darkMode ? 'bg-gray-400' : 'bg-gray-600'
-          }`} style={{ animationDelay: '300ms' }} />
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'
+            }`} style={{ animationDelay: '0ms' }} />
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'
+            }`} style={{ animationDelay: '150ms' }} />
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'
+            }`} style={{ animationDelay: '300ms' }} />
         </div>
-        <span className="text-sm">AI is thinking...</span>
       </div>
     </div>
   );
@@ -139,9 +130,9 @@ export const TypingIndicator: React.FC<{ darkMode: boolean }> = ({ darkMode }) =
  * Inline Loading Spinner
  * Small spinner for inline loading states
  */
-export const InlineSpinner: React.FC<{ darkMode: boolean; size?: 'sm' | 'md' | 'lg' }> = ({ 
-  darkMode, 
-  size = 'md' 
+export const InlineSpinner: React.FC<{ darkMode: boolean; size?: 'sm' | 'md' | 'lg' }> = ({
+  darkMode,
+  size = 'md'
 }) => {
   const sizeClasses = {
     sm: 'w-3 h-3',
@@ -150,23 +141,23 @@ export const InlineSpinner: React.FC<{ darkMode: boolean; size?: 'sm' | 'md' | '
   };
 
   return (
-    <svg 
+    <svg
       className={`animate-spin ${sizeClasses[size]} ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-      fill="none" 
+      fill="none"
       viewBox="0 0 24 24"
     >
-      <circle 
-        className="opacity-25" 
-        cx="12" 
-        cy="12" 
-        r="10" 
-        stroke="currentColor" 
-        strokeWidth="4" 
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
       />
-      <path 
-        className="opacity-75" 
-        fill="currentColor" 
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" 
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
       />
     </svg>
   );

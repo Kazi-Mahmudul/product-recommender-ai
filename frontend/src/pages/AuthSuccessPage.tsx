@@ -60,13 +60,31 @@ const AuthSuccessPage: React.FC = () => {
 
             // Redirect logic
             setTimeout(() => {
-              const redirectPath = localStorage.getItem('post_auth_redirect') || '/';
-              localStorage.removeItem('post_auth_redirect');
-              // Force a reload if we just set the token to ensure all contexts pick it up
-              if (urlToken) {
-                window.location.href = redirectPath;
+              // Get stored redirect path from localStorage (set during Google login)
+              const redirectPath = localStorage.getItem('auth_redirect_path') || '/';
+              console.log('AuthSuccessPage - Reading redirect path from localStorage:', redirectPath);
+
+              // Clear the stored path
+              localStorage.removeItem('auth_redirect_path');
+
+              // Redirect based on user role
+              if (userData.is_admin) {
+                console.log('AuthSuccessPage - Admin user, redirecting to /admin');
+                // Admin users always go to admin panel
+                if (urlToken) {
+                  window.location.href = '/admin';
+                } else {
+                  navigate('/admin');
+                }
               } else {
-                navigate(redirectPath);
+                console.log('AuthSuccessPage - Regular user, redirecting to:', redirectPath);
+                // Regular users go to their previous page
+                if (urlToken) {
+                  // Force a reload if we just set the token to ensure all contexts pick it up
+                  window.location.href = redirectPath;
+                } else {
+                  navigate(redirectPath, { replace: true });
+                }
               }
             }, 1500);
 

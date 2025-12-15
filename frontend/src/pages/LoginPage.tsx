@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useAuthAlerts } from "../hooks/useAuthAlerts";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
@@ -14,8 +14,17 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, googleLogin } = useAuth();
   const authAlerts = useAuthAlerts(darkMode);
+
+  // Get the page user was on before being redirected to login
+  // location.state.from is the entire location object, so we need from.pathname
+  const from = (location.state as any)?.from?.pathname || "/";
+
+  // Debug logging (remove in production)
+  console.log('LoginPage - location.state:', location.state);
+  console.log('LoginPage - redirect to:', from);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -26,15 +35,27 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Store redirect path in localStorage BEFORE login attempt
+    // This survives page reloads that might happen during auth
+    localStorage.setItem('auth_redirect_path', from);
+    console.log('Storing redirect path before login:', from);
+
     try {
       const user = await login(form.email, form.password);
       // Show success alert without user data since it will be updated after login
       await authAlerts.showLoginSuccess();
 
+      // Read redirect path from localStorage (in case page reloaded)
+      const redirectPath = localStorage.getItem('auth_redirect_path') || '/';
+      localStorage.removeItem('auth_redirect_path');
+      console.log('Redirecting after login to:', redirectPath);
+
       if (user?.is_admin) {
         navigate("/admin");
       } else {
-        navigate("/");
+        // Redirect to previous page or home
+        navigate(redirectPath, { replace: true });
       }
     } catch (err: any) {
       setError(err.message || "Login failed");
@@ -45,6 +66,8 @@ export default function LoginPage({ darkMode }: LoginPageProps) {
 
   const handleGoogleLogin = async () => {
     try {
+      // Store redirect path in localStorage for OAuth callback
+      localStorage.setItem('auth_redirect_path', from);
       await googleLogin();
       // The function will redirect to Google OAuth page
     } catch (error: any) {

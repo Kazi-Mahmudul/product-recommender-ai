@@ -116,7 +116,36 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
     };
 
     initializeSession();
-  }, [location.state?.initialMessage]); // Run when initial message changes or on mount
+  }, []); // Run only on mount
+
+  // Handle external queries (from home search, comparison AI buttons, etc.)
+  useEffect(() => {
+    const initialMessage = location.state?.initialMessage;
+
+    if (initialMessage && handleSendMessageRef.current) {
+      console.log('External query detected:', initialMessage);
+
+      // Clear previous chat state and create new session
+      chatContextManager.clearSession();
+      const newSessionId = chatContextManager.getSessionId();
+      setSessionId(newSessionId);
+
+      // Clear UI state to show only the new query
+      setRagMessages([]);
+      setChatHistory([]);
+      setShowWelcome(false);
+
+      // Send the external query
+      setTimeout(() => {
+        if (handleSendMessageRef.current) {
+          handleSendMessageRef.current(initialMessage);
+        }
+      }, 100); // Small delay to ensure state is updated
+
+      // Clear the location state to prevent re-sending on re-render
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.initialMessage, navigate, location.pathname]);
 
   const handleSelectSession = async (selectedSessionId: string) => {
     if (!token) return;
@@ -756,9 +785,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                     key={index}
                     className="w-full px-4 border-b border-black/5 dark:border-white/5 last:border-0"
                   >
-                    <div className={`max-w-3xl mx-auto flex gap-5 py-6 ${chat.user ? 'flex-row-reverse' : 'flex-row'}`}>
-                      {/* Avatar */}
-                      <div className="flex-shrink-0 flex flex-col relative items-end">
+                    <div className={`max-w-3xl mx-auto flex gap-3 md:gap-5 py-6 ${chat.user ? 'flex-row-reverse' : ''}`}>
+                      {/* Avatar - Hidden on mobile */}
+                      <div className="hidden md:flex flex-shrink-0 flex-col relative items-end">
                         {chat.user ? (
                           <div className="w-8 h-8 rounded-sm bg-purple-600 flex items-center justify-center text-white font-semibold text-xs overflow-hidden">
                             {user?.profile_picture ? (
@@ -788,7 +817,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
                       {/* Content */}
                       <div className={`relative flex-1 overflow-hidden min-w-0 ${chat.user ? 'text-right' : 'text-left'}`}>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1">
+                        <div className="hidden md:block font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1">
                           {chat.user ? "You" : "Peyechi AI"}
                         </div>
 

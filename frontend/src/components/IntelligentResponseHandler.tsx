@@ -59,7 +59,7 @@ interface IntelligentResponseHandlerProps {
 // Helper function to format response text
 const formatResponseText = (text: string): string => {
   if (!text || typeof text !== 'string') return '';
-  
+
   try {
     // Simple text formatting for response display
     return text
@@ -169,13 +169,13 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
     // Handle other object responses by extracting text-like fields
     if (typeof legacyResponse === 'object' && legacyResponse !== null) {
       // Look for common text fields
-      const textContent = legacyResponse.text || 
-                         legacyResponse.data || 
-                         legacyResponse.content || 
-                         legacyResponse.message ||
-                         legacyResponse.response ||
-                         '';
-      
+      const textContent = legacyResponse.text ||
+        legacyResponse.data ||
+        legacyResponse.content ||
+        legacyResponse.message ||
+        legacyResponse.response ||
+        '';
+
       // If we found text content, use it
       if (textContent) {
         return {
@@ -279,21 +279,20 @@ const IntelligentResponseHandler: React.FC<IntelligentResponseHandlerProps> = ({
 
 // Loading indicator component
 const LoadingIndicator: React.FC<{ darkMode: boolean }> = ({ darkMode }) => (
-  <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
-    darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-  }`}>
-    <div className="flex items-center space-x-3">
-      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand"></div>
-      <span className="text-sm">Thinking...</span>
+  <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+    }`}>
+    <div className="flex items-center space-x-2">
+      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '0ms' }}></div>
+      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '150ms' }}></div>
+      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-bounce ${darkMode ? 'bg-gray-400' : 'bg-gray-600'}`} style={{ animationDelay: '300ms' }}></div>
     </div>
   </div>
 );
 
 // Error display component
 const ErrorDisplay: React.FC<{ darkMode: boolean; message: string }> = ({ darkMode, message }) => (
-  <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
-    darkMode ? 'bg-red-900/20 text-red-200' : 'bg-red-50 text-red-800'
-  }`}>
+  <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${darkMode ? 'bg-red-900/20 text-red-200' : 'bg-red-50 text-red-800'
+    }`}>
     <p className="text-sm">{message}</p>
   </div>
 );
@@ -306,21 +305,20 @@ const PhoneSearchResponse: React.FC<{
   responseType: string;
   onSuggestionClick?: (suggestion: Suggestion) => void;
 }> = ({ content, formatting, darkMode, responseType, onSuggestionClick }) => {
-  
+
   if (responseType === 'phone_details' && content.phone) {
     // Single phone details view
     const phone = content.phone;
-    
+
     return (
-      <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
-        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-      }`}>
+      <div className={`rounded-2xl px-3 md:px-5 py-3 md:py-4 max-w-2xl shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+        }`}>
         {content.text && (
           <div className="mb-4">
             <div dangerouslySetInnerHTML={{ __html: formatResponseText(content.text) }} />
           </div>
         )}
-        
+
         {/* Phone Card */}
         <div className="mb-4">
           <ChatPhoneCard
@@ -330,7 +328,7 @@ const PhoneSearchResponse: React.FC<{
             compactMode={false}
           />
         </div>
-        
+
         {/* Suggestions */}
         {content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0 && (
           <div className="mt-4">
@@ -340,11 +338,10 @@ const PhoneSearchResponse: React.FC<{
                 <button
                   key={index}
                   onClick={() => onSuggestionClick?.({ query: suggestion })}
-                  className={`px-3 py-1 rounded-full text-xs border transition ${
-                    darkMode
-                      ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
-                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${darkMode
+                    ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                    }`}
                 >
                   {suggestion}
                 </button>
@@ -355,21 +352,20 @@ const PhoneSearchResponse: React.FC<{
       </div>
     );
   }
-  
+
   if (responseType === 'phone_search_results' && content.phones) {
     // Multiple phones search results
     return (
-      <div className={`rounded-2xl px-5 py-4 max-w-2xl shadow-md ${
-        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-      }`}>
+      <div className={`rounded-2xl px-3 md:px-5 py-3 md:py-4 max-w-2xl shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+        }`}>
         {content.text && (
           <div className="mb-4">
             <div dangerouslySetInnerHTML={{ __html: formatResponseText(content.text) }} />
           </div>
         )}
-        
+
         {/* Phone Results */}
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-1">
           {content.phones.map((phone: any, index: number) => (
             <ChatPhoneCard
               key={phone.id || index}
@@ -380,7 +376,7 @@ const PhoneSearchResponse: React.FC<{
             />
           ))}
         </div>
-        
+
         {/* Not found phones */}
         {content.not_found && content.not_found.length > 0 && (
           <div className="mt-4 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
@@ -389,7 +385,7 @@ const PhoneSearchResponse: React.FC<{
             </p>
           </div>
         )}
-        
+
         {/* Suggestions */}
         {content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0 && (
           <div className="mt-4">
@@ -399,11 +395,10 @@ const PhoneSearchResponse: React.FC<{
                 <button
                   key={index}
                   onClick={() => onSuggestionClick?.({ query: suggestion })}
-                  className={`px-3 py-1 rounded-full text-xs border transition ${
-                    darkMode
-                      ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
-                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${darkMode
+                    ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                    }`}
                 >
                   {suggestion}
                 </button>
@@ -414,7 +409,7 @@ const PhoneSearchResponse: React.FC<{
       </div>
     );
   }
-  
+
   // Fallback to text response
   return (
     <TextResponse
@@ -436,13 +431,13 @@ const TextResponse: React.FC<{
 }> = ({ content, formatting, darkMode, onSuggestionClick, isWelcomeMessage = false }) => {
   const textStyle = formatting?.text_style || 'conversational';
   const showSuggestions = formatting?.show_suggestions && content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0;
-  
+
   // Extract actionable items from text
   const extractActionableItems = (text: string) => {
     if (!text || typeof text !== 'string') {
       return [];
     }
-    
+
     const actionablePatterns = [
       /compare\s+([^.!?]+)/gi,
       /check\s+out\s+([^.!?]+)/gi,
@@ -450,7 +445,7 @@ const TextResponse: React.FC<{
       /look\s+at\s+([^.!?]+)/gi,
       /try\s+([^.!?]+)/gi
     ];
-    
+
     const items: string[] = [];
     actionablePatterns.forEach(pattern => {
       try {
@@ -462,10 +457,10 @@ const TextResponse: React.FC<{
         console.warn('Error matching pattern:', pattern, error);
       }
     });
-    
+
     return items.slice(0, 3); // Limit to 3 actionable items
   };
-  
+
   const actionableItems = content?.text && typeof content.text === 'string' ? extractActionableItems(content.text) : [];
 
   const formatText = (text: string) => {
@@ -497,7 +492,7 @@ const TextResponse: React.FC<{
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        
+
         // Handle bullet points
         if (line.startsWith('• ') || line.startsWith('- ') || line.match(/^\d+\.\s/)) {
           if (!inList) {
@@ -510,14 +505,14 @@ const TextResponse: React.FC<{
           // End of list
           if (inList) {
             const listType = lines[i - 1]?.match(/^\d+\./) ? 'ol' : 'ul';
-            const listClass = listType === 'ol' 
-              ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
+            const listClass = listType === 'ol'
+              ? 'list-decimal list-inside space-y-1 my-2 ml-4'
               : 'list-disc list-inside space-y-1 my-2 ml-4';
             processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
             inList = false;
             listItems = [];
           }
-          
+
           // Handle headers
           if (line.startsWith('# ')) {
             processedLines.push(`<h1 class="text-xl font-bold mt-4 mb-2">${line.substring(2)}</h1>`);
@@ -538,8 +533,8 @@ const TextResponse: React.FC<{
       if (inList && listItems.length > 0) {
         const lastLine = lines[lines.length - 1];
         const listType = lastLine?.match(/^\d+\./) ? 'ol' : 'ul';
-        const listClass = listType === 'ol' 
-          ? 'list-decimal list-inside space-y-1 my-2 ml-4' 
+        const listClass = listType === 'ol'
+          ? 'list-decimal list-inside space-y-1 my-2 ml-4'
           : 'list-disc list-inside space-y-1 my-2 ml-4';
         processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
       }
@@ -552,32 +547,28 @@ const TextResponse: React.FC<{
   };
 
   return (
-    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-2xl w-full shadow-md ${
-      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-    }`}>
-      <div 
-        className={`text-sm sm:text-base leading-relaxed break-words ${
-          textStyle === 'error' ? 'text-red-500' : ''
-        } ${textStyle === 'detailed' ? 'text-xs sm:text-sm' : ''}`}
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-2xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+      <div
+        className={`text-sm sm:text-base leading-relaxed break-words ${textStyle === 'error' ? 'text-red-500' : ''
+          } ${textStyle === 'detailed' ? 'text-xs sm:text-sm' : ''}`}
         dangerouslySetInnerHTML={{ __html: formatText(content.text || '') }}
       />
-      
+
       {/* Actionable Items */}
       {!isWelcomeMessage && actionableItems.length > 0 && (
-        <div className={`mt-3 p-3 rounded-lg border-l-4 border-brand ${
-          darkMode ? 'bg-gray-800/50' : 'bg-blue-50'
-        }`}>
+        <div className={`mt-3 p-3 rounded-lg border-l-4 border-brand ${darkMode ? 'bg-gray-800/50' : 'bg-blue-50'
+          }`}>
           <h4 className="text-sm font-medium mb-2 text-brand">Quick Actions:</h4>
           <div className="space-y-1">
             {actionableItems.filter(item => typeof item === 'string' && item.trim()).map((item, index) => (
               <button
                 key={index}
                 onClick={() => onSuggestionClick?.({ query: String(item).replace(/^(compare|check out|consider|look at|try)\s+/i, '') })}
-                className={`block text-left text-xs p-2 rounded transition ${
-                  darkMode
-                    ? 'hover:bg-gray-700 text-gray-300'
-                    : 'hover:bg-blue-100 text-gray-700'
-                }`}
+                className={`block text-left text-xs p-2 rounded transition ${darkMode
+                  ? 'hover:bg-gray-700 text-gray-300'
+                  : 'hover:bg-blue-100 text-gray-700'
+                  }`}
               >
                 💡 {item}
               </button>
@@ -585,7 +576,7 @@ const TextResponse: React.FC<{
           </div>
         </div>
       )}
-      
+
       {showSuggestions && content.suggestions && Array.isArray(content.suggestions) && (
         <div className="mt-4">
           <h4 className="text-xs font-medium mb-2 text-gray-500 dark:text-gray-400">Suggestions:</h4>
@@ -593,18 +584,17 @@ const TextResponse: React.FC<{
             {content.suggestions
               .filter((suggestion: any) => suggestion && typeof suggestion === 'string' && suggestion.trim())
               .map((suggestion: string, index: number) => (
-              <button
-                key={index}
-                onClick={() => onSuggestionClick?.({ query: suggestion })}
-                className={`px-3 py-1 rounded-full text-xs border transition ${
-                  darkMode
+                <button
+                  key={index}
+                  onClick={() => onSuggestionClick?.({ query: suggestion })}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${darkMode
                     ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
                     : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-                }`}
-              >
-                {suggestion}
-              </button>
-            ))}
+                    }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
           </div>
         </div>
       )}
@@ -624,9 +614,8 @@ const RecommendationResponse: React.FC<{
 
   if (!content || phones.length === 0) {
     return (
-      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${
-        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-      }`}>
+      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+        }`}>
         <p className="text-sm sm:text-base leading-relaxed">No recommendations available at the moment.</p>
       </div>
     );
@@ -638,20 +627,18 @@ const RecommendationResponse: React.FC<{
   const remainingPhones = showTopResult ? phones.slice(1) : phones;
 
   return (
-    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${
-      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-    }`}>
-      <div 
+    <div className={`rounded-2xl px-3 sm:px-5 py-4 max-w-6xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
+      <div
         className="text-sm sm:text-base leading-relaxed mb-4 break-words"
         dangerouslySetInnerHTML={{ __html: formatResponseText(displayText) }}
       />
-      
+
       {/* Top Result (if applicable) */}
       {topPhone && (
         <div className="mb-6">
-          <h3 className={`text-lg font-semibold mb-3 ${
-            darkMode ? 'text-white' : 'text-gray-900'
-          }`}>
+          <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'
+            }`}>
             🏆 Top Recommendation
           </h3>
           <div className="flex justify-center">
@@ -663,18 +650,17 @@ const RecommendationResponse: React.FC<{
           </div>
         </div>
       )}
-      
+
       {/* Other Recommendations */}
       {remainingPhones.length > 0 && (
         <div>
           {topPhone && (
-            <h3 className={`text-base font-medium mb-3 ${
-              darkMode ? 'text-gray-300' : 'text-gray-700'
-            }`}>
+            <h3 className={`text-base font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
               Other Great Options
             </h3>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {remainingPhones
               .filter((phone: any) => phone && typeof phone === 'object')
               .map((phone: any, index: number) => (
@@ -695,15 +681,14 @@ const RecommendationResponse: React.FC<{
           Showing {phones.length} of {metadata.phone_count} results
         </p>
       )}
-      
+
       {/* AI Confidence Indicator */}
       {metadata?.ai_confidence && (
-        <div className={`mt-3 text-xs flex items-center gap-2 ${
-          darkMode ? 'text-gray-400' : 'text-gray-600'
-        }`}>
+        <div className={`mt-3 text-xs flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
           <span>🤖 AI Confidence:</span>
           <div className={`flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 max-w-24`}>
-            <div 
+            <div
               className="bg-brand h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${Math.min(metadata.ai_confidence * 100, 100)}%` }}
             />
@@ -744,12 +729,12 @@ const SimpleComparisonTable: React.FC<{
     };
     return units[featureKey] || "";
   };
-  
+
   // Find the best value in each feature
   const bestValues = features.map(feature => {
     const values = (feature.values || feature.raw)?.filter((v: any) => v !== null && v !== undefined) || [];
     if (values.length === 0) return null;
-    
+
     // For most features, higher is better, but for price, lower is better
     if (feature.key?.toLowerCase().includes('price')) {
       return Math.min(...values.map((v: any) => Number(v)).filter((v: number) => !isNaN(v)));
@@ -757,14 +742,13 @@ const SimpleComparisonTable: React.FC<{
       return Math.max(...values.map((v: any) => Number(v)).filter((v: number) => !isNaN(v)));
     }
   });
-  
+
   return (
     <div className="min-w-full">
       <table className="w-full text-sm">
         <thead>
-          <tr className={`border-b ${
-            darkMode ? 'border-gray-700' : 'border-gray-200'
-          }`}>
+          <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
             <th className="text-left py-3 px-3 font-semibold">Feature</th>
             {phones.map((phone, index) => (
               <th key={index} className="text-center py-3 px-3 min-w-32">
@@ -781,9 +765,8 @@ const SimpleComparisonTable: React.FC<{
             const bestValue = bestValues[featureIndex];
             const unit = getUnit(feature.key);
             return (
-              <tr key={featureIndex} className={`border-b ${
-                darkMode ? 'border-gray-700/50' : 'border-gray-200/50'
-              }`}>
+              <tr key={featureIndex} className={`border-b ${darkMode ? 'border-gray-700/50' : 'border-gray-200/50'
+                }`}>
                 <td className="py-3 px-3 font-medium">
                   {feature.label}
                   {unit && (
@@ -792,23 +775,22 @@ const SimpleComparisonTable: React.FC<{
                 </td>
                 {(feature.values || feature.raw)?.map((value: any, phoneIndex: number) => {
                   // Check if this is the best value for this feature
-                  const isBest = value !== null && value !== undefined && 
-                                bestValue !== null && 
-                                Number(value) === Number(bestValue);
-                  
+                  const isBest = value !== null && value !== undefined &&
+                    bestValue !== null &&
+                    Number(value) === Number(bestValue);
+
                   // For price features, we want to indicate the best (lowest) price differently
                   const isPriceFeature = feature.key?.toLowerCase().includes('price');
                   const isBestPrice = isPriceFeature && isBest;
-                  
+
                   return (
                     <td key={phoneIndex} className="py-3 px-3 text-center">
-                      <span className={`text-sm ${isBest ? 'font-bold' : ''} ${
-                        isBestPrice 
-                          ? 'text-green-600 dark:text-green-400'  // Green for best price (lowest)
-                          : isBest 
-                            ? 'text-blue-600 dark:text-blue-400'  // Blue for other best values (highest)
-                            : ''
-                      }`}>
+                      <span className={`text-sm ${isBest ? 'font-bold' : ''} ${isBestPrice
+                        ? 'text-green-600 dark:text-green-400'  // Green for best price (lowest)
+                        : isBest
+                          ? 'text-blue-600 dark:text-blue-400'  // Blue for other best values (highest)
+                          : ''
+                        }`}>
                         {value !== null && value !== undefined ? value : 'N/A'}
                         {isBest && (
                           <span className="ml-1">
@@ -846,30 +828,29 @@ const ComparisonResponse: React.FC<{
   // If we have enough phones and should show advanced visualization
   if (showChartVisualization && phones.length >= 2) {
     return (
-      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-7xl w-full shadow-md ${
-        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-      }`}>
+      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-7xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+        }`}>
         {summary && (
-          <div 
+          <div
             className="text-sm sm:text-base leading-relaxed mb-4 break-words"
             dangerouslySetInnerHTML={{ __html: formatResponseText(summary) }}
           />
         )}
-        
+
         <ChartVisualization
           phones={phones as Phone[]}
           darkMode={darkMode}
           onBackToSimple={() => setViewMode('simple')}
         />
-        
+
         {/* AI-Generated Comparison Summary and Recommendation */}
         {phones.length >= 2 && (
-          <AIVerdictSection 
-            phones={phones as Phone[]} 
-            darkMode={darkMode} 
+          <AIVerdictSection
+            phones={phones as Phone[]}
+            darkMode={darkMode}
           />
         )}
-        
+
         {formatting?.show_drill_down && (
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -878,11 +859,10 @@ const ComparisonResponse: React.FC<{
                 command: 'full_specs',
                 target: 'all_specs'
               })}
-              className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
-                darkMode
-                  ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
-                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-              }`}
+              className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${darkMode
+                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                }`}
             >
               📋 Full Specifications
             </button>
@@ -892,11 +872,10 @@ const ComparisonResponse: React.FC<{
                 command: 'detail_focus',
                 target: 'analysis'
               })}
-              className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
-                darkMode
-                  ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
-                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-              }`}
+              className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${darkMode
+                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+                }`}
             >
               🔍 Detailed Analysis
             </button>
@@ -908,16 +887,15 @@ const ComparisonResponse: React.FC<{
 
   // Simple comparison view with option to switch to chart
   return (
-    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${
-      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-    }`}>
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
       {summary && (
-        <div 
+        <div
           className="text-sm sm:text-base leading-relaxed mb-4 break-words"
           dangerouslySetInnerHTML={{ __html: formatResponseText(summary) }}
         />
       )}
-      
+
       {/* Quick comparison cards */}
       {phones.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
@@ -934,31 +912,30 @@ const ComparisonResponse: React.FC<{
           }
         </div>
       )}
-      
+
       {/* AI-Generated Comparison Summary and Recommendation */}
       {phones.length >= 2 && (
-        <AIVerdictSection 
-          phones={phones as Phone[]} 
-          darkMode={darkMode} 
+        <AIVerdictSection
+          phones={phones as Phone[]}
+          darkMode={darkMode}
         />
       )}
-      
+
       {/* Switch to chart view button */}
       {phones.length >= 2 && (
         <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => setViewMode('chart')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-              darkMode
-                ? 'bg-brand hover:bg-brand-darkGreen text-white'
-                : 'bg-brand hover:bg-brand-darkGreen text-white'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${darkMode
+              ? 'bg-brand hover:bg-brand-darkGreen text-white'
+              : 'bg-brand hover:bg-brand-darkGreen text-white'
+              }`}
           >
             📊 Interactive Chart View
           </button>
         </div>
       )}
-      
+
       {/* Simple comparison table (if features provided) */}
       {features.length > 0 && (
         <div className="overflow-x-auto">
@@ -978,11 +955,10 @@ const ComparisonResponse: React.FC<{
               command: 'full_specs',
               target: 'all_specs'
             })}
-            className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
-              darkMode
-                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
-                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-            }`}
+            className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${darkMode
+              ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+              : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+              }`}
           >
             📋 Full Specifications
           </button>
@@ -992,11 +968,10 @@ const ComparisonResponse: React.FC<{
               command: 'detail_focus',
               target: 'analysis'
             })}
-            className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${
-              darkMode
-                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
-                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-            }`}
+            className={`px-3 py-1.5 rounded-full text-xs border font-medium transition ${darkMode
+              ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
+              : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
+              }`}
           >
             🔍 Detailed Analysis
           </button>
@@ -1018,17 +993,17 @@ const AIVerdictSection: React.FC<{
   useEffect(() => {
     const generateVerdict = async () => {
       if (phones.length < 2) return;
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Build a prompt for the AI to generate a compact comparison summary
         const phoneNames = phones.map(p => p.name).join(' vs ');
-        const phoneDescriptions = phones.map(p => 
+        const phoneDescriptions = phones.map(p =>
           `${p.name}: ${p.brand} phone with ${p.ram_gb || 'N/A'}GB RAM, ${p.storage_gb || 'N/A'}GB storage, ${p.primary_camera_mp || 'N/A'}MP camera, ${p.battery_capacity_numeric || 'N/A'}mAh battery, priced at ৳${p.price_original || 'N/A'}`
         ).join('\n');
-        
+
         const prompt = `As a smartphone expert, provide a concise one or two sentence comparison summary for these phones:
 ${phoneDescriptions}
 
@@ -1037,10 +1012,10 @@ Focus on the key differences and provide a clear recommendation. Keep it brief a
         // In a real implementation, this would call your AI service
         // For now, we'll simulate a compact response
         const simulatedResponse = `The ${phones[0].name} offers better value with its ${phones[0].primary_camera_mp || 'high'}MP camera and ${phones[0].battery_capacity_numeric || 'large'}mAh battery, while the ${phones[1].name} excels in performance. For most users, the ${phones[0].name} provides the best balance of features and price.`;
-        
+
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 800));
-        
+
         setVerdict(simulatedResponse);
       } catch (err) {
         setError('Failed to generate AI comparison summary. Please try again.');
@@ -1098,34 +1073,30 @@ const SpecsResponse: React.FC<{
 
   if (!content || phones.length === 0) {
     return (
-      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${
-        darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-      }`}>
+      <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-5xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+        }`}>
         <p className="text-sm sm:text-base leading-relaxed">No phone specifications available at the moment.</p>
       </div>
     );
   }
 
   return (
-    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${
-      darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
-    }`}>
+    <div className={`rounded-2xl px-4 sm:px-5 py-4 max-w-6xl w-full shadow-md ${darkMode ? 'bg-[#181818] text-gray-200' : 'bg-[#f7f3ef] text-gray-900'
+      }`}>
       {/* Main message */}
-      <div 
+      <div
         className="text-sm sm:text-base leading-relaxed mb-4 break-words"
         dangerouslySetInnerHTML={{ __html: formatResponseText(displayText) }}
       />
-      
+
       {/* Prominent guidance section */}
-      <div className={`mb-6 p-4 rounded-xl border-2 border-dashed ${
-        darkMode 
-          ? 'border-blue-400 bg-blue-900/20 text-blue-200' 
-          : 'border-blue-500 bg-blue-50 text-blue-800'
-      }`}>
+      <div className={`mb-6 p-4 rounded-xl border-2 border-dashed ${darkMode
+        ? 'border-blue-400 bg-blue-900/20 text-blue-200'
+        : 'border-blue-500 bg-blue-50 text-blue-800'
+        }`}>
         <div className="flex items-center gap-3 mb-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            darkMode ? 'bg-blue-400' : 'bg-blue-500'
-          }`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-blue-400' : 'bg-blue-500'
+            }`}>
             <span className="text-white text-lg">📱</span>
           </div>
           <h3 className="text-lg font-semibold">
@@ -1133,16 +1104,15 @@ const SpecsResponse: React.FC<{
           </h3>
         </div>
         <p className="text-sm leading-relaxed mb-3">
-          Click the <span className={`px-2 py-1 rounded-full font-semibold ${
-            darkMode ? 'bg-green-400 text-green-900' : 'bg-green-500 text-white'
-          }`}>"View Details"</span> button on any phone card below to see complete specifications, detailed features, and comprehensive reviews.
+          Click the <span className={`px-2 py-1 rounded-full font-semibold ${darkMode ? 'bg-green-400 text-green-900' : 'bg-green-500 text-white'
+            }`}>"View Details"</span> button on any phone card below to see complete specifications, detailed features, and comprehensive reviews.
         </p>
         <div className="flex items-center gap-2 text-xs opacity-75">
           <span>🔍</span>
           <span>Each phone page contains all the technical details you need</span>
         </div>
       </div>
-      
+
       {/* Phone Cards Grid */}
       <div className="space-y-4">
         {phones
@@ -1151,14 +1121,13 @@ const SpecsResponse: React.FC<{
             // Add pulsing animation to the first phone as an example
             const isFirstPhone = index === 0;
             return (
-              <div 
+              <div
                 key={phone.id || phone.name || index}
                 className={`${isFirstPhone ? 'relative' : ''}`}
               >
                 {isFirstPhone && (
-                  <div className={`absolute -inset-2 rounded-2xl animate-pulse ${
-                    darkMode ? 'bg-green-400/20' : 'bg-green-500/20'
-                  } -z-10`} />
+                  <div className={`absolute -inset-2 rounded-2xl animate-pulse ${darkMode ? 'bg-green-400/20' : 'bg-green-500/20'
+                    } -z-10`} />
                 )}
                 <div className="flex justify-center">
                   <ChatPhoneCard
@@ -1169,11 +1138,10 @@ const SpecsResponse: React.FC<{
                 </div>
                 {isFirstPhone && (
                   <div className="flex justify-center mt-2">
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                      darkMode 
-                        ? 'bg-green-400/20 text-green-300 border border-green-400/30'
-                        : 'bg-green-100 text-green-700 border border-green-300'
-                    }`}>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${darkMode
+                      ? 'bg-green-400/20 text-green-300 border border-green-400/30'
+                      : 'bg-green-100 text-green-700 border border-green-300'
+                      }`}>
                       <span className="animate-bounce">👆</span>
                       <span>Try clicking "View Details" here!</span>
                     </div>
@@ -1184,25 +1152,24 @@ const SpecsResponse: React.FC<{
           })
         }
       </div>
-      
+
       {/* Additional guidance footer */}
-      <div className={`mt-6 p-3 rounded-lg border-l-4 ${
-        darkMode 
-          ? 'border-yellow-400 bg-yellow-900/20 text-yellow-200'
-          : 'border-yellow-500 bg-yellow-50 text-yellow-800'
-      }`}>
+      <div className={`mt-6 p-3 rounded-lg border-l-4 ${darkMode
+        ? 'border-yellow-400 bg-yellow-900/20 text-yellow-200'
+        : 'border-yellow-500 bg-yellow-50 text-yellow-800'
+        }`}>
         <div className="flex items-start gap-3">
           <span className="text-lg">💡</span>
           <div className="text-sm">
             <p className="font-medium mb-1">Pro Tip:</p>
             <p className="leading-relaxed">
-              Each phone's detail page includes comprehensive specifications, performance scores, 
+              Each phone's detail page includes comprehensive specifications, performance scores,
               user reviews, and comparison tools. You can also add phones to compare side-by-side!
             </p>
           </div>
         </div>
       </div>
-      
+
       {/* Suggestions */}
       {content.suggestions && Array.isArray(content.suggestions) && content.suggestions.length > 0 && (
         <div className="mt-4">
@@ -1211,18 +1178,17 @@ const SpecsResponse: React.FC<{
             {content.suggestions
               .filter((suggestion: any) => suggestion && typeof suggestion === 'string' && suggestion.trim())
               .map((suggestion: string, index: number) => (
-              <button
-                key={index}
-                onClick={() => onSuggestionClick?.({ query: suggestion })}
-                className={`px-3 py-1 rounded-full text-xs border transition ${
-                  darkMode
+                <button
+                  key={index}
+                  onClick={() => onSuggestionClick?.({ query: suggestion })}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${darkMode
                     ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-brand hover:text-white'
                     : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-brand hover:text-white'
-                }`}
-              >
-                {suggestion}
-              </button>
-            ))}
+                    }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
           </div>
         </div>
       )}

@@ -233,11 +233,11 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         {/* Error state with network detection and invalid phone ID detection */}
         {error && !loading && (
           <RecommendationFallback
-              error={error}
-              retry={handleRetry}
-              isNetworkError={isNetworkError}
-              isInvalidPhoneSlug={isInvalidPhoneSlug}
-            />
+            error={error}
+            retry={handleRetry}
+            isNetworkError={isNetworkError}
+            isInvalidPhoneSlug={isInvalidPhoneSlug}
+          />
         )}
 
         {/* Empty state with graceful degradation */}
@@ -256,7 +256,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         {!loading && !error && validRecommendations.length > 0 && (
           <div
             ref={containerRef}
-            className="flex flex-nowrap gap-3 md:gap-4 overflow-x-auto md:overflow-x-visible pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+            className="flex flex-nowrap md:flex-wrap gap-3 md:gap-4 overflow-x-auto md:overflow-x-visible pb-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
             role="region"
             aria-label="Phone recommendations"
             onKeyDown={handleKeyDown}

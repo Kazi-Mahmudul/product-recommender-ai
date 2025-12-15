@@ -9,13 +9,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({ children }) => (
     {/* Decorative background elements */}
     <div className="absolute top-20 left-1/4 w-64 h-64 rounded-full bg-brand/10 filter blur-3xl animate-float"></div>
     <div className="absolute bottom-20 right-1/4 w-80 h-80 rounded-full bg-accent/10 filter blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-    
+
     {/* Decorative shapes */}
     <div className="absolute top-40 right-[15%] w-12 h-12 rounded-full border-4 border-brand opacity-20 animate-float" style={{ animationDelay: '1s' }}></div>
     <div className="absolute bottom-32 left-[20%] w-8 h-8 rounded-md rotate-45 border-4 border-accent/60 opacity-30 animate-float" style={{ animationDelay: '3s' }}></div>
-    
+
     <div className="max-w-3xl w-full text-center relative z-10">
-      <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-brand/10 text-brand dark:text-brand font-medium text-sm">
+      <div className="inline-block mb-4 px-4 py-1.5 md:py-4 rounded-full bg-brand/10 text-brand dark:text-brand font-medium text-sm">
         AI-Powered Smartphone Recommendations
       </div>
       <h1 className="text-4xl md:text-6xl font-bold mb-6 text-peyechi-darkGray dark:text-peyechi-offWhite leading-tight">
@@ -25,7 +25,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ children }) => (
         Get personalized phone recommendations based on your preferences, budget, and usage patterns. Powered by AI to help you make the smart choice.
       </p>
       {children}
-      
+
       {/* Feature highlights */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 max-w-2xl mx-auto">
         {[

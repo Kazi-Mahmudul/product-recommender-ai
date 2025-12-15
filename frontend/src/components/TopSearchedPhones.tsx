@@ -23,7 +23,7 @@ const sliderSettings = {
   responsive: [
     {
       breakpoint: 1536, // 2xl screens
-      settings: { 
+      settings: {
         slidesToShow: 4,
         swipeToSlide: true,
         draggable: true
@@ -31,7 +31,7 @@ const sliderSettings = {
     },
     {
       breakpoint: 1280, // xl screens
-      settings: { 
+      settings: {
         slidesToShow: 3,
         swipeToSlide: true,
         draggable: true
@@ -39,7 +39,7 @@ const sliderSettings = {
     },
     {
       breakpoint: 1024, // lg screens
-      settings: { 
+      settings: {
         slidesToShow: 2,
         swipeToSlide: true,
         draggable: true
@@ -92,7 +92,7 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
       <section className="w-full max-w-6xl mx-auto px-1 py-1 md:px-8 md:py-8">
         <div className="flex items-center justify-between mb-2 md:mb-8">
           <h2 className="text-base md:text-3xl font-bold text-neutral-700 dark:text-white">
-            Top Searched Phones in Bangladesh
+            Top Searched in Bangladesh
           </h2>
         </div>
         <div className="flex justify-center items-center py-3 md:py-20">

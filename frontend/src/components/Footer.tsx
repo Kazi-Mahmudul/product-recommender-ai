@@ -78,52 +78,54 @@ export default function Footer() {
               ))}
             </div>
           </div>
-          
+
           {/* Quick Links Column */}
-          <div>
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-3 sm:mb-4 md:mb-6">
-              Quick Links
-            </h3>
-            <ul className="space-y-1 sm:space-y-2">
-              {footerLinks.map(link => (
-                <li key={link.label}>
-                  <a 
-                    href={link.href} 
-                    className="text-xs sm:text-sm md:text-base text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200 py-1 block touch-manipulation"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Contact Column */}
-          <div>
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-3 sm:mb-4 md:mb-6">
-              Contact Us
-            </h3>
-            <ul className="space-y-2 sm:space-y-3">
-              {contactInfo.map(item => (
-                <li key={item.label} className="flex items-start gap-1.5 sm:gap-2">
-                  <span className="text-brand mt-0.5 flex-shrink-0">{item.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] sm:text-xs md:text-sm font-medium text-peyechi-darkGray dark:text-peyechi-offWhite">
-                      {item.label}
-                    </p>
-                    <p className="text-[10px] sm:text-xs md:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 break-words">
-                      {item.value}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <div className='flex flex-row justify-center md:justify-between items-center gap-4 '>
+            <div>
+              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-3 sm:mb-4 md:mb-6">
+                Quick Links
+              </h3>
+              <ul className="space-y-1 sm:space-y-2">
+                {footerLinks.map(link => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      className="text-xs sm:text-sm md:text-base text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 hover:text-brand dark:hover:text-brand transition-colors duration-200 py-1 block touch-manipulation"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Contact Column */}
+            <div>
+              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-peyechi-darkGray dark:text-peyechi-offWhite mb-3 sm:mb-4 md:mb-6">
+                Contact Us
+              </h3>
+              <ul className="space-y-2 sm:space-y-3">
+                {contactInfo.map(item => (
+                  <li key={item.label} className="flex items-start gap-1.5 sm:gap-2">
+                    <span className="text-brand mt-0.5 flex-shrink-0">{item.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] sm:text-xs md:text-sm font-medium text-peyechi-darkGray dark:text-peyechi-offWhite">
+                        {item.label}
+                      </p>
+                      <p className="text-[10px] sm:text-xs md:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 break-words">
+                        {item.value}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
-        
+
         {/* Divider */}
         <div className="h-px bg-peyechi-lightGray/70 dark:bg-peyechi-darkGray/30 my-4 sm:my-6"></div>
-        
+
         {/* Footer Bottom */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3">
           <div className="text-[10px] sm:text-xs md:text-sm text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 text-center sm:text-left">

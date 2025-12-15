@@ -93,95 +93,69 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
   return isTopResult ? (
     // Top result card - larger with more details
     <div
-      className={`rounded-2xl shadow-lg p-6 flex flex-col md:flex-row items-center gap-6 mx-auto w-full max-w-md 
+      className={`rounded-xl md:rounded-2xl shadow-lg p-3 md:p-6 flex flex-col md:flex-row items-center gap-3 md:gap-6 mx-auto w-full max-w-md 
         ${darkMode ? "bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700" : "bg-gradient-to-br from-white to-gray-50 border-[#eae4da]"} border
         cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.01]`}
       onClick={handleViewDetails}
     >
       <div className="relative">
-        <div className={`w-28 md:w-40 h-36 md:h-48 rounded-xl flex items-center justify-center ${darkMode ? "bg-gray-700" : "bg-white border border-gray-200"} border`}>
+        <div className={`w-24 md:w-40 h-32 md:h-48 rounded-xl flex items-center justify-center ${darkMode ? "bg-gray-700" : "bg-white border border-gray-200"} border`}>
           <img
             src={phone.img_url || phone.image || "/phone.png"}
             alt={phone.name}
-            className="w-24 md:w-32 h-32 md:h-40 object-contain transition-transform duration-300 hover:scale-105"
+            className="w-20 md:w-32 h-28 md:h-40 object-contain transition-transform duration-300 hover:scale-105"
           />
         </div>
-        <div className="absolute -top-2 -left-2 px-2 py-0.5 rounded-full bg-brand text-white text-xs font-medium">
-          {phone.brand}
-        </div>
-        {/* Show relevance score if available, otherwise show overall score */}
-        {showRelevanceScore && relevanceScore ? (
-          <div className={`absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white bg-brand backdrop-blur-sm`}>
-            <span>🎯</span>
-            {(relevanceScore * 100).toFixed(0)}%
-          </div>
-        ) : phone.overall_device_score && (
-          <div className={`absolute -top-2 -right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${getScoreColor(phone.overall_device_score)} ${darkMode ? "bg-gray-900/80" : "bg-white/80"} backdrop-blur-sm`}>
-            <Star size={12} />
-            {Math.round((phone.overall_device_score / 10) * 2) / 2}
-          </div>
-        )}
       </div>
 
-      <div className="flex-1 flex flex-col gap-2">
-        <div className="text-lg font-bold text-brand">
-          {phone.name}
+      <div className="flex-1 flex flex-col gap-1 w-full">
+        <div className="flex flex-col">
+          <div className="text-sm md:text-lg font-bold text-brand leading-tight line-clamp-2 md:line-clamp-none">
+            {phone.name}
+          </div>
+          <div className={`text-sm md:text-xl font-extrabold ${darkMode ? "text-white" : "text-brand"} whitespace-nowrap mt-1`}>
+            ৳ {formatNumber(phone.price_original || (phone.price ? parseInt(phone.price, 10) : undefined))}
+          </div>
         </div>
 
-        <div className={`text-xl font-extrabold ${darkMode ? "text-white" : "text-brand"}`}>
-          ৳ {formatNumber(phone.price_original || (phone.price ? parseInt(phone.price, 10) : undefined))}
-        </div>
-
-        <div className={`grid grid-cols-2 gap-x-3 gap-y-2 text-xs mt-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}>
+        <div className={`grid grid-cols-2 gap-x-1.5 md:gap-x-3 md:gap-y-2 text-[11px] md:text-xs mt-1 md:mt-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}>
           <div className="flex items-center gap-1">
-            <span className="font-semibold">📱</span>
-            <span className={getFeatureHighlightClass("display")}>{phone.display_type || "N/A"}</span>
+            <span className="font-semibold">Display:</span>
+            <span className={`truncate ${getFeatureHighlightClass("display")}`}>{phone.display_type || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="font-semibold">📏</span>
-            <span className={getFeatureHighlightClass("screen")}>{phone.screen_size_inches ? `${phone.screen_size_inches}"` : "N/A"}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="font-semibold">⚡</span>
-            <span className={getFeatureHighlightClass("performance")}>{phone.chipset || phone.cpu || "N/A"}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="font-semibold">💾</span>
+            <span className="font-semibold">RAM:</span>
             <span className={getFeatureHighlightClass("ram")}>{phone.ram || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="font-semibold">💾</span>
+            <span className="font-semibold">Storage:</span>
             <span className={getFeatureHighlightClass("storage")}>{phone.internal_storage || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="font-semibold">📸</span>
-            <span className={getFeatureHighlightClass("camera")}>{phone.main_camera || "N/A"} / {phone.front_camera || "N/A"}</span>
+            <span className="font-semibold">Camera:</span>
+            <span className={`truncate ${getFeatureHighlightClass("camera")}`}>{phone.main_camera || "N/A"}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="font-semibold">🔋</span>
+            <span className="font-semibold">Battery:</span>
             <span className={getFeatureHighlightClass("battery")}>{phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric} mAh` : phone.capacity || "N/A"}</span>
           </div>
-          {phone.overall_device_score && (
-            <div className="flex items-center gap-1">
-              <span className="font-semibold">⭐</span>
-              <span>
-                {Math.round((phone.overall_device_score / 10) * 2) / 2}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <span className="font-semibold">Brand:</span>
+            <span className={getFeatureHighlightClass("battery")}>{phone.brand || "N/A"}</span>
+          </div>
         </div>
 
         {/* Match reasons for RAG responses */}
         {matchReasons.length > 0 && (
-          <div className={`mt-3 p-2 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-green-50"}`}>
-            <div className="text-xs font-semibold mb-1 text-green-600 dark:text-green-400">
+          <div className={`mt-1.5 md:mt-3 p-1.5 md:p-2 rounded-lg ${darkMode ? "bg-gray-700/50" : "bg-green-50"}`}>
+            <div className="hidden md:block text-xs font-semibold mb-1 text-green-600 dark:text-green-400">
               Why this phone matches:
             </div>
             <div className="flex flex-wrap gap-1">
               {matchReasons.slice(0, 3).map((reason, index) => (
                 <span
                   key={index}
-                  className={`text-xs px-2 py-0.5 rounded-full ${darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700"
+                  className={`text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full ${darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700"
                     }`}
                 >
                   {reason}
@@ -191,9 +165,9 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
           </div>
         )}
 
-        <div className="flex justify-between items-center mt-3">
+        <div className="flex justify-end items-center mt-1.5 md:mt-3 gap-2">
           <button
-            className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-full px-4 py-1.5 text-sm transition-colors shadow-sm hover:shadow-md"
+            className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light font-medium rounded-full px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm transition-colors shadow-sm hover:shadow-md flex-1 md:flex-none"
             onClick={(e) => {
               e.stopPropagation();
               handleViewDetails();
@@ -204,14 +178,14 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
 
           {/* Compare Button */}
           <button
-            className={`rounded-lg px-4 py-1.5 text-sm font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 ${isSelected
-                ? 'bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light focus:ring-brand/30'
-                : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
+            className={`rounded-lg px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 flex-1 md:flex-none ${isSelected
+              ? 'bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light focus:ring-brand/30'
+              : 'bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400 dark:focus:ring-gray-600'
               }`}
             title={isSelected ? 'Remove from comparison' : 'Add to comparison'}
             onClick={handleCompareClick}
           >
-            {isSelected ? 'Added to Compare' : '+ Compare'}
+            {isSelected ? 'Added' : '+ Compare'}
           </button>
         </div>
       </div>
@@ -220,43 +194,24 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
     // Regular result card - smaller and more compact
     <div
       className={`rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] ${darkMode ? "bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700" : "bg-gradient-to-br from-white to-gray-50 border-[#eae4da]"
-        } border`}
+        } border h-full flex flex-col`}
       onClick={handleViewDetails}
     >
-      <div className="relative h-32 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-2">
-        <div className="h-28 flex items-center justify-center">
+      <div className="relative h-24 md:h-32 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-2">
+        <div className="h-20 md:h-28 flex items-center justify-center">
           <img
             src={phone.img_url || phone.image || "/phone.png"}
             alt={phone.name}
-            className="h-24 object-contain transition-transform duration-300 hover:scale-105"
+            className="h-16 md:h-24 object-contain transition-transform duration-300 hover:scale-105"
             loading="lazy"
           />
         </div>
-        <div className="flex flex-col items-center gap-1">
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-brand text-white text-xs font-medium">
-          {phone.brand}
-        </div>
-        <div>
-        {/* Show relevance score if available, otherwise show overall score */}
-        {showRelevanceScore && relevanceScore ? (
-          <div className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold text-white bg-brand backdrop-blur-sm`}>
-            <span>🎯</span>
-            {(relevanceScore * 100).toFixed(0)}%
-          </div>
-        ) : phone.overall_device_score && (
-          <div className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${getScoreColor(phone.overall_device_score)} ${darkMode ? "bg-gray-900/80" : "bg-white/80"} backdrop-blur-sm`}>
-            <Star size={10} />
-            {Math.round((phone.overall_device_score / 10) * 2) / 2}
-          </div>
-        )}
-        </div>
-        </div>
         {/* Compare Button */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-2 right-2 md:top-4 md:right-4">
           <button
-            className={`w-8 h-8 flex items-center justify-center rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 ${isSelected
-                ? 'bg-brand text-white hover:bg-brand-darkGreen'
-                : 'bg-white/90 dark:bg-card/90 text-brand dark:text-white hover:bg-brand hover:text-white'
+            className={`w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 ${isSelected
+              ? 'bg-brand text-white hover:bg-brand-darkGreen'
+              : 'bg-white/90 dark:bg-card/90 text-brand dark:text-white hover:bg-brand hover:text-white'
               }`}
             onClick={handleCompareClick}
             aria-label={isSelected ? "Remove from comparison" : "Add to comparison"}
@@ -265,7 +220,7 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
             onFocus={() => setShowTooltip(true)}
             onBlur={() => setShowTooltip(false)}
           >
-            {isSelected ? <Check size={16} /> : <Plus size={16} />}
+            {isSelected ? <Check size={12} className="md:w-4 md:h-4" /> : <Plus size={12} className="md:w-4 md:h-4" />}
           </button>
           {showTooltip && (
             <div className="absolute -bottom-10 right-0 px-2.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 text-brand dark:text-white text-xs font-medium shadow-soft z-20 whitespace-nowrap transition-opacity duration-200">
@@ -275,59 +230,59 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
         </div>
       </div>
 
-      <div className="p-3">
-        <h3 className="font-medium text-sm text-neutral-800 dark:text-white mb-1 line-clamp-1" title={phone.name}>
+      <div className="p-2 md:p-3 flex-1 flex flex-col">
+        <h3 className="font-medium text-wrap text-xs md:text-sm text-neutral-800 dark:text-white mb-0.5 md:mb-1" title={phone.name}>
           {phone.name}
         </h3>
 
-        <div className="grid grid-cols-2 gap-x-1 gap-y-1 mb-2 text-xs">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 md:gap-y-1 mb-1.5 md:mb-2 text-[10px] md:text-xs">
           {phone.main_camera && (
-            <div className="flex items-center gap-1">
-              <Camera size={12} className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} />
+            <div className="flex items-center gap-0.5 md:gap-1">
+              <Camera size={10} className={`min-w-[10px] md:w-3 md:h-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
               <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.main_camera}</span>
             </div>
           )}
           {phone.battery_capacity_numeric && (
-            <div className="flex items-center gap-1">
-              <Battery size={12} className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} />
-              <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.capacity || "N/A"}</span>
+            <div className="flex items-center gap-0.5 md:gap-1">
+              <Battery size={10} className={`min-w-[10px] md:w-3 md:h-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
+              <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.battery_capacity_numeric || "N/A"}</span>
             </div>
           )}
-          <div>
+          <div className="">
             <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>RAM:</span>{" "}
-            <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.ram || "N/A"}</span>
+            <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.ram_gb || "N/A"}</span>
           </div>
-          <div>
-            <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Storage:</span>{" "}
-            <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.internal_storage || "N/A"}</span>
+          <div className="">
+            <span className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Store:</span>{" "}
+            <span className={`${darkMode ? "text-gray-200" : "text-gray-900"} font-medium`}>{phone.storage_gb || "N/A"}</span>
           </div>
         </div>
 
         {/* Match reasons for RAG responses - compact version */}
         {matchReasons.length > 0 && (
-          <div className="mb-2">
-            <div className="flex flex-wrap gap-1">
-              {matchReasons.slice(0, 2).map((reason, index) => (
+          <div className="mb-1.5 md:mb-2">
+            <div className="flex flex-wrap gap-0.5 md:gap-1">
+              {matchReasons.slice(0, 3).map((reason, index) => (
                 <span
                   key={index}
-                  className={`text-xs px-1.5 py-0.5 rounded-full ${darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700"
-                    }`}
+                  className={`text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 rounded-full ${darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700"
+                    } text-wrap`}
                   title={reason}
                 >
-                  {reason.length > 20 ? `${reason.substring(0, 20)}...` : reason}
+                  {reason}
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mt-auto">
           <div className="font-semibold text-xs text-brand dark:text-[#80EF80]">
-            <span className="text-brand dark:text-[#80EF80] font-normal text-base">৳</span> {formatNumber(phone.price_original || (phone.price ? parseInt(phone.price, 10) : undefined))}
+            <span className="text-brand dark:text-[#80EF80] font-normal text-sm md:text-base">৳</span> {formatNumber(phone.price_original || (phone.price ? parseInt(phone.price, 10) : undefined))}
           </div>
           <div>
             <button
-              className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-full px-2.5 py-1 text-xs font-medium transition-colors shadow-sm hover:shadow-md"
+              className="bg-brand/10 hover:bg-brand/20 text-brand dark:text-brand dark:hover:text-hover-light rounded-full px-2 md:px-2.5 md:py-1 text-[10px] md:text-xs font-medium transition-colors shadow-sm hover:shadow-md"
               onClick={(e) => {
                 e.stopPropagation();
                 handleViewDetails();

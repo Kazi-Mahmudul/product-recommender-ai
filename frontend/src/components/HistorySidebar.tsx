@@ -29,6 +29,8 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         if (token) {
@@ -50,19 +52,33 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
         }
     };
 
-    const handleDelete = async (e: React.MouseEvent, sessionId: string) => {
+    const handleDeleteClick = (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation();
-        if (!token || !window.confirm('Delete this chat?')) return;
+        setSessionToDelete(sessionId);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!token || !sessionToDelete) return;
 
         try {
-            await chatAPIService.deleteChatSession(token, sessionId);
-            setSessions(prev => prev.filter(s => s.id !== sessionId));
-            if (currentSessionId === sessionId) {
+            await chatAPIService.deleteChatSession(token, sessionToDelete);
+            setSessions(prev => prev.filter(s => s.id !== sessionToDelete));
+            if (currentSessionId === sessionToDelete) {
                 onNewChat();
             }
+            setDeleteModalOpen(false);
+            setSessionToDelete(null);
         } catch (err) {
             console.error('Failed to delete session', err);
+            setDeleteModalOpen(false);
+            setSessionToDelete(null);
         }
+    };
+
+    const cancelDelete = () => {
+        setDeleteModalOpen(false);
+        setSessionToDelete(null);
     };
 
     const groupSessions = (sessions: ChatSession[]) => {
@@ -95,7 +111,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
 
     // Variant specific classes
     const containerClasses = variant === 'overlay'
-        ? `fixed top-0 bottom-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`
+        ? `fixed top-0 bottom-0 left-0 z-50 w-56 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`
         : `hidden md:${isOpen ? 'flex' : 'hidden'} w-[260px] flex-shrink-0 transition-all duration-300`;
 
     return (
@@ -180,11 +196,12 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                                                     {session.title || 'Using Peyechi AI'}
                                                 </div>
 
-                                                {/* Delete button (visible on hover) */}
+                                                {/* Delete button (visible on mobile for current session only, hover on desktop) */}
                                                 <button
-                                                    onClick={(e) => handleDelete(e, session.id)}
+                                                    onClick={(e) => handleDeleteClick(e, session.id)}
                                                     className={`
-                            absolute right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity
+                            absolute right-2 p-1 rounded transition-opacity
+                            ${currentSessionId === session.id ? '' : 'md:opacity-0'} md:group-hover:opacity-100
                             ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'}
                           `}
                                                     title="Delete"
@@ -201,6 +218,48 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         })
                     )}
                 </div>
+
+                {/* Delete Confirmation Modal */}
+                {deleteModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <div className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 ${darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'}`}>
+                            {/* Icon */}
+                            <div className="flex justify-center mb-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${darkMode ? 'bg-red-500/20' : 'bg-red-100'}`}>
+                                    <svg className={`w-6 h-6 ${darkMode ? 'text-red-400' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {/* Title */}
+                            <h3 className={`text-lg md:text-xl font-semibold text-center mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                Delete Chat?
+                            </h3>
+
+                            {/* Message */}
+                            <p className={`text-center mb-6 text-sm md:text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                This conversation will be permanently deleted. This action cannot be undone.
+                            </p>
+
+                            {/* Buttons */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={cancelDelete}
+                                    className={`text-sm md:text-base flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className={`text-sm md:text-base flex-1 px-4 py-2.5 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 transition-colors ${darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

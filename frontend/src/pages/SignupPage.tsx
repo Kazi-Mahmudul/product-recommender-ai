@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAuthAlerts } from '../hooks/useAuthAlerts';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
@@ -13,8 +13,17 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { signup, googleLogin } = useAuth();
   const authAlerts = useAuthAlerts(darkMode);
+
+  // Get the page user was on before being redirected to signup
+  // location.state.from is the entire location object, so we need from.pathname
+  const from = (location.state as any)?.from?.pathname || "/";
+
+  // Debug logging (remove in production)
+  console.log('SignupPage - location.state:', location.state);
+  console.log('SignupPage - redirect to:', from);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -38,6 +47,8 @@ export default function SignupPage({ darkMode }: SignupPageProps) {
 
   const handleGoogleLogin = async () => {
     try {
+      // Store redirect path in localStorage for OAuth callback
+      localStorage.setItem('auth_redirect_path', from);
       await googleLogin();
       // The function will redirect to Google OAuth page
     } catch (error: any) {

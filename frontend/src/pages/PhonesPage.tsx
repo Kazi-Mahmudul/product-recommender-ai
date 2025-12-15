@@ -346,7 +346,7 @@ const PhonesPage: React.FC = () => {
         <h1 className="text-xl md:text-3xl font-medium text-neutral-800 dark:text-white mb-1 md:mb-2 py-3">
           Explore Phones
         </h1>
-        <p className="text-xs md:text-neutral-500 dark:text-neutral-400 max-w-2xl">
+        <p className="text-xs md:text-base md:text-neutral-500 dark:text-neutral-400 max-w-2xl">
           Find and compare the latest smartphones with detailed specifications
           and features
         </p>
@@ -401,7 +401,7 @@ const PhonesPage: React.FC = () => {
                       <Search size={16} className="md:size-18" />
                     </div>
                   )}
-                  
+
                   {isSearching && (
                     <div className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2">
                       <Loader2 size={16} className="md:size-18 animate-spin text-brand" />
@@ -409,7 +409,7 @@ const PhonesPage: React.FC = () => {
                   )}
                 </div>
               </form>
-              
+
               {/* Search Results */}
               {searchFocused && searchQuery.trim().length >= 2 && (
                 <div className="absolute left-0 right-0 top-full mt-1 md:mt-2 z-50 bg-white dark:bg-neutral-900 rounded-xl md:rounded-2xl shadow-soft-lg border border-neutral-200 dark:border-neutral-700/30 p-2 md:p-3">
@@ -475,8 +475,8 @@ const PhonesPage: React.FC = () => {
                 }
               }}
               className={`flex items-center gap-1 md:gap-2 px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-xl ${activeFiltersCount > 0
-                  ? "bg-brand text-white"
-                  : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                ? "bg-brand text-white"
+                : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                 } transition-colors text-sm md:text-base`}
             >
               {activeFiltersCount > 0 ? (
@@ -493,7 +493,7 @@ const PhonesPage: React.FC = () => {
               )}
             </button>
           </div>
-          
+
           {/* Expanded Filters */}
           {showFilters && (
             <div className="mb-4 md:mb-6">
@@ -506,7 +506,7 @@ const PhonesPage: React.FC = () => {
               />
             </div>
           )}
-          
+
           {/* Sort and Page Size Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
             <div className="flex items-center gap-2 md:gap-3">

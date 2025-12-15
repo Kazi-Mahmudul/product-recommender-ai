@@ -363,7 +363,7 @@ function App() {
               style={{ animationDelay: "3s" }}
             ></div>
 
-            <div className="w-full px-3 md:px-4 py-6 md:py-0 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 overflow-hidden relative">
+            <div className="w-full px-3 md:px-10 py-6 md:py-4 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 overflow-hidden relative">
               {/* Mobile BG image */}
               <div className="absolute inset-0 md:hidden bg-[url('https://i.ibb.co/JF7hWvmC/hero-bg.png')] bg-no-repeat bg-contain bg-right opacity-10 pointer-events-none" />
               {/* Left side content */}
@@ -468,16 +468,16 @@ function App() {
           </div>
           <div className="my-3 md:my-8" />
           <TrendingPhones darkMode={darkMode} />
-          <div className="my-3 md:my-8" />
+          <div className="my-3" />
           <PopularComparisons />
           <div className="my-3 md:my-8 lg:hidden">
             <BrandsSection />
           </div>
-          <div className="my-3 md:my-8" />
+          <div className="my-3 " />
           <WhyChoosePeyechi darkMode={darkMode} />
           {/* Chat/Message Section */}
           {messages.length > 0 && (
-            <div className="rounded-lg p-6 flex-grow overflow-y-auto lg:w-[800px] mx-auto bg-white shadow-lg mb-4 mt-8">
+            <div className="rounded-lg p-6 flex-grow overflow-y-auto lg:w-[800px] mx-auto bg-white shadow-lg mb-4">
               <div className="space-y-4">
                 {messages.map((message) => (
                   <motion.div
