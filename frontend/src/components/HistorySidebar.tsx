@@ -3,6 +3,8 @@ import { format, isToday, isYesterday, subDays } from 'date-fns';
 import { ChatSession, chatAPIService } from '../api/chat';
 import { useAuth } from '../context/AuthContext';
 import { InlineSpinner } from './LoadingIndicator';
+import { httpClient, RateLimitState } from '../services/httpClient';
+import UsageIndicator from './chat/UsageIndicator';
 
 interface HistorySidebarProps {
     isOpen: boolean;
@@ -31,6 +33,21 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+    // Initialize with optimistic default for immediate visibility
+    // If token exists (registered user), set default to 20, else 10 for guest
+    const [rateLimit, setRateLimit] = useState<RateLimitState | null>({
+        remaining: !!token ? 20 : 10,
+        limit: !!token ? 20 : 10,
+        used: 0,
+        isGuest: !token
+    });
+
+    useEffect(() => {
+        const unsubscribe = httpClient.subscribeToRateLimit((state) => {
+            setRateLimit(state);
+        });
+        return unsubscribe;
+    }, []);
 
     useEffect(() => {
         if (token) {
@@ -218,6 +235,17 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         })
                     )}
                 </div>
+
+                {/* Usage Indicator - Always visible at bottom if limit info exists */}
+                {rateLimit && (
+                    <div className="border-t border-gray-200 dark:border-gray-800 pt-2 pb-2">
+                        <UsageIndicator
+                            remaining={rateLimit.remaining}
+                            limit={rateLimit.limit}
+                            isGuest={rateLimit.isGuest}
+                        />
+                    </div>
+                )}
 
                 {/* Delete Confirmation Modal */}
                 {deleteModalOpen && (

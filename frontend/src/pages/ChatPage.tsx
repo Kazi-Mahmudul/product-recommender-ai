@@ -14,6 +14,9 @@ import { useAuth } from "../context/AuthContext";
 import HistorySidebar from "../components/HistorySidebar";
 import { chatAPIService } from "../api/chat";
 import { toast } from "react-toastify";
+import RateLimitModal from "../components/modals/RateLimitModal";
+import GuestWelcomeModal from "../components/modals/GuestWelcomeModal";
+import { RateLimitState } from "../services/httpClient";
 
 // Enhanced chat message interface for RAG pipeline
 interface RAGChatMessage {
@@ -65,7 +68,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  const { user, token } = useAuth();
+  const { user, token, loading } = useAuth();
   const [loadingStage, setLoadingStage] = useState<'sending' | 'processing' | 'receiving' | 'complete'>('processing');
   const [error, setError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
@@ -77,6 +80,64 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const handleSendMessageRef = useRef<((initialMessage?: string) => Promise<void>) | null>(null);
   const { isMobile } = useMobileResponsive();
+
+  // Rate Limit Modal State
+  const [isRateLimitModalOpen, setIsRateLimitModalOpen] = useState(false);
+  const [rateLimitState, setRateLimitState] = useState<RateLimitState>({
+    remaining: 10, // Default optimistic
+    limit: 10,
+    used: 0,
+    isGuest: true
+  });
+
+  // Guest Welcome Modal State
+  const [isGuestWelcomeOpen, setIsGuestWelcomeOpen] = useState(false);
+
+  useEffect(() => {
+    // Only proceed if auth loading is finished
+    if (loading) return;
+
+    // Check if truly a guest (no user, no token)
+    if (!user && !token) {
+      const hasSeenWelcome = localStorage.getItem('peyechi_guest_welcome_seen');
+      if (!hasSeenWelcome) {
+        // Use a timeout that doesn't get cleared on re-renders unless component unmounts
+        // This prevents the "flicker" of auth state from killing the timer
+        const timer = setTimeout(() => {
+          setIsGuestWelcomeOpen(true);
+        }, 1500); // Slightly longer delay to ensure UI is settled
+
+        // We generally want to clear on unmount, but not on dependency change if we want it to persist through minor updates.
+        // However, standard useEffect cleanup runs on dep change. 
+        // Best approach: check hasSeenWelcome again inside timeout? No, state update is safe.
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [loading, user, token]);
+
+  const handleCloseGuestWelcome = () => {
+    setIsGuestWelcomeOpen(false);
+    localStorage.setItem('peyechi_guest_welcome_seen', 'true');
+  };
+
+  useEffect(() => {
+    // Listen for rate limit updates
+    const unsubLimit = httpClient.subscribeToRateLimit((state) => {
+      setRateLimitState(state);
+    });
+
+    // Listen for errors to trigger modal
+    const unsubError = httpClient.subscribeToErrors((err) => {
+      if (err.code === 'HTTP_403' && (err.message.includes('limit') || err.message.includes('payment'))) {
+        setIsRateLimitModalOpen(true);
+      }
+    });
+
+    return () => {
+      unsubLimit();
+      unsubError();
+    };
+  }, []);
 
   // Initialize session on component mount
   useEffect(() => {
@@ -707,6 +768,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
           refreshTrigger={refreshHistoryTrigger}
         />
 
+        <RateLimitModal
+          isOpen={isRateLimitModalOpen}
+          onClose={() => setIsRateLimitModalOpen(false)}
+          isGuest={rateLimitState.isGuest}
+          limit={rateLimitState.limit}
+        />
+
         {/* Main Interface */}
         <div className="flex-1 flex flex-col relative h-full min-w-0 bg-white dark:bg-[#343541]">
 
@@ -872,7 +940,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                 </div>
               )}
 
-              <div className="relative flex items-end gap-2 bg-white dark:bg-[#40414F] shadow-lg rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden focus-within:ring-1 focus-within:ring-black/10 dark:focus-within:ring-white/10">
+              <div className="relative flex items-end gap-2 bg-white dark:bg-[#40414F] shadow-lg rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
                 <textarea
                   ref={textareaRef}
                   value={message}
@@ -886,7 +954,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
                     }
                   }}
                   placeholder="Send a message..."
-                  className="w-full max-h-[200px] py-3.5 pl-4 pr-12 bg-transparent border-0 focus:ring-0 resize-none text-gray-900 dark:text-white placeholder:text-gray-400 text-base m-0 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
+                  className="w-full max-h-[200px] py-3.5 pl-4 pr-12 bg-transparent border-0 focus:ring-0 focus:outline-none resize-none text-gray-900 dark:text-white placeholder:text-gray-400 text-base m-0 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
                   rows={1}
                   style={{ height: 'auto', minHeight: '60px', maxHeight: '80px' }} // Increased min-height
                   disabled={isLoading}
@@ -920,6 +988,18 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
           </div>
         </div>
       </ChatErrorBoundary>
+
+      <RateLimitModal
+        isOpen={isRateLimitModalOpen}
+        onClose={() => setIsRateLimitModalOpen(false)}
+        isGuest={rateLimitState.isGuest}
+        limit={rateLimitState.limit}
+      />
+
+      <GuestWelcomeModal
+        isOpen={isGuestWelcomeOpen}
+        onClose={handleCloseGuestWelcome}
+      />
     </div>
   );
 };

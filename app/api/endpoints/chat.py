@@ -25,6 +25,8 @@ from app.api import deps
 from app.models.user import User
 from app.crud import chat_history as chat_history_crud
 from app.schemas import chat_history as chat_history_schemas
+from app.services.rate_limit_service import rate_limit_service
+from fastapi import Request, Response
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,8 @@ class ChatResponse(BaseModel):
 async def process_chat_query(
     request: ChatQueryRequest,
     background_tasks: BackgroundTasks,
+    http_request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ) -> ChatResponse:
@@ -73,6 +77,8 @@ async def process_chat_query(
     Args:
         request: Chat query request with user query and optional context
         background_tasks: FastAPI background tasks for async operations
+        http_request: Raw HTTP request for headers (IP, Guest ID)
+        response: FastAPI response object for setting headers
         db: Database session
         
     Returns:
@@ -84,7 +90,26 @@ async def process_chat_query(
     start_time = time.time()
     request_id = error_service.generate_request_id()
     
-    logger.info(f"[{request_id}] Processing chat query: '{request.query[:100]}...'")
+    # RATE LIMIT CHECK
+    guest_uuid = http_request.headers.get("X-Guest-ID")
+    ip_address = http_request.client.host if http_request.client else None
+    user_agent = http_request.headers.get("User-Agent")
+    
+    # Check limits and get remaining count
+    limit_info = rate_limit_service.check_and_increment(
+        db, 
+        current_user, 
+        guest_uuid, 
+        ip_address, 
+        user_agent
+    )
+    
+    # Set headers for frontend UI
+    response.headers["X-RateLimit-Limit"] = str(limit_info["limit"])
+    response.headers["X-RateLimit-Remaining"] = str(limit_info["remaining"])
+    response.headers["X-RateLimit-Used"] = str(limit_info["usage"])
+    
+    logger.info(f"[{request_id}] Rate limit: {limit_info['remaining']} remaining. Processing chat query: '{request.query[:100]}...'")
     
     try:
         # Validate input

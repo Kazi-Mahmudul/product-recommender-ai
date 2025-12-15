@@ -15,6 +15,9 @@ from app.utils.error_handlers import APIErrorHandler
 from app.core.database import get_db
 from app.models.phone import Phone as PhoneModel
 from app.services.recommendation_service import RecommendationService
+from app.api import deps
+from app.models.user import User
+from sqlalchemy.orm.attributes import flag_modified
 # Monitoring removed as requested
 
 logger = logging.getLogger(__name__)
@@ -42,7 +45,8 @@ def _read_phones_impl(
     os: Optional[str] = None,
     sort: Optional[str] = None,
     search: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = None
 ):
     """
     Internal implementation for getting phones with filtering and pagination
@@ -105,6 +109,22 @@ def _read_phones_impl(
             sort=sort,
             search=search
         )
+
+        # Track search usage for logged-in users
+        if current_user and search:
+             try:
+                stats = current_user.usage_stats or {}
+                # Initialize if needed (handling legacy data)
+                if "total_searches" not in stats:
+                    stats["total_searches"] = 0
+                
+                stats["total_searches"] += 1
+                current_user.usage_stats = stats
+                flag_modified(current_user, "usage_stats")
+                db.commit()
+             except Exception as e:
+                logger.error(f"Failed to update search stats for user {current_user.id}: {e}")
+                # Don't fail the request
         
         # Convert phones to dictionaries for response
         phones_data = []
@@ -146,7 +166,8 @@ def read_phones(
     os: Optional[str] = None,
     sort: Optional[str] = None,
     search: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ):
     """
     Get all phones with filtering and pagination
@@ -158,7 +179,8 @@ def read_phones(
         battery_type=battery_type, min_battery_capacity=min_battery_capacity,
         display_type=display_type, min_refresh_rate=min_refresh_rate,
         min_screen_size=min_screen_size, max_screen_size=max_screen_size,
-        chipset=chipset, os=os, sort=sort, search=search, db=db
+        chipset=chipset, os=os, sort=sort, search=search, db=db,
+        current_user=current_user
     )
 
 @router.get("/brands", response_model=List[str])

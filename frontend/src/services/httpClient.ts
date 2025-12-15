@@ -22,19 +22,97 @@ export interface APIError {
   originalError?: any;
 }
 
+// Rate Limit State Interface
+export interface RateLimitState {
+  remaining: number;
+  limit: number;
+  used: number;
+  isGuest: boolean;
+}
+
+// Simple Event Emitter for Rate Limits
+type RateLimitListener = (state: RateLimitState) => void;
+type ErrorListener = (error: APIError) => void;
+
 class HTTPClient {
   private defaultOptions: HTTPClientOptions;
+  private rateLimitListeners: RateLimitListener[] = [];
+  private errorListeners: ErrorListener[] = [];
+  private guestId: string;
+  private currentRateLimitState: RateLimitState | null = null;
 
   constructor() {
     const retryConfig = apiConfig.getRetryConfig();
+    this.guestId = this.getOrCreateGuestId();
+
     this.defaultOptions = {
       timeout: apiConfig.getTimeout(),
       retryAttempts: retryConfig.attempts,
       retryDelay: retryConfig.delay,
       headers: {
         'Content-Type': 'application/json',
+        'X-Guest-ID': this.guestId,
       },
     };
+
+    // Load persisted rate limit state
+    this.loadRateLimitState();
+  }
+
+  private loadRateLimitState() {
+    try {
+      const stored = localStorage.getItem('rate_limit_state');
+      if (stored) {
+        this.currentRateLimitState = JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to load rate limit state', e);
+    }
+  }
+
+  private saveRateLimitState(state: RateLimitState) {
+    try {
+      this.currentRateLimitState = state;
+      localStorage.setItem('rate_limit_state', JSON.stringify(state));
+    } catch (e) {
+      console.warn('Failed to save rate limit state', e);
+    }
+  }
+
+  private getOrCreateGuestId(): string {
+    let id = localStorage.getItem('guest_uuid');
+    if (!id) {
+      id = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('guest_uuid', id);
+    }
+    return id;
+  }
+
+  public subscribeToRateLimit(listener: RateLimitListener): () => void {
+    this.rateLimitListeners.push(listener);
+    // Emit current state immediately if available
+    if (this.currentRateLimitState) {
+      listener(this.currentRateLimitState);
+    }
+    return () => {
+      this.rateLimitListeners = this.rateLimitListeners.filter(l => l !== listener);
+    };
+  }
+
+  public subscribeToErrors(listener: ErrorListener): () => void {
+    this.errorListeners.push(listener);
+    return () => {
+      this.errorListeners = this.errorListeners.filter(l => l !== listener);
+    };
+  }
+
+  private notifyRateLimit(state: RateLimitState) {
+    this.saveRateLimitState(state);
+    this.rateLimitListeners.forEach(l => l(state));
+  }
+
+  private notifyError(error: APIError) {
+    this.errorListeners.forEach(l => l(error));
   }
 
   /**
@@ -85,7 +163,7 @@ class HTTPClient {
         return response;
       } catch (error: any) {
         lastError = error;
-        
+
         // Don't retry on client errors (4xx) except for specific cases
         if (error && typeof error === 'object' && error.status && error.status >= 400 && error.status < 500) {
           if (error.status !== 408 && error.status !== 429) { // Don't retry except for timeout and rate limit
@@ -136,9 +214,9 @@ class HTTPClient {
       if (process.env.NODE_ENV === 'development') {
         console.log(`🚀 Making ${method} request to: ${url}`);
       }
-      
+
       const response = await fetch(url, requestOptions);
-      
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -146,26 +224,48 @@ class HTTPClient {
       }
 
       const result = await response.json();
-      
+
+      // Extract Rate Limit Headers
+      const limit = response.headers.get('X-RateLimit-Limit');
+      const remaining = response.headers.get('X-RateLimit-Remaining');
+      const used = response.headers.get('X-RateLimit-Used');
+
+      if (limit && remaining) {
+        this.notifyRateLimit({
+          limit: parseInt(limit, 10),
+          remaining: parseInt(remaining, 10),
+          used: parseInt(used || '0', 10),
+          isGuest: !localStorage.getItem('auth_token') // Simple check
+        });
+      }
+
       // Only log in development mode
       if (process.env.NODE_ENV === 'development') {
         console.log(`✅ Request successful: ${method} ${url}`);
       }
-      
+
       return result;
 
     } catch (error: any) {
       clearTimeout(timeoutId);
-      
+
+      let apiError: APIError;
+
       if (error && error.name === 'AbortError') {
-        throw this.createTimeoutError(url, timeout);
+        apiError = this.createTimeoutError(url, timeout);
+      } else if (error && typeof error === 'object' && error.message) {
+        // Check if it's already an APIError (from throw await this.createAPIError)
+        if (error.code && error.code.startsWith('HTTP_')) {
+          apiError = error;
+        } else {
+          apiError = this.createNetworkError(error, url);
+        }
+      } else {
+        apiError = this.createNetworkError(error, url);
       }
-      
-      if (error && typeof error === 'object' && error.message) {
-        throw this.createNetworkError(error, url);
-      }
-      
-      throw this.createNetworkError(error, url);
+
+      this.notifyError(apiError);
+      throw apiError;
     }
   }
 
@@ -174,7 +274,7 @@ class HTTPClient {
    */
   private async createAPIError(response: Response): Promise<APIError> {
     let errorData: any = {};
-    
+
     try {
       errorData = await response.json();
     } catch {

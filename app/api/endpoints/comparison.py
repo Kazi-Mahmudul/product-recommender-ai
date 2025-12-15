@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, Response, Cookie, HTTPException, Header
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.attributes import flag_modified
 from app.api import deps
+from app.models.user import User
 from app.crud import comparison as crud_comparison
 from app.schemas.comparison import ComparisonSession, ComparisonItem
 from app.utils.session_manager import SessionManager
@@ -90,7 +93,8 @@ def add_item(
     response: Response,
     comparison_session_id: Union[uuid.UUID, None] = Cookie(None),
     x_session_id: Optional[str] = Header(None),
-    db: Session = Depends(deps.get_db)
+    db: Session = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ):
     try:
         # Get session ID using production-ready session manager
@@ -107,6 +111,23 @@ def add_item(
         # Add the item to comparison
         item = crud_comparison.add_comparison_item(db, slug=slug, session_id=session_id)
         logger.info(f"Added item {slug} to session {session_id}")
+
+        # Track comparison usage for logged-in users
+        # We count it as a comparison interaction when they add an item
+        if current_user:
+             try:
+                stats = current_user.usage_stats or {}
+                # Initialize if needed
+                if "total_comparisons" not in stats:
+                    stats["total_comparisons"] = 0
+                
+                stats["total_comparisons"] += 1
+                current_user.usage_stats = stats
+                flag_modified(current_user, "usage_stats")
+                db.commit()
+             except Exception as e:
+                logger.error(f"Failed to update comparison stats for user {current_user.id}: {e}")
+
         return item
         
     except SQLAlchemyError as e:
