@@ -230,7 +230,8 @@ app.add_middleware(
         "Pragma",
         "Expires",
         "If-None-Match",
-        "If-Modified-Since"
+        "If-Modified-Since",
+        "X-Guest-ID"
     ],
     expose_headers=[
         "Content-Range", 

@@ -51,7 +51,7 @@ class HTTPClient {
       retryDelay: retryConfig.delay,
       headers: {
         'Content-Type': 'application/json',
-        // 'X-Guest-ID': this.guestId, // Temporarily disabled to prevent CORS errors until backend is updated
+        'X-Guest-ID': this.guestId,
       },
     };
 
