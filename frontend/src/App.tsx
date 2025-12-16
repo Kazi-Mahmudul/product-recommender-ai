@@ -30,6 +30,7 @@ import UsersPage from "./pages/admin/UsersPage";
 import PhoneManagementPage from "./pages/admin/PhonesPage";
 import PhoneEditorPage from "./pages/admin/PhoneEditorPage";
 import ComparisonsPage from "./pages/admin/ComparisonsPage";
+import SettingsPage from "./pages/admin/SettingsPage";
 import { AnalyticsTracker } from "./hooks/usePageTracking";
 
 
@@ -583,6 +584,7 @@ function App() {
             <Route path="phones/new" element={<PhoneEditorPage />} />
             <Route path="phones/edit/:phoneId" element={<PhoneEditorPage />} />
             <Route path="comparisons" element={<ComparisonsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="/auth/success" element={<AuthSuccessPage />} />
           <Route path="/auth/google" element={<GoogleCallbackPage />} />
