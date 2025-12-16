@@ -43,5 +43,8 @@ COPY . .
 # RUN useradd -m appuser && chown -R appuser /app
 # USER appuser
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Make start script executable
+RUN chmod +x start_server.sh
+
+# Command to run the application using start_server.sh which includes proxy headers
+CMD ["./start_server.sh"]
