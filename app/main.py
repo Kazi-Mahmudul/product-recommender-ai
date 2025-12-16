@@ -240,7 +240,14 @@ app.add_middleware(
         "ETag",
         "Last-Modified",
         "Access-Control-Allow-Origin",
-        "Access-Control-Allow-Credentials"
+        "Access-Control-Allow-Credentials",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Used",
+        "X-Guest-ID",
+        "X-Debug-User-Id",
+        "X-Debug-Usage-Current",
+        "X-Debug-Limit-Usage"
     ],
     max_age=86400,  # Cache preflight requests for 24 hours
 )

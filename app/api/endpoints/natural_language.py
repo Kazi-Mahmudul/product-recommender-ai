@@ -781,29 +781,44 @@ async def rag_enhanced_query(
     """
     
     # RATE LIMIT CHECK
-    guest_uuid = http_request.headers.get("X-Guest-ID")
-    ip_address = http_request.client.host if http_request.client else None
-    user_agent = http_request.headers.get("User-Agent")
-    
-    # Check limits and get remaining count
-    limit_info = rate_limit_service.check_and_increment(
-        db, 
-        current_user, 
-        guest_uuid, 
-        ip_address, 
-        user_agent
-    )
-    
-    # Set headers for frontend UI
-    response.headers["X-RateLimit-Limit"] = str(limit_info["limit"])
-    response.headers["X-RateLimit-Remaining"] = str(limit_info["remaining"])
-    response.headers["X-RateLimit-Used"] = str(limit_info["usage"])
-    
-    # DEBUG HEADERS - TO BE REMOVED
-    if current_user:
-        response.headers["X-Debug-User-Id"] = str(current_user.id)
-        response.headers["X-Debug-Usage-Current"] = str(current_user.usage_stats or {})
-        response.headers["X-Debug-Limit-Usage"] = str(limit_info["usage"])
+    try:
+        guest_uuid = http_request.headers.get("X-Guest-ID")
+        ip_address = http_request.client.host if http_request.client else None
+        user_agent = http_request.headers.get("User-Agent")
+        
+        # Check limits and get remaining count
+        limit_info = rate_limit_service.check_and_increment(
+            db, 
+            current_user, 
+            guest_uuid, 
+            ip_address, 
+            user_agent
+        )
+        
+        # Set headers for frontend UI
+        response.headers["X-RateLimit-Limit"] = str(limit_info["limit"])
+        response.headers["X-RateLimit-Remaining"] = str(limit_info["remaining"])
+        response.headers["X-RateLimit-Used"] = str(limit_info["usage"])
+        
+        # DEBUG HEADERS - TO BE REMOVED
+        if current_user:
+            response.headers["X-Debug-User-Id"] = str(current_user.id)
+            response.headers["X-Debug-Usage-Current"] = str(current_user.usage_stats or {})
+            response.headers["X-Debug-Limit-Usage"] = str(limit_info["usage"])
+            
+    except HTTPException as he:
+        # Re-raise HTTP exceptions (like 403 Rate Limit) so FastAPI handles them
+        # BUT we need to ensure they are returned as proper JSON for the frontend to parse
+        logger.warning(f"Rate limit exception: {he.detail}")
+        return JSONResponse(
+            status_code=he.status_code,
+            content=he.detail
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in rate limiting: {e}")
+        # Continue calculation if rate limit fails? Or block?
+        # Safe fail: Log and continue, assuming no limit
+        logger.error("Rate limiting failed, proceeding with request safely.")
     
     try:
 
