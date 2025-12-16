@@ -13,14 +13,18 @@ router = APIRouter()
 @router.post("/track")
 async def track_page_view(
     request: Request,
-    path: str,
-    session_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
     Track a page view (public endpoint)
+    Accepts JSON body with { path: str, session_id: str }
     """
     try:
+        # Parse JSON body
+        body = await request.json()
+        path = body.get("path", "/")
+        session_id = body.get("session_id")
+        
         # Get or create session ID
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -48,7 +52,7 @@ async def track_page_view(
         logger.error(f"Error tracking page view: {str(e)}")
         db.rollback()
         # Don't fail the request if tracking fails
-        return {"success": False, "session_id": session_id}
+        return {"success": False, "error": str(e)}
 
 @router.post("/track-search")
 def track_search(
