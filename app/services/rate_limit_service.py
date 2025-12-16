@@ -45,24 +45,49 @@ class RateLimitService:
     def _handle_user_limit(self, db: Session, user: User) -> Dict[str, Any]:
         """Handle logic for registered users."""
         
-        # Admin Exemption
-        if user.is_admin:
-            logger.info(f"User {user.email} is Admin - Bypassing rate limit")
-            return {
-                "is_guest": False,
-                "limit": 1000000,
-                "usage": 0,
-                "remaining": 1000000
-            }
-
         stats = user.usage_stats or {}
         current_count = stats.get("total_chats", 0)
         
         logger.info(f"User {user.email} Current Chats: {current_count}")
         
-        # Check limit
-        if current_count >= self.FREE_USER_LIMIT:
-            logger.warning(f"User {user.email} hit limit: {current_count}/{self.FREE_USER_LIMIT}")
+        # Increment FIRST, then check limit
+        # This ensures we track usage even if they hit the limit (optional)
+        # Or more importantly, ensures Admins are tracked.
+        
+        new_count = current_count + 1
+        stats["total_chats"] = new_count
+        user.usage_stats = stats
+        user.last_activity = datetime.now()
+        
+        # Explicitly flag modified
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(user, "usage_stats")
+        
+        try:
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            logger.info(f"User {user.email} Updated usage to {new_count}")
+        except Exception as e:
+            logger.error(f"Failed to update user rate limit: {e}")
+            db.rollback()
+            # If update fails, we might still want to proceed, or fail?
+            # For now, proceed, but logging is key.
+
+        # Admin Exemption - AFTER incrementing
+        if user.is_admin:
+            logger.info(f"User {user.email} is Admin - Bypassing rate limit check")
+            return {
+                "is_guest": False,
+                "limit": 1000000,
+                "usage": new_count,
+                "remaining": 1000000
+            }
+
+        # Check limit for normal users
+        # Note: We already incremented. So if limit is 20, and they are now at 21, reject.
+        if new_count > self.FREE_USER_LIMIT:
+            logger.warning(f"User {user.email} hit limit: {new_count}/{self.FREE_USER_LIMIT}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -72,32 +97,12 @@ class RateLimitService:
                     "remaining": 0
                 }
             )
-
-        # Increment
-        new_count = current_count + 1
-        stats["total_chats"] = new_count
-        user.usage_stats = stats
-        user.last_activity = datetime.now()
-        
-        # Explicitly flag modified for JSON fields in some SQLA versions
-        from sqlalchemy.orm.attributes import flag_modified
-        flag_modified(user, "usage_stats")
-        
-        try:
-            db.add(user) # Ensure user is in session
-            db.commit()
-            db.refresh(user)
-            logger.info(f"User {user.email} Updated usage to {new_count}")
-        except Exception as e:
-            logger.error(f"Failed to update user rate limit: {e}")
-            db.rollback()
-            # We don't block the user if DB update fails, just log it
         
         return {
             "is_guest": False,
             "limit": self.FREE_USER_LIMIT,
             "usage": new_count,
-            "remaining": self.FREE_USER_LIMIT - new_count
+            "remaining": max(0, self.FREE_USER_LIMIT - new_count)
         }
 
     def _handle_guest_limit(

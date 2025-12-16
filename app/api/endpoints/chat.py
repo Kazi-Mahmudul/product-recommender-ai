@@ -109,6 +109,13 @@ async def process_chat_query(
     response.headers["X-RateLimit-Remaining"] = str(limit_info["remaining"])
     response.headers["X-RateLimit-Used"] = str(limit_info["usage"])
     
+    # DEBUG HEADERS - TO BE REMOVED
+    if current_user:
+        response.headers["X-Debug-User-Id"] = str(current_user.id)
+        # Note: current_user.usage_stats might be stale or updated depending on session state
+        response.headers["X-Debug-Usage-Current"] = str(current_user.usage_stats or {})
+        response.headers["X-Debug-Limit-Usage"] = str(limit_info["usage"])
+    
     logger.info(f"[{request_id}] Rate limit: {limit_info['remaining']} remaining. Processing chat query: '{request.query[:100]}...'")
     
     try:
