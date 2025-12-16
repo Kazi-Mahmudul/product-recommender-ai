@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import time
 import json
+import asyncio
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -98,99 +99,103 @@ async def startup_event():
     logger.info(f"PORT environment variable: {os.getenv('PORT')}")
     logger.info(f"ENVIRONMENT: {os.getenv('ENVIRONMENT')}")
     
-    startup_errors = []
-    
-    # Initialize and validate all critical services
-    try:
-        from app.services.health_check_service import HealthCheckService
-        health_service = HealthCheckService()
-        
-        logger.info("🔍 Running comprehensive startup health checks...")
-        health_results = await health_service.check_all_services()
-        
-        if health_results["overall_health"]:
-            logger.info("✅ All services initialized successfully")
-        else:
-            logger.warning("⚠️ Some services have issues:")
-            for service_name, service_status in health_results["services"].items():
-                if not service_status.get("healthy", False):
-                    error_msg = f"  - {service_name}: {service_status.get('error', 'Unknown issue')}"
-                    logger.warning(error_msg)
-                    startup_errors.append(error_msg)
-                else:
-                    logger.info(f"  ✅ {service_name}: {service_status.get('status', 'OK')}")
-        
-    except Exception as e:
-        error_msg = f"Failed to run startup health checks: {e}"
-        logger.error(error_msg)
-        startup_errors.append(error_msg)
-    
-    # Validate database schema on startup
-    try:
-        from app.crud.phone import validate_database_schema
-        from app.core.database import get_db
-        
-        # Get a database session for validation
-        db_gen = get_db()
-        db = next(db_gen)
-        
-        logger.info("Validating database schema...")
-        schema_report = validate_database_schema(db)
-        
-        if schema_report.get('schema_validation_passed', False):
-            logger.info("✅ Database schema validation passed")
-        else:
-            logger.warning("⚠️ Database schema validation found issues")
-            for recommendation in schema_report.get('recommendations', []):
-                logger.warning(f"   - {recommendation}")
-        
-        # Close the database session
-        db.close()
-        
-    except Exception as e:
-        error_msg = f"Failed to validate database schema: {e}"
-        logger.error(error_msg)
-        startup_errors.append(error_msg)
-    
-    # Initialize scheduler
+    # Initialize scheduler immediately (lightweight)
     try:
         # Try to start the scheduler
         scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
         scheduler.start()
         logger.info("✅ Scheduler started successfully")
     except Exception as e:
-        error_msg = f"Failed to start scheduler: {e}"
-        logger.error(error_msg)
-        startup_errors.append(error_msg)
-    
-    # Initialize chat services
-    try:
-        from app.services.gemini_rag_service import GeminiRAGService
-        from app.services.knowledge_retrieval import KnowledgeRetrievalService
-        from app.services.response_formatter import ResponseFormatterService
+        logger.error(f"Failed to start scheduler: {e}")
+
+    # Define background task for heavy startup checks
+    async def run_startup_checks():
+        logger.info("🚀 Starting background health checks and validation...")
+        startup_errors = []
         
-        # Test service initialization
-        gemini_service = GeminiRAGService()
-        knowledge_service = KnowledgeRetrievalService()
-        formatter_service = ResponseFormatterService()
+        # Initialize and validate all critical services
+        try:
+            from app.services.health_check_service import HealthCheckService
+            health_service = HealthCheckService()
+            
+            logger.info("🔍 Running comprehensive startup health checks...")
+            health_results = await health_service.check_all_services()
+            
+            if health_results["overall_health"]:
+                logger.info("✅ All services initialized successfully")
+            else:
+                logger.warning("⚠️ Some services have issues:")
+                for service_name, service_status in health_results["services"].items():
+                    if not service_status.get("healthy", False):
+                        error_msg = f"  - {service_name}: {service_status.get('error', 'Unknown issue')}"
+                        logger.warning(error_msg)
+                        startup_errors.append(error_msg)
+                    else:
+                        logger.info(f"  ✅ {service_name}: {service_status.get('status', 'OK')}")
+            
+        except Exception as e:
+            error_msg = f"Failed to run startup health checks: {e}"
+            logger.error(error_msg)
+            startup_errors.append(error_msg)
         
-        logger.info("✅ Chat services initialized successfully")
+        # Validate database schema
+        try:
+            from app.crud.phone import validate_database_schema
+            from app.core.database import get_db
+            
+            # Get a database session for validation
+            db_gen = get_db()
+            db = next(db_gen)
+            
+            logger.info("Validating database schema...")
+            # Run schema validation in a thread pool to avoid blocking the event loop
+            # since it uses synchronous DB calls
+            schema_report = await asyncio.to_thread(validate_database_schema, db)
+            
+            if schema_report.get('schema_validation_passed', False):
+                logger.info("✅ Database schema validation passed")
+            else:
+                logger.warning("⚠️ Database schema validation found issues")
+                for recommendation in schema_report.get('recommendations', []):
+                    logger.warning(f"   - {recommendation}")
+            
+            # Close the database session
+            db.close()
+            
+        except Exception as e:
+            error_msg = f"Failed to validate database schema: {e}"
+            logger.error(error_msg)
+            startup_errors.append(error_msg)
         
-    except Exception as e:
-        error_msg = f"Failed to initialize chat services: {e}"
-        logger.error(error_msg)
-        startup_errors.append(error_msg)
-    
-    # Log startup summary
-    if startup_errors:
-        logger.warning(f"⚠️ Application started with {len(startup_errors)} issues:")
-        for error in startup_errors:
-            logger.warning(f"  {error}")
-        logger.warning("Some functionality may be limited. Check /health endpoint for details.")
-    else:
-        logger.info("🎉 Application startup completed successfully - all services healthy!")
-    
-    logger.info("Application startup complete")
+        # Initialize chat services (validation only)
+        try:
+            from app.services.gemini_rag_service import GeminiRAGService
+            from app.services.knowledge_retrieval import KnowledgeRetrievalService
+            from app.services.response_formatter import ResponseFormatterService
+            
+            # Test service initialization
+            gemini_service = GeminiRAGService()
+            knowledge_service = KnowledgeRetrievalService()
+            formatter_service = ResponseFormatterService()
+            
+            logger.info("✅ Chat services initialized successfully")
+            
+        except Exception as e:
+            error_msg = f"Failed to initialize chat services: {e}"
+            logger.error(error_msg)
+            startup_errors.append(error_msg)
+        
+        # Log startup summary
+        if startup_errors:
+            logger.warning(f"⚠️ Background checks completed with {len(startup_errors)} issues:")
+            for error in startup_errors:
+                logger.warning(f"  {error}")
+        else:
+            logger.info("🎉 Background checks completed successfully - all services healthy!")
+
+    # Start the background checks
+    asyncio.create_task(run_startup_checks())
+    logger.info("Application startup initiated (heavy checks running in background)")
 
 @app.on_event("shutdown")
 async def shutdown_event():

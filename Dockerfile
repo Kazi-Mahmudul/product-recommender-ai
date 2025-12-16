@@ -1,54 +1,47 @@
-FROM python:3.9-slim
+# Build stage
+FROM python:3.11-slim as builder
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PIP_NO_CACHE_DIR=1
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV ENVIRONMENT=production
-ENV FORCE_HTTPS=true
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create app user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Set work directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.production.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.production.txt
+# Install python dependencies to a temporary location
+COPY requirements.txt .
+RUN pip install --prefix=/install -r requirements.txt
+
+# Final stage
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080
+
+WORKDIR /app
+
+# Install runtime dependencies (only what's needed to run, not build)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed python dependencies from builder stage
+COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p /app/logs && \
-    chown -R appuser:appuser /app
+# Run as non-root user for security (GCP Cloud Run overrides this usually, but good practice)
+# RUN useradd -m appuser && chown -R appuser /app
+# USER appuser
 
-# Copy the startup script
-COPY start_server.sh .
-
-# Make the startup script executable
-RUN chmod +x start_server.sh
-
-# Switch to non-root user
-USER appuser
-
-# Expose port (Cloud Run sets PORT environment variable)
-EXPOSE 8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
-# Default command
-CMD ["./start_server.sh"]
+# Command to run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
