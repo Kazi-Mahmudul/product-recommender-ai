@@ -35,6 +35,7 @@ class RateLimitService:
         
         Raises HTTPException if limit reached.
         """
+        logger.info(f"Rate Limit Check: User={user.email if user else 'Guest'}, GuestID={guest_uuid}")
         
         if user:
             return self._handle_user_limit(db, user)
@@ -43,11 +44,25 @@ class RateLimitService:
 
     def _handle_user_limit(self, db: Session, user: User) -> Dict[str, Any]:
         """Handle logic for registered users."""
+        
+        # Admin Exemption
+        if user.is_admin:
+            logger.info(f"User {user.email} is Admin - Bypassing rate limit")
+            return {
+                "is_guest": False,
+                "limit": 1000000,
+                "usage": 0,
+                "remaining": 1000000
+            }
+
         stats = user.usage_stats or {}
         current_count = stats.get("total_chats", 0)
         
+        logger.info(f"User {user.email} Current Chats: {current_count}")
+        
         # Check limit
         if current_count >= self.FREE_USER_LIMIT:
+            logger.warning(f"User {user.email} hit limit: {current_count}/{self.FREE_USER_LIMIT}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -69,8 +84,10 @@ class RateLimitService:
         flag_modified(user, "usage_stats")
         
         try:
+            db.add(user) # Ensure user is in session
             db.commit()
             db.refresh(user)
+            logger.info(f"User {user.email} Updated usage to {new_count}")
         except Exception as e:
             logger.error(f"Failed to update user rate limit: {e}")
             db.rollback()
@@ -93,6 +110,7 @@ class RateLimitService:
         """Handle logic for guest users."""
         
         if not guest_uuid:
+             logger.warning("Guest UUID missing in request")
              raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Guest UUID required"
@@ -101,6 +119,7 @@ class RateLimitService:
         guest_usage = db.query(GuestUsage).filter(GuestUsage.guest_uuid == guest_uuid).first()
 
         if not guest_usage:
+            logger.info(f"Creating new Guest profile for UUID: {guest_uuid}")
             # ANTI-ABUSE: Check if this IP has too many unique Guest UUIDs
             # If a single IP has created > 5 guest profiles, block new ones
             if ip_address:
@@ -126,12 +145,21 @@ class RateLimitService:
                 user_agent_hash=str(hash(user_agent)) if user_agent else None,
                 chat_count=0
             )
-            db.add(guest_usage)
-            db.commit()
-            db.refresh(guest_usage)
+            try:
+                db.add(guest_usage)
+                db.commit()
+                db.refresh(guest_usage)
+                logger.info(f"Created Guest record ID: {guest_usage.id}")
+            except Exception as e:
+                logger.error(f"Failed to create guest record: {e}")
+                db.rollback()
+                raise HTTPException(status_code=500, detail="Failed to initialize guest usage")
+
+        logger.info(f"Guest {guest_uuid} Current Chats: {guest_usage.chat_count}")
 
         # Check limit
         if guest_usage.chat_count >= self.GUEST_LIMIT:
+             logger.warning(f"Guest {guest_uuid} hit limit")
              raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -147,7 +175,9 @@ class RateLimitService:
         guest_usage.last_activity = datetime.now()
         
         try:
+            db.add(guest_usage) # Explicit add just in case detached
             db.commit()
+            logger.info(f"Guest {guest_uuid} incremented usage to {guest_usage.chat_count}")
         except Exception as e:
             logger.error(f"Failed to update guest rate limit: {e}")
             db.rollback()

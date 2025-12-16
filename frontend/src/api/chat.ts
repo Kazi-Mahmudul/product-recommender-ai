@@ -152,7 +152,9 @@ class ChatAPIService {
    * Send a chat query to the RAG pipeline
    */
   async sendChatQuery(request: ChatQueryRequest): Promise<ChatResponse> {
-    console.log('🚀 Sending chat query to RAG pipeline:', request.query);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚀 Sending chat query to RAG pipeline:', request.query);
+    }
 
     try {
       const response = await this.executeWithRetry(async () => {
@@ -166,10 +168,14 @@ class ChatAPIService {
         });
       });
 
-      console.log('✅ RAG pipeline response received:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ RAG pipeline response received:', response.data);
+      }
       return response.data;
     } catch (error) {
-      console.error('❌ RAG pipeline request failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ RAG pipeline request failed:', error);
+      }
       throw this.handleError(error);
     }
   }
@@ -178,7 +184,9 @@ class ChatAPIService {
    * Send query to RAG-enhanced natural language endpoint (fallback)
    */
   async sendRAGQuery(request: ChatQueryRequest): Promise<ChatResponse> {
-    console.log('🔄 Sending query to RAG-enhanced endpoint:', request.query);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Sending query to RAG-enhanced endpoint:', request.query);
+    }
 
     try {
       const response = await this.executeWithRetry(async () => {
@@ -190,10 +198,14 @@ class ChatAPIService {
         });
       });
 
-      console.log('✅ RAG-enhanced response received:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ RAG-enhanced response received:', response.data);
+      }
       return response.data;
     } catch (error) {
-      console.error('❌ RAG-enhanced request failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ RAG-enhanced request failed:', error);
+      }
       throw this.handleError(error);
     }
   }
@@ -208,7 +220,9 @@ class ChatAPIService {
     error?: string;
     rag_integration: 'working' | 'failed';
   }> {
-    console.log('🧪 Testing RAG integration with query:', query);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🧪 Testing RAG integration with query:', query);
+    }
 
     try {
       const response = await axios.post(`${RAG_ENDPOINT.replace('/rag-query', '/rag-test')}`,
@@ -221,10 +235,14 @@ class ChatAPIService {
         }
       );
 
-      console.log('✅ RAG integration test completed:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ RAG integration test completed:', response.data);
+      }
       return response.data;
     } catch (error) {
-      console.error('❌ RAG integration test failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ RAG integration test failed:', error);
+      }
       return {
         status: 'error',
         query,
@@ -256,7 +274,9 @@ class ChatAPIService {
         timestamp: Date.now()
       };
     } catch (error) {
-      console.error('❌ Health check failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Health check failed:', error);
+      }
       return {
         chat_service: 'unhealthy',
         rag_pipeline: 'unhealthy',
@@ -278,7 +298,9 @@ class ChatAPIService {
       });
       return response.data;
     } catch (error) {
-      console.error('❌ Failed to fetch chat history:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to fetch chat history:', error);
+      }
       throw this.handleError(error);
     }
   }
@@ -295,7 +317,9 @@ class ChatAPIService {
       });
       return response.data;
     } catch (error) {
-      console.error('❌ Failed to fetch chat session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to fetch chat session:', error);
+      }
       throw this.handleError(error);
     }
   }
@@ -311,7 +335,9 @@ class ChatAPIService {
         }
       });
     } catch (error) {
-      console.error('❌ Failed to delete chat session:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to delete chat session:', error);
+      }
       throw this.handleError(error);
     }
   }
@@ -332,7 +358,9 @@ class ChatAPIService {
       if (attempt < this.retryConfig.maxRetries && this.shouldRetry(axiosError)) {
         const delay = this.calculateDelay(attempt);
 
-        console.log(`🔄 Retrying request (attempt ${attempt + 1}/${this.retryConfig.maxRetries}) after ${delay}ms`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔄 Retrying request (attempt ${attempt + 1}/${this.retryConfig.maxRetries}) after ${delay}ms`);
+        }
 
         await this.sleep(delay);
         return this.executeWithRetry(operation, attempt + 1);
