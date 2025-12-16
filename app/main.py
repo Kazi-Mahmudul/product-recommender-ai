@@ -4,9 +4,13 @@ import os
 import time
 import json
 import asyncio
+import asyncio
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.api.api import api_router
 from app.core.config import settings
@@ -23,6 +27,26 @@ load_dotenv(dotenv_path=".env")
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
+
+# Initialize Sentry if DSN is set
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    logger.info("Initializing Sentry monitoring...")
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            FastApiIntegration(transaction_style="endpoint"),
+            SqlalchemyIntegration(),
+        ],
+        # Capture 10% of transactions for performance monitoring
+        traces_sample_rate=0.1,
+        # Set environment
+        environment=os.getenv("ENVIRONMENT", "development"),
+        # Add data like request headers and IP for users
+        send_default_pii=True,
+    )
+else:
+    logger.warning("SENTRY_DSN not set. Error monitoring invalid.")
 
 # Log startup information
 logger.info("Starting application...")
@@ -380,6 +404,14 @@ def startup_test():
     Simple test endpoint to verify the application is running
     """
     return {"status": "ok", "message": "Application is running correctly", "port": os.getenv("PORT", "Not set")}
+
+@app.get("/sentry-debug")
+async def trigger_error():
+    """
+    Trigger a division by zero error to verify Sentry integration.
+    """
+    division_by_zero = 1 / 0
+    return division_by_zero
 
 @app.get(f"{settings.API_PREFIX}/test-db")
 async def test_db_connection(db: Session = Depends(get_db)):

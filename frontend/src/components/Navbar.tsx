@@ -5,7 +5,7 @@ import UserContainer from "./auth/UserContainer";
 import AuthErrorBoundary from "./auth/AuthErrorBoundary";
 import { useAuth } from "../context/AuthContext";
 import { useAuthAlerts } from "../hooks/useAuthAlerts";
-import { fuzzySearchPhones, SearchResult } from "../api/search";
+import { fuzzySearchPhones, SearchResult, recordSearchEvent } from "../api/search";
 
 
 interface NavbarProps {
@@ -19,7 +19,7 @@ const Navbar: React.FC<NavbarProps> = ({
   darkMode,
   setDarkMode,
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshProfile } = useAuth();
   const authAlerts = useAuthAlerts(darkMode);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -103,6 +103,8 @@ const Navbar: React.FC<NavbarProps> = ({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      recordSearchEvent(searchQuery.trim()); // Record explicit search
+      refreshProfile(); // Refresh stats in background
       navigate(`/phones?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchOpen(false);
       setSearchQuery("");
@@ -111,6 +113,8 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const handleResultClick = (phoneSlug: string) => {
     // For search results, we use the slug for direct navigation to the phone details page
+    recordSearchEvent(searchQuery); // Record search on click
+    refreshProfile(); // Refresh stats in background
     navigate(`/phones/${phoneSlug}`);
     setSearchOpen(false);
     setSearchQuery("");

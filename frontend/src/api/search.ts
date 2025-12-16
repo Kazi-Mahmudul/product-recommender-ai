@@ -39,3 +39,26 @@ export const fuzzySearchPhones = async (
 ): Promise<SearchResult[]> => {
   return searchPhones(query);
 };
+
+export const recordSearchEvent = async (query: string): Promise<void> => {
+  try {
+    let API_BASE = process.env.REACT_APP_API_BASE || "/api";
+    const baseUrl = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+
+    // We get the token from localStorage if available to ensure request is authenticated
+    const token = localStorage.getItem('auth_token');
+    if (!token) return; // Don't record for guests if not supported
+
+    await axios.post(
+      `${baseUrl}/api/v1/phones/events/search?query=${encodeURIComponent(query)}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+  } catch (error) {
+    console.error("Failed to record search event:", error);
+  }
+};

@@ -110,21 +110,9 @@ def _read_phones_impl(
             search=search
         )
 
-        # Track search usage for logged-in users
-        if current_user and search:
-             try:
-                stats = current_user.usage_stats or {}
-                # Initialize if needed (handling legacy data)
-                if "total_searches" not in stats:
-                    stats["total_searches"] = 0
-                
-                stats["total_searches"] += 1
-                current_user.usage_stats = stats
-                flag_modified(current_user, "usage_stats")
-                db.commit()
-             except Exception as e:
-                logger.error(f"Failed to update search stats for user {current_user.id}: {e}")
-                # Don't fail the request
+        # Search usage tracking removed from here to prevent counting every keystroke
+        # It is now handled by the /events/search endpoint triggered explicitly
+
         
         # Convert phones to dictionaries for response
         phones_data = []
@@ -205,6 +193,33 @@ def read_cache_stats():
     """
     from app.utils import query_cache
     return query_cache.get_cache_stats()
+
+@router.post("/events/search")
+def record_search_event(
+    query: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    Explicitly record a search event for user statistics.
+    Should be called when user presses Enter or clicks Search, not on keystroke.
+    """
+    try:
+        stats = current_user.usage_stats or {}
+        # Initialize if needed
+        if "total_searches" not in stats:
+            stats["total_searches"] = 0
+        
+        stats["total_searches"] += 1
+        current_user.usage_stats = stats
+        flag_modified(current_user, "usage_stats")
+        db.commit()
+        
+        return {"status": "success", "total_searches": stats["total_searches"]}
+    except Exception as e:
+        logger.error(f"Failed to record search event for user {current_user.id}: {e}")
+        # Return success anyway to not break frontend flow
+        return {"status": "error", "message": "Failed to record stats"}
 
 @router.get("/filter-options")
 def read_filter_options(db: Session = Depends(get_db)):

@@ -25,6 +25,7 @@ interface AuthContextType {
   googleLogin: () => Promise<void>;
   updateProfile: (profileData: { first_name?: string; last_name?: string }) => Promise<void>;
   uploadProfilePicture: (file: File) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -244,6 +245,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshProfile = async () => {
+    if (!token) return;
+    try {
+      // Background refresh, don't set global loading state to avoid flickering
+      const userData = await authApi.getCurrentUser(token);
+      if (userData && userData.email) {
+        setUser(enhanceUserData(userData));
+      }
+    } catch (error) {
+      console.error("Failed to refresh profile:", error);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -254,7 +268,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin, updateProfile, uploadProfilePicture }}>
+    <AuthContext.Provider value={{ user, loading, token, login, signup, verify, logout, setUser, googleLogin, updateProfile, uploadProfilePicture, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

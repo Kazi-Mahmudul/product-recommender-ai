@@ -47,11 +47,11 @@ def create_database_engine(database_url: str, is_fallback: bool = False):
     return create_engine(
         sqlalchemy_url,
         echo=settings.DEBUG,  # Only enable SQL logging in debug mode
-        pool_size=5,  # Reduced from 10 for cost optimization
-        max_overflow=10,  # Reduced from 20 for cost optimization
-        pool_recycle=3600,  # Recycle connections after 1 hour (increased from 5 min)
+        pool_size=40,  # Increased for high concurrency (approx 40 connections per container)
+        max_overflow=30,  # Allow burst of 30 extra connections
+        pool_recycle=1800,  # Recycle connections every 30 mins to prevent stale connection errors
         pool_pre_ping=True,  # Enable connection health checks
-        pool_timeout=30,  # Timeout for getting connection from pool
+        pool_timeout=60,  # Increased timeout to wait for a connection
         connect_args=connect_args
     )
 

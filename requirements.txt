@@ -14,6 +14,9 @@ pymysql>=1.0.2
 psycopg2-binary==2.9.9
 alembic>=1.7.1
 
+# Monitoring
+sentry-sdk[fastapi]>=1.38.0
+
 # Data Processing
 rapidfuzz>=3.0.0
 scipy>=1.10.0,<1.12.0

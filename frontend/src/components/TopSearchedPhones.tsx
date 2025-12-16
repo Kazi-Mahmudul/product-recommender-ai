@@ -125,7 +125,7 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
 
       <div className="flex items-center justify-between mb-4 md:mb-8">
         <h2 className="text-lg md:text-3xl font-bold text-neutral-700 dark:text-white">
-          Top Searched Phones in Bangladesh
+          Top Searched
         </h2>
         <a
           href="/phones"
