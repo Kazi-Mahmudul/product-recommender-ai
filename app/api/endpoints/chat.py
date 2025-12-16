@@ -1286,3 +1286,57 @@ async def get_error_details(request_id: str):
     except Exception as e:
         logger.error(f"Failed to get error details for {request_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve error details")
+
+
+@router.get("/diag", response_model=Dict[str, Any])
+def diagnostic_usage_check(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(deps.get_current_user_optional)
+):
+    """
+    Diagnostic endpoint to manually trigger a usage update and REPORT ERRORS.
+    This bypasses the exception suppression in rate_limit_service.
+    """
+    from datetime import datetime
+    from sqlalchemy.orm.attributes import flag_modified
+    import traceback
+    
+    results = {
+        "user_found": False,
+        "is_admin": None,
+        "initial_stats": None,
+        "update_status": "Not Attempted",
+        "error": None
+    }
+    
+    if not current_user:
+        return {"error": "No User Authenticated. Please include Bearer token."}
+        
+    try:
+        results["user_found"] = True
+        results["is_admin"] = current_user.is_admin
+        results["initial_stats"] = current_user.usage_stats
+        
+        # Attempt Direct Update mimicking RateLimitService
+        stats = current_user.usage_stats or {}
+        current_count = stats.get("diag_test", 0)
+        stats["diag_test"] = current_count + 1
+        
+        current_user.usage_stats = stats
+        current_user.last_activity = datetime.now()
+        flag_modified(current_user, "usage_stats")
+        
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+        
+        results["update_status"] = "Success"
+        results["final_stats"] = current_user.usage_stats
+        
+    except Exception as e:
+        db.rollback()
+        results["update_status"] = "Failed"
+        results["error"] = str(e)
+        results["traceback"] = traceback.format_exc()
+        
+    return results
