@@ -1,6 +1,6 @@
 from typing import List, Union, Dict, Any, Optional
 from typing import List, Union, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request, Response
 from sqlalchemy.orm import Session
 import httpx
 import os
@@ -29,6 +29,7 @@ from app.api import deps
 from app.models.user import User
 from app.crud import chat_history as chat_history_crud
 from app.services.error_handling_service import error_service
+from app.services.rate_limit_service import rate_limit_service
 
 logger = logging.getLogger(__name__)
 
@@ -769,6 +770,8 @@ async def process_legacy_query(request: ContextualQueryRequest, db: Session):
 @router.post("/rag-query")
 async def rag_enhanced_query(
     request: IntelligentQueryRequest,
+    http_request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(deps.get_current_user_optional)
 ):
@@ -776,7 +779,32 @@ async def rag_enhanced_query(
     RAG-enhanced query endpoint that integrates GEMINI service with database knowledge.
     Keys history persistence and wraps the core logic.
     """
-
+    
+    # RATE LIMIT CHECK
+    guest_uuid = http_request.headers.get("X-Guest-ID")
+    ip_address = http_request.client.host if http_request.client else None
+    user_agent = http_request.headers.get("User-Agent")
+    
+    # Check limits and get remaining count
+    limit_info = rate_limit_service.check_and_increment(
+        db, 
+        current_user, 
+        guest_uuid, 
+        ip_address, 
+        user_agent
+    )
+    
+    # Set headers for frontend UI
+    response.headers["X-RateLimit-Limit"] = str(limit_info["limit"])
+    response.headers["X-RateLimit-Remaining"] = str(limit_info["remaining"])
+    response.headers["X-RateLimit-Used"] = str(limit_info["usage"])
+    
+    # DEBUG HEADERS - TO BE REMOVED
+    if current_user:
+        response.headers["X-Debug-User-Id"] = str(current_user.id)
+        response.headers["X-Debug-Usage-Current"] = str(current_user.usage_stats or {})
+        response.headers["X-Debug-Limit-Usage"] = str(limit_info["usage"])
+    
     try:
 
         # Handle History Persistence for Logged-in Users
