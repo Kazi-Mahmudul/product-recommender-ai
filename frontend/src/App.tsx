@@ -30,6 +30,7 @@ import UsersPage from "./pages/admin/UsersPage";
 import PhoneManagementPage from "./pages/admin/PhonesPage";
 import PhoneEditorPage from "./pages/admin/PhoneEditorPage";
 import ComparisonsPage from "./pages/admin/ComparisonsPage";
+import { AnalyticsTracker } from "./hooks/usePageTracking";
 
 
 interface Message {
@@ -547,6 +548,9 @@ function App() {
       <div
         className={`min-h-screen w-full ${darkMode ? "bg-[#121212]" : "bg-[#fdfbf9]"}`}
       >
+        {/* Analytics Tracker - Automatically tracks all page navigations */}
+        <AnalyticsTracker />
+
         <Navbar
           onMenuClick={() => setSidebarOpen(true)}
           darkMode={darkMode}

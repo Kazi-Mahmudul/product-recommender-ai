@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.endpoints import phones, natural_language, auth, comparison, chat, analytics
-from app.api.endpoints import top_searched, admin, reviews, admin_auth, admin_users, admin_phones, admin_comparisons, admin_analytics
+from app.api.endpoints import top_searched, admin, reviews, admin_auth, admin_users, admin_phones, admin_comparisons, admin_analytics, admin_settings
 from app.api.endpoints import auth_health  # Health check for auth system
 
 api_router = APIRouter()
@@ -21,5 +21,6 @@ api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admi
 api_router.include_router(admin_phones.router, prefix="/admin/phones", tags=["admin-phones"])
 api_router.include_router(admin_comparisons.router, prefix="/admin/comparisons", tags=["admin-comparisons"])
 api_router.include_router(admin_analytics.router, prefix="/admin/analytics", tags=["admin-analytics"])
+api_router.include_router(admin_settings.router, prefix="/admin", tags=["admin-settings"])
 
 # Add more routers here as your API grows

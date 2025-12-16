@@ -919,6 +919,63 @@ def create_phones_batch(db: Session, phones: List[Dict[str, Any]]) -> List[Phone
         logger.error(f"Error in batch creation: {str(e)}")
         raise
 
+def update_phone(db: Session, phone_id: int, phone_update: PhoneCreate) -> Optional[Phone]:
+    """
+    Update an existing phone by ID
+    """
+    try:
+        db_phone = db.query(Phone).filter(Phone.id == phone_id).first()
+        if not db_phone:
+            return None
+        
+        # Update phone fields
+        update_data = phone_update.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_phone, field, value)
+        
+        # Recalculate derived fields after update
+        calculate_derived_fields(db_phone)
+        
+        db.commit()
+        db.refresh(db_phone)
+        logger.info(f"Updated phone: {db_phone.name} (ID: {phone_id})")
+        
+        # Invalidate caches
+        from app.services.cache_invalidation import CacheInvalidationService
+        CacheInvalidationService.invalidate_phone_recommendations()
+        query_cache.invalidate_cache(f"phone_slug_{db_phone.slug}")
+        
+        return db_phone
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating phone {phone_id}: {str(e)}")
+        raise
+
+def delete_phone(db: Session, phone_id: int) -> bool:
+    """
+    Delete a phone by ID
+    """
+    try:
+        db_phone = db.query(Phone).filter(Phone.id == phone_id).first()
+        if not db_phone:
+            return False
+        
+        phone_name = db_phone.name
+        db.delete(db_phone)
+        db.commit()
+        logger.info(f"Deleted phone: {phone_name} (ID: {phone_id})")
+        
+        # Invalidate caches
+        from app.services.cache_invalidation import CacheInvalidationService
+        CacheInvalidationService.invalidate_phone_recommendations()
+        
+        return True
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting phone {phone_id}: {str(e)}")
+        raise
+
+
 def get_smart_recommendations(
     db: Session,
     min_display_score: Optional[float] = None,

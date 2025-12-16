@@ -73,6 +73,38 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             # Add custom header
             response.headers["X-Process-Time"] = str(process_time)
+            
+            # Track analytics in background (don't block response)
+            try:
+                from app.services.analytics_service import analytics_service
+                from app.core.database import get_db
+                import uuid
+                
+                # Only track successful GET requests on meaningful paths
+                if request.method == "GET" and response.status_code < 400:
+                    if analytics_service.should_track_path(request.url.path):
+                        # Get session ID from cookie or header, or generate new one
+                        session_id = request.cookies.get("session_id") or request.headers.get("X-Session-ID") or str(uuid.uuid4())
+                        
+                        # Try to track in background (best effort, don't fail request if it fails)
+                        try:
+                            db = next(get_db())
+                            analytics_service.track_page_view(
+                                db=db,
+                                path=request.url.path,
+                                session_id=session_id,
+                                user_agent=request.headers.get("user-agent", ""),
+                                ip_address=request.client.host if request.client else "unknown",
+                                user_id=None,  # Could be extracted from JWT if needed
+                                referrer=request.headers.get("referer")
+                            )
+                            db.close()
+                        except Exception as track_error:
+                            logger.debug(f"Analytics tracking failed: {str(track_error)}")
+            except Exception as analytics_error:
+                # Silently fail - analytics should never break the app
+                logger.debug(f"Analytics middleware error: {str(analytics_error)}")
+            
             return response
 
         except Exception as e:
