@@ -4,7 +4,7 @@ import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import TrendingPhones from "./components/TrendingPhones";
 import TopSearchedPhones from "./components/TopSearchedPhones";
-import WhyChoosePeyechi from "./components/WhyChoosePeyechi";
+import WhyChoosePeyechi from "./components/WhyChoosePeyechi"; // OurFeatures component
 import BrandsSection from "./components/BrandsSection";
 import PopularComparisons from "./components/PopularComparisons";
 
@@ -350,24 +350,8 @@ function App() {
         <div className="w-full max-w-7xl px-2 md:px-6 mx-auto">
           {/* Hero Section and Search Form */}
           <section className="w-full mt-4 md:mt-6 relative overflow-hidden rounded-2xl md:rounded-3xl shadow-soft-lg bg-gradient-to-br from-brand/5 via-white to-brand-darkGreen/10 dark:from-brand/20 dark:via-gray-900 dark:to-brand-darkGreen/20 py-4 md:py-2 mb-8 md:mb-12">
-            {/* Decorative elements - contained within the section */}
-            <div className="absolute top-0 right-0 w-48 md:w-72 h-48 md:h-72 bg-brand/10 rounded-full filter blur-3xl -z-10 animate-float"></div>
-            <div
-              className="absolute bottom-0 left-0 w-48 md:w-72 h-48 md:h-72 bg-brand-darkGreen/10 rounded-full filter blur-3xl -z-10 animate-float"
-              style={{ animationDelay: "2s" }}
-            ></div>
-            <div
-              className="absolute top-1/4 right-1/4 w-12 md:w-16 h-12 md:h-16 rounded-full border-2 md:border-4 border-brand/20 animate-float"
-              style={{ animationDelay: "1s" }}
-            ></div>
-            <div
-              className="absolute bottom-1/3 left-1/3 w-8 md:w-10 h-8 md:h-10 rounded-md rotate-45 border-2 md:border-4 border-brand-darkGreen/30 animate-float"
-              style={{ animationDelay: "3s" }}
-            ></div>
 
             <div className="w-full px-3 md:px-10 py-6 md:py-4 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 overflow-hidden relative">
-              {/* Mobile BG image */}
-              <div className="absolute inset-0 md:hidden bg-[url('https://i.ibb.co/JF7hWvmC/hero-bg.png')] bg-no-repeat bg-contain bg-right opacity-10 pointer-events-none" />
               {/* Left side content */}
               <div className="w-full md:w-1/2 text-center md:text-left z-10 px-2 md:px-0">
                 <div className="inline-block mb-2 md:mb-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full bg-brand/10 text-brand font-medium text-xs md:text-sm" style={{
@@ -474,7 +458,7 @@ function App() {
           </div>
           <div className="my-3" />
           <PopularComparisons />
-          <div className="my-3 md:my-8 lg:hidden">
+          <div className="my-3 md:my-8 lg:hidden max-w-3xl mx-auto">
             <BrandsSection />
           </div>
           <div className="my-3 " />

@@ -6,13 +6,6 @@ interface HeroSectionProps {
 
 const HeroSection: React.FC<HeroSectionProps> = ({ children }) => (
   <section className="w-full flex flex-col items-center justify-center min-h-[70vh] pt-20 pb-12 px-4 relative overflow-hidden">
-    {/* Decorative background elements */}
-    <div className="absolute top-20 left-1/4 w-64 h-64 rounded-full bg-brand/10 filter blur-3xl animate-float"></div>
-    <div className="absolute bottom-20 right-1/4 w-80 h-80 rounded-full bg-accent/10 filter blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-
-    {/* Decorative shapes */}
-    <div className="absolute top-40 right-[15%] w-12 h-12 rounded-full border-4 border-brand opacity-20 animate-float" style={{ animationDelay: '1s' }}></div>
-    <div className="absolute bottom-32 left-[20%] w-8 h-8 rounded-md rotate-45 border-4 border-accent/60 opacity-30 animate-float" style={{ animationDelay: '3s' }}></div>
 
     <div className="max-w-3xl w-full text-center relative z-10">
       <div className="inline-block mb-4 px-4 py-1.5 md:py-4 rounded-full bg-brand/10 text-brand dark:text-brand font-medium text-sm">

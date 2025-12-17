@@ -124,9 +124,14 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
       <div className="absolute bottom-0 left-0 w-32 md:w-64 h-32 md:h-64 bg-brand-darkGreen/5 rounded-full filter blur-3xl -z-10"></div>
 
       <div className="flex items-center justify-between mb-4 md:mb-8">
-        <h2 className="text-lg md:text-3xl font-bold text-neutral-700 dark:text-white" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
-          Top Searched Phones
-        </h2>
+        <div className="flex flex-col items-center md:items-start px-3 md:px-0">
+          <h2 className="text-lg md:text-3xl font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+            Top Searched Phones
+          </h2>
+          <p className="text-sm md:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+            বাংলাদেশে সর্বোচ্চ সংখ্যক বার Search করা ফোনগুলো
+          </p>
+        </div>
         <a
           href="/phones"
           className="flex items-center gap-1 md:gap-2 text-brand hover:text-brand-darkGreen transition-colors duration-300 font-medium text-xs md:text-base"
@@ -146,11 +151,11 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
                 {/* Card Header with Rank Badge */}
                 <div className="relative">
                   {/* Image Container with Gradient Background */}
-                  <div className="relative h-20 md:h-48 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-1 md:p-4">
+                  <div className="relative h-28 md:h-48 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center p-1 md:p-4">
                     <img
                       src={phone.img_url || "/no-image-placeholder.svg"}
                       alt={phone.name}
-                      className="h-16 md:h-40 object-contain transition-transform duration-500 group-hover:scale-105"
+                      className="h-24 md:h-40 object-contain transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
                         e.currentTarget.src = "/no-image-placeholder.svg";
                       }}

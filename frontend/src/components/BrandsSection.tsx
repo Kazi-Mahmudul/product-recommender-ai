@@ -83,7 +83,7 @@ const BrandsSection: React.FC = () => {
   }
 
   return (
-    <section className="w-full rounded-2xl md:rounded-3xl bg-white dark:bg-card shadow-soft-lg p-3 md:p-6 h-fit">
+    <section className="max-w-[250px] md:max-w-full mx-auto rounded-2xl md:rounded-3xl bg-white dark:bg-card shadow-soft-lg p-3 md:p-6 h-fit">
       <div className="flex items-center justify-between mb-2 md:mb-4">
         <h2 className="text-base md:text-xl font-bold text-neutral-700 dark:text-white">
           Popular Brands

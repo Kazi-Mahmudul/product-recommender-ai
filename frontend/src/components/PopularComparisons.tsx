@@ -26,7 +26,8 @@ const sliderSettings = {
     speed: 500,
     slidesToShow: 3,
     slidesToScroll: 1,
-    autoplay: false,
+    autoplay: true,
+    autoplaySpeed: 4000,
     pauseOnHover: true,
     swipeToSlide: true, // Enable swiping to slide
     draggable: true, // Enable dragging
@@ -36,7 +37,7 @@ const sliderSettings = {
             settings: {
                 slidesToShow: 2,
                 swipeToSlide: true,
-                draggable: true
+                draggable: true,
             },
         },
         {
@@ -46,7 +47,7 @@ const sliderSettings = {
                 slidesToScroll: 1,
                 dots: false, // Explicitly hide dots on mobile
                 swipeToSlide: true,
-                draggable: true
+                draggable: true,
             },
         },
     ],
@@ -90,10 +91,10 @@ const PopularComparisons: React.FC = () => {
                     <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
                     Most Popular
                 </div>
-                <h2 className="text-lg md:text-4xl font-bold text-gray-900 dark:text-white mb-1 md:mb-3" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+                <h2 className="text-lg md:text-3xl font-bold text-gray-900 dark:text-white mb-1 md:mb-3" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
                     Trending Comparisons
                 </h2>
-                <p className="text-[10px] md:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+                <p className="text-sm md:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
                     কোন ফোনগুলো বেশি Compare হচ্ছে দেখুন এবং AI Insights পান
                 </p>
             </div>
@@ -103,10 +104,10 @@ const PopularComparisons: React.FC = () => {
                     <div key={`${pair.phone1.slug}-${pair.phone2.slug}`} className="px-1 md:px-5">
                         <div className="h-full">
                             <div
-                                className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                                className="max-w-[300px] md:max-w-[400px] mx-auto group relative bg-white dark:bg-card rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                             >
                                 {/* Rank Badge */}
-                                <div className="absolute top-1 md:top-4 left-1 md:left-4 z-10 w-5 h-5 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-[8px] md:text-lg shadow-lg">
+                                <div className="absolute top-1 md:top-4 left-1 md:left-4 z-10 w-6 h-6 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-xs md:text-lg shadow-lg">
                                     #{index + 1}
                                 </div>
 
@@ -117,13 +118,13 @@ const PopularComparisons: React.FC = () => {
                                 </div>
 
                                 {/* Phone Images - Side by Side */}
-                                <div className="relative h-20 md:h-48 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center gap-1 md:gap-4 p-1 md:p-4">
+                                <div className="relative h-28 md:h-48 bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 flex items-center justify-center gap-1 md:gap-4 p-1 md:p-4">
                                     {/* Phone 1 */}
                                     <div className="flex-1 flex items-center justify-center">
                                         <img
                                             src={pair.phone1.img_url || 'https://via.placeholder.com/120'}
                                             alt={pair.phone1.name}
-                                            className="h-14 md:h-32 w-auto object-contain group-hover:scale-110 transition-transform duration-300"
+                                            className="h-24 md:h-32 w-auto object-contain group-hover:scale-110 transition-transform duration-300"
                                         />
                                     </div>
 
@@ -139,7 +140,7 @@ const PopularComparisons: React.FC = () => {
                                         <img
                                             src={pair.phone2.img_url || 'https://via.placeholder.com/120'}
                                             alt={pair.phone2.name}
-                                            className="h-14 md:h-32 w-auto object-contain group-hover:scale-110 transition-transform duration-300"
+                                            className="h-24 md:h-32 w-auto object-contain group-hover:scale-110 transition-transform duration-300"
                                         />
                                     </div>
                                 </div>
@@ -223,6 +224,14 @@ const PopularComparisons: React.FC = () => {
                     display: flex;
                     height: 100%;
                     width: 100%;
+                }
+                /* Better touch support for mobile */
+                .popular-comparisons-slider .slick-list {
+                    overflow: hidden;
+                    touch-action: pan-y pinch-zoom;
+                }
+                .popular-comparisons-slider .slick-track {
+                    touch-action: pan-y pinch-zoom;
                 }
             `}</style>
         </section>

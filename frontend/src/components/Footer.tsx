@@ -59,8 +59,8 @@ export default function Footer() {
                 Peyechi
               </h2>
             </div>
-            <p className="text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 text-xs sm:text-sm md:text-base mb-3 sm:mb-4 md:mb-6 max-w-xs leading-relaxed">
-              Your trusted companion for discovering the perfect smartphone in Bangladesh. Get personalized recommendations based on your needs and budget.
+            <p className="text-peyechi-mediumGray dark:text-peyechi-mediumGray/80 text-xs sm:text-sm md:text-base mb-3 sm:mb-4 md:mb-6 max-w-xs leading-relaxed" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+              বাংলাদেশে Perfect Smartphone খুঁজে পেতে আপনার Trusted AI Assistant — আপনার চাহিদা এবং Budget অনুযায়ী Personalized Recommendations পান।
             </p>
             {/* Social Links */}
             <div className="flex space-x-2 sm:space-x-3">
