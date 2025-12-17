@@ -370,20 +370,24 @@ function App() {
               <div className="absolute inset-0 md:hidden bg-[url('https://i.ibb.co/JF7hWvmC/hero-bg.png')] bg-no-repeat bg-contain bg-right opacity-10 pointer-events-none" />
               {/* Left side content */}
               <div className="w-full md:w-1/2 text-center md:text-left z-10 px-2 md:px-0">
-                <div className="inline-block mb-2 md:mb-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full bg-brand/10 text-brand font-medium text-xs md:text-sm">
-                  AI-Powered Smartphone Assistant
+                <div className="inline-block mb-2 md:mb-4 px-3 md:px-4 py-1 md:py-1.5 rounded-full bg-brand/10 text-brand font-medium text-xs md:text-sm" style={{
+                  fontFamily: "'Hind Siliguri', sans-serif"
+                }}>
+                  AI-Powered ফোন অ্যাসিস্ট্যান্ট
                 </div>
                 <h1
-                  className={`text-2xl md:text-6xl font-extrabold mb-3 md:mb-6 leading-tight break-words ${darkMode ? "text-white" : "text-gray-900"}`}
-                >
-                  Find Your <span className="text-brand">Perfect Phone</span> in
-                  Bangladesh
+                  className={`text-2xl md:text-5xl font-extrabold mb-3 md:mb-6 leading-tight break-words ${darkMode ? "text-white" : "text-gray-900"}`}
+                  style={{
+                    fontFamily: "'Hind Siliguri', sans-serif"
+                  }} >
+                  <span className="text-brand">Perfect Phone</span> খুঁজছেন? এখনই বেছে নিন <span className="text-brand">AI</span> এর সাহায্যে
                 </h1>
                 <p
                   className={`text-sm md:text-xl mb-4 md:mb-8 max-w-xl ${darkMode ? "text-gray-300" : "text-gray-700"}`}
-                >
-                  Ask anything about smartphones, compare models, or get
-                  personalized recommendations tailored to your specific needs.
+                  style={{
+                    fontFamily: "'Hind Siliguri', sans-serif"
+                  }} >
+                  আপনার প্রশ্ন লিখুন, AI সাথে সাথে উত্তর দেবে এবং সঠিক ফোন সাজেস্ট করবে
                 </p>
 
                 {/* Search form */}
@@ -422,10 +426,10 @@ function App() {
                 {/* Feature badges */}
                 <div className="flex flex-wrap gap-2 md:gap-3 mt-4 md:mt-8 justify-center md:justify-start">
                   {[
-                    { icon: "💡", text: "Smart AI Recommendations" },
-                    { icon: "🔍", text: "Detailed Comparisons" },
-                    { icon: "🇧🇩", text: "Local BD Pricing" },
-                    { icon: "⚡", text: "Instant Results" },
+                    { icon: "🤖", text: "AI Chat" },
+                    { icon: "🇧🇩", text: "BD Prices" },
+                    { icon: "⚡", text: "Instant" },
+                    { icon: "🎯", text: "Smart Match" },
                   ].map((feature, idx) => (
                     <div
                       key={idx}

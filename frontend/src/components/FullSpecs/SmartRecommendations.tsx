@@ -189,28 +189,15 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         role="region"
         aria-labelledby="recommendations-heading"
       >
-        <div className="mb-3 md:mb-4 flex justify-between items-center">
+        <div className="mb-3 md:mb-4 flex flex-col justify-between items-start">
           <h2
             id="recommendations-heading"
-            className="text-base md:text-lg font-bold text-gray-800 dark:text-white m-0"
+            className="font-bold text-base md:text-lg md:text-xl flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100"
+            style={{ fontFamily: "'Hind Siliguri', sans-serif" }}
           >
-            Alternatives Worth Checking
+            <span role="img" aria-label="AI">🔁</span> আরও বিকল্প ফোন
           </h2>
-          <div className="flex items-center">
-            {isRetrying && (
-              <span className="text-[10px] md:text-xs text-gray-500 mr-1 md:mr-2" aria-live="polite">
-                Retrying {retryCount}/3...
-              </span>
-            )}
-            <button
-              onClick={handleRetry}
-              className="ml-1 md:ml-2 px-3 py-1 md:px-4 md:py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 rounded-full text-[10px] md:text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-              disabled={loading || isRetrying}
-              aria-label="Refresh recommendations"
-            >
-              <span className="text-[10px] md:text-xs">{loading ? "Loading..." : "Refresh"}</span>
-            </button>
-          </div>
+          <h6 style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>দাম, Performance ও Features বিবেচনায় বাছাই করা ফোনগুলো</h6>
         </div>
 
         {/* Loading state with skeleton cards */}

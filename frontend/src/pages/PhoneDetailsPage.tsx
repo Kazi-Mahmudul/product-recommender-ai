@@ -89,7 +89,7 @@ const PhoneDetailsPage: React.FC = () => {
   const handleAISummary = async () => {
     setLoadingTagline(true);
     try {
-      const prompt = `Generate a concise, compelling 1-2 sentence tagline for this smartphone that highlights its key selling points and target audience. Focus on the most impressive specifications and value proposition.
+      const prompt = `Generate ONE single concise summary for this smartphone in Bengali-English mixed format. This is for Bangladeshi users, so use Bengali for descriptions and keep technical terms in English.
 
 Phone Specifications:
 - Name: ${phone.name}
@@ -105,12 +105,17 @@ Phone Specifications:
 - Camera Score: ${phone.camera_score ? `${phone.camera_score}/10` : "N/A"}
 - Overall Score: ${phone.overall_device_score ? `${phone.overall_device_score}/10` : "N/A"}
 
-Examples of good taglines:
-- "Flagship performance meets affordable pricing with 108MP cameras and 120Hz display"
-- "Gaming powerhouse with Snapdragon 8 Gen 2 and 5000mAh battery for all-day performance"
-- "Premium photography experience with 50MP triple cameras and AI-enhanced features"
+CRITICAL INSTRUCTIONS:
+1. Generate ONLY ONE short summary (1-2 sentences maximum)
+2. DO NOT provide multiple options or alternatives
+3. Use Bengali-English mix: Bengali for descriptions, English for technical features
+4. Keep it concise and highlight the phone's key selling points
+5. Use Bengali words like: এর, সাথে, দিয়ে, থাকায়, জন্য, উপযুক্ত
 
-Generate a similar tagline that captures this phone's unique strengths:`;
+Example format:
+"${phone.name} হলো একটি smartphone যেটি ${phone.primary_camera_mp ? `${phone.primary_camera_mp}MP Camera` : 'high-resolution camera'}, ${phone.battery_capacity_numeric ? `${phone.battery_capacity_numeric}mAh Battery` : 'large battery'} এবং ${phone.chipset || 'powerful chipset'} দিয়ে সজ্জিত।"
+
+Generate only one concise summary now:`;
 
       const summary = await fetchGeminiSummary(prompt);
       setTagline(summary);

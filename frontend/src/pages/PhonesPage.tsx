@@ -346,9 +346,8 @@ const PhonesPage: React.FC = () => {
         <h1 className="text-xl md:text-3xl font-medium text-neutral-800 dark:text-white mb-1 md:mb-2 py-3">
           Explore Phones
         </h1>
-        <p className="text-xs md:text-base md:text-neutral-500 dark:text-neutral-400 max-w-2xl">
-          Find and compare the latest smartphones with detailed specifications
-          and features
+        <p className="text-xs md:text-base md:text-neutral-900 dark:text-neutral-400 max-w-2xl" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+          Latest Smartphone খুঁজুন, Detailed Specifications দেখুন ও Features Compare করুন
         </p>
       </div>
 

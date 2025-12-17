@@ -115,6 +115,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ phone, onAISummary, onAddToCo
           <button
             onClick={onAISummary}
             className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-2 py-1.5 md:px-3 md:py-2 font-semibold shadow hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-600 text-xs md:text-sm"
+            style={{ fontFamily: "'Hind Siliguri', sans-serif" }}
           >
             AI Summary
           </button>

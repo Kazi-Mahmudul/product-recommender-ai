@@ -90,11 +90,11 @@ const PopularComparisons: React.FC = () => {
                     <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
                     Most Popular
                 </div>
-                <h2 className="text-lg md:text-4xl font-bold text-gray-900 dark:text-white mb-1 md:mb-3">
-                    Trending Phone Comparisons
+                <h2 className="text-lg md:text-4xl font-bold text-gray-900 dark:text-white mb-1 md:mb-3" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+                    Trending Comparisons
                 </h2>
-                <p className="text-[10px] md:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                    See what phones users are comparing. Get instant AI-powered comparison insights.
+                <p className="text-[10px] md:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+                    কোন ফোনগুলো বেশি Compare হচ্ছে দেখুন এবং AI Insights পান
                 </p>
             </div>
 

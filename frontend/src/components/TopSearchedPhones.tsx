@@ -106,7 +106,7 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
     return (
       <section className="w-full max-w-6xl mx-auto px-1 py-1 md:px-8 md:py-8">
         <div className="flex items-center justify-between mb-2 md:mb-8">
-          <h2 className="text-base md:text-3xl font-bold text-neutral-700 dark:text-white">
+          <h2 className="text-base md:text-3xl font-bold text-neutral-700 dark:text-white" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
             Top Searched Phones
           </h2>
         </div>
@@ -124,8 +124,8 @@ const TopSearchedPhones: React.FC<TopSearchedPhonesProps> = ({ darkMode }) => {
       <div className="absolute bottom-0 left-0 w-32 md:w-64 h-32 md:h-64 bg-brand-darkGreen/5 rounded-full filter blur-3xl -z-10"></div>
 
       <div className="flex items-center justify-between mb-4 md:mb-8">
-        <h2 className="text-lg md:text-3xl font-bold text-neutral-700 dark:text-white">
-          Top Searched
+        <h2 className="text-lg md:text-3xl font-bold text-neutral-700 dark:text-white" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+          Top Searched Phones
         </h2>
         <a
           href="/phones"

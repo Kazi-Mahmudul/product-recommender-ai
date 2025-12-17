@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Phone } from '../../api/phones';
 import { BRAND_COLORS } from '../../utils/colorSystem';
-import { 
-  generateComparisonPDF, 
-  generateShareableUrl, 
-  copyToClipboard, 
+import {
+  generateComparisonPDF,
+  generateShareableUrl,
+  copyToClipboard,
   shareComparison,
-  saveComparisonToHistory 
+  saveComparisonToHistory
 } from '../../utils/exportUtils';
 
 interface ComparisonActionsProps {
@@ -30,7 +30,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
       await generateComparisonPDF(phones, verdict || undefined);
       // Save to history when user exports
       saveComparisonToHistory(phones);
-      
+
       // Show success feedback
       const successMessage = document.createElement('div');
       successMessage.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
@@ -41,7 +41,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
       }, 3000);
     } catch (error) {
       console.error('Export failed:', error);
-      
+
       // Show error feedback
       const errorMessage = document.createElement('div');
       errorMessage.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
@@ -60,7 +60,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
 
     const url = generateShareableUrl(phones.map(p => p.slug!));
     const success = await copyToClipboard(url);
-    
+
     if (success) {
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
@@ -76,7 +76,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
 
     const url = generateShareableUrl(phones.map(p => p.slug!));
     const success = await shareComparison(phones, url);
-    
+
     if (success) {
       setShareSuccess(true);
       setTimeout(() => setShareSuccess(false), 2000);
@@ -93,7 +93,7 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-sm overflow-hidden">
+    <div className="max-w-[800px] mx-auto bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-sm overflow-hidden">
       <div className="p-4 sm:p-5 md:p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
           Export & Share
@@ -109,11 +109,10 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
           <button
             onClick={handleExportPDF}
             disabled={isExporting}
-            className={`flex items-center justify-center px-3 py-2.5 sm:px-4 sm:py-3 font-medium rounded-md transition-colors duration-200 ${
-              isExporting 
-                ? 'bg-gray-400 cursor-not-allowed text-white' 
+            className={`flex items-center justify-center px-3 py-2.5 sm:px-4 sm:py-3 font-medium rounded-md transition-colors duration-200 ${isExporting
+                ? 'bg-gray-400 cursor-not-allowed text-white'
                 : `bg-[${BRAND_COLORS.green}] hover:bg-[${BRAND_COLORS.green}]/90 text-white`
-            }`}
+              }`}
             aria-label={isExporting ? 'Exporting comparison to PDF...' : 'Export comparison as PDF'}
           >
             {isExporting ? (
@@ -137,11 +136,10 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
           {/* Copy Link */}
           <button
             onClick={handleCopyLink}
-            className={`flex items-center justify-center px-3 py-2.5 sm:px-4 sm:py-3 font-medium rounded-md transition-all duration-200 ${
-              copySuccess 
-                ? 'bg-green-600 text-white' 
+            className={`flex items-center justify-center px-3 py-2.5 sm:px-4 sm:py-3 font-medium rounded-md transition-all duration-200 ${copySuccess
+                ? 'bg-green-600 text-white'
                 : `bg-[${BRAND_COLORS.darkGreen}] hover:bg-[${BRAND_COLORS.darkGreen}]/90 text-black`
-            }`}
+              }`}
             aria-label={copySuccess ? 'Link copied to clipboard' : 'Copy comparison link to clipboard'}
           >
             {copySuccess ? (
@@ -164,11 +162,10 @@ const ComparisonActions: React.FC<ComparisonActionsProps> = ({
           {/* Share */}
           <button
             onClick={handleShare}
-            className={`flex items-center justify-center px-3 py-2.5 sm:px-4 sm:py-3 font-medium rounded-md transition-all duration-200 ${
-              shareSuccess 
-                ? 'bg-green-600 text-white' 
+            className={`flex items-center justify-center px-3 py-2.5 sm:px-4 sm:py-3 font-medium rounded-md transition-all duration-200 ${shareSuccess
+                ? 'bg-green-600 text-white'
                 : `bg-[${BRAND_COLORS.green}] hover:bg-[${BRAND_COLORS.green}]/90 text-white`
-            }`}
+              }`}
             aria-label={shareSuccess ? 'Comparison shared successfully' : 'Share comparison with others'}
           >
             {shareSuccess ? (

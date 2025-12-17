@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { fetchGeminiSummary } from '../api/gemini';
-import {Phone} from '../api/phones'
+import { Phone } from '../api/phones'
 
 export interface AIVerdictState {
   verdict: string | null;
@@ -62,19 +62,36 @@ Phone ${index + 1}: ${phone.brand} ${phone.name}
 
     const contextSection = userContext ? `\nUser Context: ${userContext}\n` : '';
 
-    return `You are an expert smartphone reviewer providing a comprehensive comparison analysis for a user.
+    return `You are an expert smartphone reviewer providing a comprehensive comparison analysis for Bangladeshi users.
+
+CRITICAL LANGUAGE INSTRUCTIONS:
+YOU MUST write in a mix of Bengali (Bangla) and English. Follow these rules EXACTLY:
+1. Section titles and labels MUST be in Bengali-English mix
+2. Feature/spec names MUST be in ENGLISH (e.g., "Battery", "Display", "Camera", "Performance", "Snapdragon", "RAM", "Chipset")
+3. Descriptions and explanations MUST be in BENGALI (Bangla)
+4. Use Bengali words like: এবং, এর, দুটোই, থাকার কারণে, দেয়, পাওয়া যায়, হওয়ায়, তুলনায়, জন্য, ভালো, যেটি, যারা, তাদের
 
 ${contextSection}
-Please provide a detailed analysis (approximately 1000 characters) covering:
+Please provide a CONCISE analysis (approximately 600-800 characters) covering:
 
-**Overview**: Brief introduction to the comparison
-**Key Differences**: Major distinguishing factors between the phones
-**Strengths & Weaknesses**: For each phone, highlight what it does well and where it falls short
-**Final Recommendation**: Clear winner with detailed reasoning
+**সংক্ষিপ্ত Overview**: Brief 2-3 sentence introduction comparing the phones
+**⚖️ Key Differences (মূল পার্থক্য)**: 2-3 major distinguishing factors between the phones
+**🏆 Final Recommendation**: Clear winner with concise reasoning (2-3 sentences)
 
 ${phoneDescriptions}
 
-Format your response with clear sections and use markdown for emphasis. Target length: 800-1200 characters for comprehensive analysis that helps users make informed decisions.`.trim();
+EXAMPLE FORMAT:
+Short Overview:
+Oppo A6 এবং Vivo Y39 – দুটোই মূলত budget-friendly smartphone, যেখানে বড় Battery এবং decent specifications দেওয়া হয়েছে। মূল পার্থক্যটা তৈরি হয়েছে Performance বনাম Battery priority-এর জায়গায়।
+
+⚖️ Key Differences (মূল পার্থক্য):
+Vivo Y39: Snapdragon 4 Gen 2 chipset এবং 8GB RAM থাকার কারণে Performance অনেক বেশি শক্তিশালী, বিশেষ করে Gaming ও Multitasking-এর ক্ষেত্রে।
+Oppo A6: বিশাল 7000mAh Battery থাকার কারণে Battery backup অনেক ভালো, যা দীর্ঘ সময় ব্যবহারকারীদের জন্য বড় সুবিধা।
+
+🏆 Final Recommendation:
+Vivo Y39 হলো overall better choice। যদিও Oppo A6-এর 7000mAh Battery আকর্ষণীয়, তবে Vivo Y39-এর Performance advantage দৈনন্দিন ব্যবহারে বেশি গুরুত্বপূর্ণ। Camera quality দুটো ফোনেই প্রায় একই রকম, তাই Performance দিকটাই decisive factor।
+
+IMPORTANT: Keep it CONCISE. Do NOT include detailed strengths/weaknesses lists for each phone. Focus on overview, key differences, and final recommendation only. Write EVERYTHING in Bengali-English mix as shown in the example.`.trim();
   }, []);
 
   /**
@@ -97,27 +114,27 @@ Format your response with clear sections and use markdown for emphasis. Target l
       try {
         const prompt = buildComparisonPrompt(phones, userContext);
         setLastPrompt(prompt);
-        
+
         const aiResponse = await fetchGeminiSummary(prompt);
-        
+
         if (aiResponse && aiResponse.trim()) {
           const trimmedResponse = aiResponse.trim();
           const charCount = trimmedResponse.length;
           setCharacterCount(charCount);
-          
+
           // Check if response is too short and we haven't exceeded max retries
           if (charCount < 800 && attempt < 2) {
             console.log(`Response too short (${charCount} chars), retrying... (attempt ${attempt + 1})`);
             setRetryCount(attempt + 1);
-            
+
             // Enhanced prompt for retry
             const enhancedPrompt = `${prompt}
 
 IMPORTANT: The previous response was too brief (${charCount} characters). Please provide a more comprehensive analysis with at least 800-1000 characters. Include more detailed explanations for each section, specific examples, and thorough reasoning for your recommendations.`;
-            
+
             setLastPrompt(enhancedPrompt);
             const retryResponse = await fetchGeminiSummary(enhancedPrompt);
-            
+
             if (retryResponse && retryResponse.trim()) {
               const retryTrimmed = retryResponse.trim();
               setCharacterCount(retryTrimmed.length);
@@ -137,9 +154,9 @@ IMPORTANT: The previous response was too brief (${charCount} characters). Please
         }
       } catch (error) {
         console.error('Error generating AI verdict:', error);
-        
+
         let errorMessage = 'Failed to generate AI verdict. Please try again.';
-        
+
         if (error instanceof Error) {
           if (error.message.includes('timeout')) {
             errorMessage = 'AI service request timed out. Please try again.';
@@ -149,7 +166,7 @@ IMPORTANT: The previous response was too brief (${charCount} characters). Please
             errorMessage = 'Too many requests. Please wait a moment and try again.';
           }
         }
-        
+
         setError(errorMessage);
       }
     };
@@ -175,7 +192,7 @@ IMPORTANT: The previous response was too brief (${charCount} characters). Please
 
     try {
       const aiResponse = await fetchGeminiSummary(lastPrompt);
-      
+
       if (aiResponse && aiResponse.trim()) {
         setVerdict(aiResponse.trim());
       } else {

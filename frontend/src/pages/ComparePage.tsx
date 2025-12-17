@@ -12,7 +12,6 @@ import { useAIVerdict } from "../hooks/useAIVerdict";
 import StickyProductCards from "../components/Compare/StickyProductCards";
 import PhonePickerModal from "../components/Compare/PhonePickerModal";
 import ComparisonTable from "../components/Compare/ComparisonTable";
-import MetricChart from "../components/Compare/MetricChart";
 import AIVerdictBlock from "../components/Compare/AIVerdictBlock";
 import ComparisonActions from "../components/Compare/ComparisonActions";
 import ComparisonHistory from "../components/Compare/ComparisonHistory";
@@ -202,14 +201,15 @@ const ComparePage: React.FC = () => {
                 </svg>
               </button>
             </div>
-            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-2 sm:px-4 leading-relaxed">
-              Compare up to 5 smartphones side-by-side with detailed
-              specifications,
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-2 sm:px-4 leading-relaxed"
+              style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+              একসাথে সর্বোচ্চ ৫টি Smartphone তুলনা করুন — Detailed Specifications,
               <span className="text-[#377D5B] dark:text-[#80EF80] font-semibold">
                 {" "}
                 AI-powered insights
+                {" "}
               </span>
-              , and interactive visualizations.
+              এবং Interactive Visualizations সহ.
             </p>
             <div className="mt-4 sm:mt-6 flex justify-center">
               <div className="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex-wrap justify-center gap-2 sm:gap-0">
@@ -311,10 +311,10 @@ const ComparePage: React.FC = () => {
                     ? "Unable to Load Phones"
                     : "Start Your Comparison"}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-8">
+                <p className="text-gray-600 dark:text-gray-300 mb-8" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
                   {comparisonState.error
                     ? "The requested phones could not be loaded. Please select different phones from our catalog."
-                    : "Select phones from our catalog to begin comparing their features, specifications, and get AI-powered recommendations."}
+                    : "Comparison শুরু করতে আমাদের Catalog থেকে ফোন Select করুন — Features, Specifications এবং AI-powered Recommendations একসাথে দেখুন"}
                 </p>
                 <button
                   onClick={() => navigate("/phones")}
@@ -356,9 +356,6 @@ const ComparePage: React.FC = () => {
                   phones={comparisonState.phones}
                   highlightBest={true}
                 />
-
-                {/* Metric Chart */}
-                <MetricChart phones={comparisonState.phones} chartType="bar" />
 
                 {/* AI Verdict Block */}
                 <AIVerdictBlock

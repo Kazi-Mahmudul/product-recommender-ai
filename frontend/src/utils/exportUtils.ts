@@ -41,15 +41,12 @@ export function generateComparisonPDF(
 }
 
 /**
- * Generate compact HTML content for printing/PDF export
+ * Generate compact HTML content for printing/PDF export - Minimal Bengali-English Design
  */
 function generateCompactPrintableHTML(
   phones: Phone[],
   verdict?: string
 ): string {
-  // Generate visual comparison chart similar to ChatPage
-  const comparisonChart = generateComparisonChart(phones);
-
   // Generate compact comparison table
   const comparisonTable = generateCompactComparisonTable(phones);
 
@@ -57,13 +54,9 @@ function generateCompactPrintableHTML(
   const verdictSection = verdict
     ? `
     <div class="verdict-section">
-      <h3>🤖 AI Analysis & Recommendations</h3>
-      <div class="verdict-content">
+      <h3 style="font-family: 'Hind Siliguri', sans-serif;">✨ AI Verdict</h3>
+      <div class="verdict-content" style="font-family: 'Hind Siliguri', sans-serif;">
         ${formatVerdictForPDF(verdict)}
-      </div>
-      <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #377D5B; font-size: 10px; color: #666;">
-        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Disclaimer:</strong> AI-generated analysis based on available specifications. Please verify all details before making a purchase decision.</p>
       </div>
     </div>
   `
@@ -73,8 +66,9 @@ function generateCompactPrintableHTML(
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Phone Comparison Report - Peyechi</title>
+      <title>Phone Comparison - Peyechi</title>
       <meta charset="UTF-8">
+      <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         * {
           margin: 0;
@@ -84,134 +78,84 @@ function generateCompactPrintableHTML(
         
         body {
           font-family: 'Segoe UI', Arial, sans-serif;
-          line-height: 1.4;
-          color: #2c3e50;
-          font-size: 12px;
+          line-height: 1.3;
+          color: #333;
+          font-size: 10px;
         }
         
         .report-container {
           max-width: 210mm;
           margin: 0 auto;
-          padding: 12mm;
+          padding: 10mm;
         }
         
-        /* Header - Compact */
+        /* Header - Minimal */
         .report-header {
           text-align: center;
-          margin-bottom: 20px;
-          padding: 20px;
-          background: linear-gradient(135deg, #377D5B 0%, #80EF80 100%);
-          border-radius: 12px;
-          color: white;
-          position: relative;
-          overflow: hidden;
-        }
-        
-        .report-header::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="white" opacity="0.1"/><circle cx="80" cy="40" r="1.5" fill="white" opacity="0.1"/><circle cx="40" cy="80" r="1" fill="white" opacity="0.1"/></svg>');
-          pointer-events: none;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #333;
         }
         
         .report-title {
-          font-size: 28px;
-          font-weight: 800;
-          margin-bottom: 8px;
-          text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          position: relative;
-          z-index: 1;
+          font-size: 20px;
+          font-weight: 700;
+          margin-bottom: 4px;
+          color: #333;
         }
         
         .report-subtitle {
-          font-size: 14px;
-          opacity: 0.9;
-          margin-bottom: 12px;
-          position: relative;
-          z-index: 1;
+          font-size: 10px;
+          color: #666;
+          font-family: 'Hind Siliguri', sans-serif;
         }
         
-        .report-meta {
-          font-size: 12px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background: rgba(255,255,255,0.1);
-          padding: 8px 16px;
-          border-radius: 20px;
-          backdrop-filter: blur(10px);
-          position: relative;
-          z-index: 1;
-        }
-        
-        .data-retention-notice {
-          background: #fff3cd;
-          border: 1px solid #ffeaa7;
-          border-radius: 8px;
-          padding: 12px;
-          margin-bottom: 20px;
-          font-size: 11px;
-          color: #856404;
-          text-align: center;
-        }
-        
-        .data-retention-notice strong {
-          color: #533f03;
-        }
-        
-        /* Phone Overview - Horizontal Layout */
+        /* Phone Overview - Minimal */
         .phones-overview {
           display: flex;
-          gap: 12px;
-          margin-bottom: 15px;
+          gap: 8px;
+          margin-bottom: 12px;
           justify-content: center;
           flex-wrap: wrap;
         }
         
         .phone-card {
-          background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-          border: 2px solid #377D5B;
-          border-radius: 8px;
-          padding: 12px;
+          background: #f8f8f8;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          padding: 8px;
           text-align: center;
-          min-width: 130px;
+          min-width: 110px;
           flex: 1;
-          max-width: 170px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          max-width: 150px;
         }
         
         .phone-image {
-          width: 60px;
-          height: 75px;
+          width: 45px;
+          height: 55px;
           object-fit: contain;
-          margin-bottom: 8px;
-          border-radius: 4px;
-          background: #ffffff;
-          padding: 2px;
+          margin-bottom: 4px;
+          background: #fff;
         }
         
         .phone-name {
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 600;
-          color: #2c3e50;
-          margin-bottom: 3px;
+          color: #333;
+          margin-bottom: 2px;
           line-height: 1.2;
         }
         
         .phone-price {
-          font-size: 14px;
+          font-size: 11px;
           font-weight: 700;
-          color: #e74c3c;
-          margin-bottom: 6px;
+          color: #000;
+          margin-bottom: 4px;
         }
         
         .phone-specs {
-          font-size: 10px;
-          color: #6c757d;
+          font-size: 8px;
+          color: #666;
           text-align: left;
         }
         
@@ -221,150 +165,92 @@ function generateCompactPrintableHTML(
           margin-bottom: 1px;
         }
         
-        /* Visual Comparison Chart */
-        .chart-section {
-          margin-bottom: 15px;
-        }
-        
-        .chart-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #2c3e50;
-          margin-bottom: 8px;
-          text-align: center;
-        }
-        
-        .chart-container {
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 6px;
-          padding: 12px;
-        }
-        
-        .chart-feature {
-          margin-bottom: 10px;
-        }
-        
-        .feature-label {
-          font-size: 11px;
-          font-weight: 600;
-          color: #495057;
-          margin-bottom: 3px;
-        }
-        
-        .feature-bars {
-          display: flex;
-          height: 18px;
-          background: #e9ecef;
-          border-radius: 3px;
-          overflow: hidden;
-        }
-        
-        .feature-bar {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 9px;
-          font-weight: 600;
-          color: white;
-          text-shadow: 0 1px 1px rgba(0,0,0,0.3);
-        }
-        
-        .feature-values {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 2px;
-          font-size: 9px;
-          color: #6c757d;
-        }
-        
         /* Compact Comparison Table */
         .comparison-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 15px;
-          font-size: 10px;
+          margin-bottom: 10px;
+          font-size: 9px;
         }
         
         .comparison-table th {
-          background: #377D5B;
-          color: white;
-          padding: 6px 4px;
+          background: #e8e8e8;
+          color: #333;
+          padding: 4px 3px;
           text-align: left;
           font-weight: 600;
-          font-size: 10px;
+          font-size: 9px;
+          border: 1px solid #ccc;
         }
         
         .comparison-table td {
-          padding: 4px;
-          border-bottom: 1px solid #e9ecef;
+          padding: 3px;
+          border: 1px solid #ddd;
           vertical-align: top;
         }
         
         .comparison-table tr:nth-child(even) {
-          background: #f8f9fa;
+          background: #fafafa;
         }
         
         .best-value {
-          background: #e8f5e8 !important;
-          font-weight: 700;
-          color: #377D5B;
-          position: relative;
+          background: #f0f0f0 !important;
+          font-weight: 600;
+          color: #000;
         }
         
         .best-value::after {
           content: '★';
-          color: #ffd700;
-          font-size: 10px;
+          color: #333;
+          font-size: 8px;
           margin-left: 2px;
         }
         
         .spec-category {
-          background: #e9ecef !important;
+          background: #e0e0e0 !important;
           font-weight: 600;
-          color: #495057;
-          font-size: 9px;
+          color: #333;
+          font-size: 8px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.3px;
         }
         
-        /* AI Verdict - Compact */
+        /* AI Verdict - Minimal */
         .verdict-section {
-          background: linear-gradient(135deg, #f0f8ff 0%, #e8f5e8 100%);
-          padding: 16px;
-          border-radius: 8px;
-          border-left: 4px solid #377D5B;
-          margin-bottom: 16px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          background: #f5f5f5;
+          padding: 10px;
+          border-radius: 4px;
+          border-left: 3px solid #333;
+          margin-bottom: 10px;
         }
         
         .verdict-section h3 {
-          font-size: 16px;
-          color: #377D5B;
-          margin-bottom: 10px;
-          font-weight: 700;
+          font-size: 12px;
+          color: #333;
+          margin-bottom: 6px;
+          font-weight: 600;
         }
         
         .verdict-content {
-          font-size: 11px;
-          line-height: 1.4;
+          font-size: 9px;
+          line-height: 1.3;
+          color: #333;
         }
         
         .verdict-paragraph {
-          margin-bottom: 6px;
-          color: #2c3e50;
+          margin-bottom: 4px;
         }
         
         .verdict-header {
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 600;
-          color: #2980b9;
-          margin: 8px 0 4px 0;
+          color: #000;
+          margin: 5px 0 3px 0;
         }
         
         .verdict-list-item {
-          margin-bottom: 3px;
-          padding-left: 10px;
+          margin-bottom: 2px;
+          padding-left: 8px;
           position: relative;
         }
         
@@ -372,26 +258,26 @@ function generateCompactPrintableHTML(
           content: '•';
           position: absolute;
           left: 0;
-          color: #3498db;
+          color: #333;
         }
         
-        /* Footer - Compact */
+        /* Footer - Minimal */
         .report-footer {
-          margin-top: 15px;
-          padding-top: 8px;
-          border-top: 1px solid #e9ecef;
+          margin-top: 8px;
+          padding-top: 6px;
+          border-top: 1px solid #ddd;
           text-align: center;
-          font-size: 9px;
-          color: #6c757d;
+          font-size: 8px;
+          color: #666;
         }
         
         .footer-logo {
           font-weight: 600;
-          color: #377D5B;
-          margin-bottom: 3px;
+          color: #333;
+          margin-bottom: 2px;
         }
         
-        /* Print Styles - Force colors to be visible in PDF */
+        /* Print Styles */
         @media print {
           body { 
             margin: 0; 
@@ -408,60 +294,51 @@ function generateCompactPrintableHTML(
             break-inside: avoid; 
           }
           
-          /* Force background colors and gradients to print */
-          .report-header {
-            background: #377D5B !important;
-            -webkit-print-color-adjust: exact !important;
-            color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          
-          .phone-card {
-            background: #f8f9fa !important;
-            border: 2px solid #377D5B !important;
+         .phone-card {
+            background: #f8f8f8 !important;
+            border: 1px solid #ddd !important;
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
           .verdict-section {
-            background: #f0f8ff !important;
-            border-left: 4px solid #377D5B !important;
+            background: #f5f5f5 !important;
+            border-left: 3px solid #333 !important;
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
           .comparison-table th {
-            background: #377D5B !important;
-            color: white !important;
+            background: #e8e8e8 !important;
+            color: #333 !important;
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
           .comparison-table tr:nth-child(even) {
-            background: #f8f9fa !important;
+            background: #fafafa !important;
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
           .best-value {
-            background: #e8f5e8 !important;
-            color: #377D5B !important;
+            background: #f0f0f0 !important;
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
-          .feature-bar {
+          .spec-category {
+            background: #e0e0e0 !important;
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           
-          /* Force all colors to print */
           * {
             -webkit-print-color-adjust: exact !important;
             color-adjust: exact !important;
@@ -470,7 +347,7 @@ function generateCompactPrintableHTML(
         }
         
         @page {
-          margin: 8mm;
+          margin: 10mm;
           size: A4;
         }
       </style>
@@ -479,25 +356,15 @@ function generateCompactPrintableHTML(
       <div class="report-container">
         <!-- Header -->
         <div class="report-header">
-          <h1 class="report-title">📱 Phone Comparison Report</h1>
-          <p class="report-subtitle">Professional Analysis & Recommendations</p>
-          <div class="report-meta">
-            <span><strong>Peyechi AI</strong> - Smart Phone Decisions</span>
-            <span>${new Date().toLocaleDateString()}</span>
-          </div>
-        </div>
-        
-        <!-- Data Retention Notice -->
-        <div class="data-retention-notice">
-          <strong>📋 Data Retention Policy:</strong> This comparison data is stored for 24 hours and automatically removed after expiration. 
-          Export this report to save it permanently.
+          <h1 class="report-title">📱 Phone Comparison</h1>
+          <p class="report-subtitle">Smartphones-এর তুলনা এবং পর্যালোচনা • ${new Date().toLocaleDateString()}</p>
         </div>
         
         <!-- Phone Overview -->
         <div class="phones-overview">
           ${phones
-            .map(
-              (phone, index) => `
+      .map(
+        (phone, index) => `
             <div class="phone-card">
               <img src="${phone.img_url || "/no-image-placeholder.svg"}" alt="${phone.name}" class="phone-image">
               <div class="phone-name">${phone.brand} ${phone.name}</div>
@@ -510,12 +377,9 @@ function generateCompactPrintableHTML(
               </div>
             </div>
           `
-            )
-            .join("")}
+      )
+      .join("")}
         </div>
-        
-        <!-- Visual Comparison Chart -->
-        ${comparisonChart}
         
         <!-- Detailed Comparison Table -->
         ${comparisonTable}
@@ -525,8 +389,8 @@ function generateCompactPrintableHTML(
         
         <!-- Footer -->
         <div class="report-footer">
-          <div class="footer-logo">🎯 Peyechi - peyechi.com</div>
-          <p>AI-generated insights. Verify specifications before purchase.</p>
+          <div class="footer-logo">Peyechi - peyechi.com</div>
+          <p style="font-family: 'Hind Siliguri', sans-serif;">AI-generated insights • ক্রয়ের আগে Specifications যাচাই করুন</p>
         </div>
       </div>
     </body>
@@ -628,26 +492,26 @@ function generateComparisonChart(phones: Phone[]): string {
       <div class="chart-title">📊 Performance Comparison</div>
       <div class="chart-container">
         ${chartFeatures
-          .map(
-            (feature) => `
+      .map(
+        (feature) => `
           <div class="chart-feature">
             <div class="feature-label">${feature!.label}</div>
             <div class="feature-bars">
               ${feature!.bars
-                .map(
-                  (bar) => `
+            .map(
+              (bar) => `
                 <div class="feature-bar" style="width: ${bar.percentage}%; background-color: ${bar.color};">
                   ${bar.percentage > 15 ? `${bar.percentage.toFixed(0)}%` : ""}
                 </div>
               `
-                )
-                .join("")}
+            )
+            .join("")}
             </div>
             <div class="feature-values">${feature!.rawValues}</div>
           </div>
         `
-          )
-          .join("")}
+      )
+      .join("")}
       </div>
     </div>
   `;
@@ -747,20 +611,20 @@ function generateCompactComparisonTable(phones: Phone[]): string {
             const values = phones.map((phone) => (phone as any)[spec.key]);
             const numericValues = values.map(val => parseFloat(val) || 0);
             const bestIndex = getBestValueIndex(spec.key, numericValues);
-            
+
             return `
       <tr>
         <td style="font-weight: 600; color: #495057;">${spec.label}</td>
         ${phones
-          .map((phone, index) => {
-            const value = (phone as any)[spec.key];
-            const formattedValue = spec.format
-              ? spec.format(value)
-              : value || "N/A";
-            const isBest = index === bestIndex && value && value !== "N/A";
-            return `<td style="text-align: center;" ${isBest ? 'class="best-value"' : ''}>${formattedValue}</td>`;
-          })
-          .join("")}
+                .map((phone, index) => {
+                  const value = (phone as any)[spec.key];
+                  const formattedValue = spec.format
+                    ? spec.format(value)
+                    : value || "N/A";
+                  const isBest = index === bestIndex && value && value !== "N/A";
+                  return `<td style="text-align: center;" ${isBest ? 'class="best-value"' : ''}>${formattedValue}</td>`;
+                })
+                .join("")}
       </tr>
     `;
           }
@@ -958,10 +822,10 @@ function arraysEqual(a: string[], b: string[]): boolean {
  */
 function getBestValueIndex(key: string, values: number[]): number {
   if (values.every(val => val === 0)) return -1; // No valid values
-  
+
   // For price-related fields, lower is better
   const lowerIsBetter = ['price', 'price_original'].some(field => key.includes(field));
-  
+
   if (lowerIsBetter) {
     const nonZeroValues = values.filter(val => val > 0);
     if (nonZeroValues.length === 0) return -1;
