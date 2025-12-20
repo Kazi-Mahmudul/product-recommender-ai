@@ -149,7 +149,7 @@ def suggest_local_setup():
     print("2. Create database: createdb product_recommender")
     print("3. Create user: createuser -P product_user1")
     print("4. Update .env file:")
-    print("   DATABASE_URL=postgresql://product_user1:secure_password@localhost:5432/product_recommender")
+    print("   DATABASE_URL=postgresql://product_user1:YOUR_PASSWORD@localhost:5432/product_recommender")
     print()
     print("5. Run migrations: alembic upgrade head")
     print("6. Load data: python load_prod.py")
