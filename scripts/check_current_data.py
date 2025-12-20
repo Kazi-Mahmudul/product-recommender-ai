@@ -13,9 +13,9 @@ def check_database_state():
     # Get database connection
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        # Fallback to hardcoded URL for testing
-        database_url = os.getenv('DATABASE_URL')
-        print("Using fallback DATABASE_URL")
+        print("❌ ERROR: DATABASE_URL environment variable not set")
+        print("Please set the DATABASE_URL environment variable.")
+        return False
     else:
         print(f"Using DATABASE_URL from environment")
     
