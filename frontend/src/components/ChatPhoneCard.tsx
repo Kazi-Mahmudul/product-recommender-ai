@@ -64,15 +64,6 @@ const ChatPhoneCard: React.FC<ChatPhoneCardProps> = ({
     return new Intl.NumberFormat('en-US').format(num);
   };
 
-  // Get score color
-  const getScoreColor = (score: number | undefined) => {
-    if (!score) return "";
-    if (score >= 8) return "text-green-500";
-    if (score >= 6) return "text-yellow-500";
-    if (score >= 4) return "text-orange-500";
-    return "text-red-500";
-  };
-
   // Check if a feature should be highlighted
   const isFeatureHighlighted = (featureName: string) => {
     return highlightFeatures.some(feature =>

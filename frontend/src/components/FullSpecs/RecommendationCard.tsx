@@ -1,4 +1,4 @@
-﻿import { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { Phone } from '../../api/phones';
 import { selectPrimaryBadge } from '../../utils/badgeSelector';
 

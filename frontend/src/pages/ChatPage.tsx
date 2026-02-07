@@ -141,9 +141,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
   // Initialize session on component mount
   useEffect(() => {
-    // Check if we're coming from homepage with an initial message
-    const hasInitialMessage = location.state?.initialMessage;
-
     const initializeSession = () => {
       // Logic for selected session is handled by handleSelectSession
       // Here we just handle initial load / anonymous session
@@ -177,6 +174,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
     };
 
     initializeSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
 
   // Handle external queries (from home search, comparison AI buttons, etc.)
@@ -550,7 +548,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
 
         } else {
           // Fallback to existing smart chat service
-          const response = await smartChatService.sendQuery(messageToSend);
+          await smartChatService.sendQuery(messageToSend);
         }
 
       } catch (err) {
@@ -593,6 +591,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
         setLoadingStage('complete');
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [message, useRAGPipeline, ragMessages, sessionId, handleError]
   );
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   fetchFilterOptions,
   Phone,
@@ -105,39 +105,40 @@ const PhonesPage: React.FC = () => {
     setActiveFiltersCount(count);
   }, [filters]);
 
-  // Filter options are now handled by the useFilterCache hook
-
   // Update URL when filters change
   const updateUrl = useCallback(
-    debounce(
-      (
-        newFilters: FilterState,
-        query: string,
-        currentPage: number,
-        currentPageSize: number
-      ) => {
-        const params = filtersToSearchParams(newFilters);
+    (
+      newFilters: FilterState,
+      query: string,
+      currentPage: number,
+      currentPageSize: number
+    ) => {
+      const params = filtersToSearchParams(newFilters);
 
-        // Add search query
-        if (query) {
-          params.set("q", query);
-        }
+      // Add search query
+      if (query) {
+        params.set("q", query);
+      }
 
-        // Add pagination
-        params.set("page", currentPage.toString());
-        params.set("pageSize", currentPageSize.toString());
+      // Add pagination
+      params.set("page", currentPage.toString());
+      params.set("pageSize", currentPageSize.toString());
 
-        setSearchParams(params);
-      },
-      300
-    ),
+      setSearchParams(params);
+    },
     [setSearchParams]
+  );
+
+  // Debounced version of updateUrl
+  const debouncedUpdateUrl = useMemo(
+    () => debounce(updateUrl, 300),
+    [updateUrl]
   );
 
   // Update URL when pagination or sorting changes
   useEffect(() => {
-    updateUrl(filters, searchQuery, page, pageSize);
-  }, [page, pageSize, sort, updateUrl, filters, searchQuery]);
+    debouncedUpdateUrl(filters, searchQuery, page, pageSize);
+  }, [page, pageSize, sort, debouncedUpdateUrl, filters, searchQuery]);
 
   // Fetch phones with filters
   useEffect(() => {

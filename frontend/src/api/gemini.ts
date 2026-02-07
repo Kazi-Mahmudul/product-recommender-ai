@@ -957,7 +957,6 @@ export async function fetchRAGPhoneAnalysis(
     if (analysisType === 'pros_cons') {
       return await fetchGeminiProsCons(phone);
     } else {
-      const phoneCategory = determinePhoneCategory(phone);
       const prompt = `Provide a ${analysisType} for the ${phone.name} smartphone.`;
       return await fetchGeminiSummary(prompt);
     }

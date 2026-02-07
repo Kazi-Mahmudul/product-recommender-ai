@@ -998,16 +998,6 @@ const AIVerdictSection: React.FC<{
 
       try {
         // Build a prompt for the AI to generate a compact comparison summary
-        const phoneNames = phones.map(p => p.name).join(' vs ');
-        const phoneDescriptions = phones.map(p =>
-          `${p.name}: ${p.brand} phone with ${p.ram_gb || 'N/A'}GB RAM, ${p.storage_gb || 'N/A'}GB storage, ${p.primary_camera_mp || 'N/A'}MP camera, ${p.battery_capacity_numeric || 'N/A'}mAh battery, priced at ৳${p.price_original || 'N/A'}`
-        ).join('\n');
-
-        const prompt = `As a smartphone expert, provide a concise one or two sentence comparison summary for these phones:
-${phoneDescriptions}
-
-Focus on the key differences and provide a clear recommendation. Keep it brief and conversational, suitable for a chatbot interface.`;
-
         // In a real implementation, this would call your AI service
         // For now, we'll simulate a compact response
         const simulatedResponse = `The ${phones[0].name} offers better value with its ${phones[0].primary_camera_mp || 'high'}MP camera and ${phones[0].battery_capacity_numeric || 'large'}mAh battery, while the ${phones[1].name} excels in performance. For most users, the ${phones[0].name} provides the best balance of features and price.`;

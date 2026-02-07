@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, KeyboardEvent } from "react";
+import React, { useEffect, useState, useRef, KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import useRecommendations from "../../hooks/useRecommendations";
 import usePrefetch from "../../hooks/usePrefetch";
@@ -190,7 +190,7 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
         <div className="mb-3 md:mb-4 flex flex-col justify-between items-start">
           <h2
             id="recommendations-heading"
-            className="font-bold text-base md:text-lg md:text-xl flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100"
+            className="font-bold text-base md:text-xl flex items-center gap-1 md:gap-2 text-gray-900 dark:text-gray-100"
             style={{ fontFamily: "'Hind Siliguri', sans-serif" }}
           >
             <span role="img" aria-label="AI">🔁</span> আরও বিকল্প ফোন

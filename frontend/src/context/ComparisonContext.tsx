@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { Phone, fetchPhonesBySlugs } from '../api/phones';
 import { useNavigate } from 'react-router-dom';
 import { generateComparisonUrl } from '../utils/slugUtils';
-import { getComparisonSession, addComparisonItem, removeComparisonItem, getComparisonItems, ComparisonItem } from '../api/comparison';
+import { getComparisonSession, addComparisonItem, removeComparisonItem, getComparisonItems } from '../api/comparison';
 
 const MAX_PHONES = 5;
 
