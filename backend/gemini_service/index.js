@@ -53,9 +53,10 @@ console.log(`🔹 API Key length: ${apiKey.length} characters`);
 // Initialize Google Generative AI with enhanced configuration
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// Use the paid tier model as configured
+// Use the configured model version with fallback to latest
+const modelVersion = process.env.GEMINI_MODEL_VERSION || "gemini-3-flash-preview";
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.0-flash",
+  model: modelVersion,
   generationConfig: {
     temperature: 0.7,
     topK: 40,
@@ -82,7 +83,7 @@ const model = genAI.getGenerativeModel({
   ],
 });
 
-console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: gemini-2.0-flash with enhanced configuration`);
+console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: ${modelVersion} with enhanced configuration`);
 
 // Enhanced health check endpoints for Cloud Run
 app.get("/", (req, res) => {
