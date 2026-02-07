@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
-import TrendingPhones from "./components/TrendingPhones";
 import TopSearchedPhones from "./components/TopSearchedPhones";
 import WhyChoosePeyechi from "./components/WhyChoosePeyechi"; // OurFeatures component
 import BrandsSection from "./components/BrandsSection";

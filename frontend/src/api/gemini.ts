@@ -1,11 +1,8 @@
 // Gemini AI API utility
 // Uses REACT_APP_GEMINI_API from .env
 // Enhanced with RAG pipeline integration
-import { pipeline } from 'stream';
-// Import RAG chat service for integration
-import { chatAPIService, ChatQueryRequest, ChatResponse } from './chat';
+import { chatAPIService, ChatQueryRequest } from './chat';
 const GEMINI_API = process.env.REACT_APP_GEMINI_API;
-const RAG_API_BASE = process.env.REACT_APP_API_URL || '/api/v1';
 
 
 export async function fetchGeminiSummary(prompt: string): Promise<string> {

@@ -397,10 +397,11 @@ function generateCompactPrintableHTML(
     </html>
   `;
 }
-
 /**
  * Generate visual comparison chart similar to ChatPage stacked bars
+ * @deprecated - Not currently used in the application
  */
+/*
 function generateComparisonChart(phones: Phone[]): string {
   const features = [
     {
@@ -516,6 +517,7 @@ function generateComparisonChart(phones: Phone[]): string {
     </div>
   `;
 }
+*/
 
 /**
  * Generate compact comparison table

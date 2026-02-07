@@ -134,7 +134,7 @@ export class RetryService {
     customConfig?: Partial<RetryConfig>
   ): Promise<T> {
     const config = customConfig ? { ...this.config, ...customConfig } : this.config;
-    let lastError: RetryableError;
+    let lastError: RetryableError | undefined;
 
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       // Check if operation was aborted
@@ -165,7 +165,7 @@ export class RetryService {
       }
     }
 
-    throw lastError!;
+    throw new Error(lastError?.message || 'Max retries exceeded');
   }
 
   /**

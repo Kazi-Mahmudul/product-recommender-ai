@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Zap, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 

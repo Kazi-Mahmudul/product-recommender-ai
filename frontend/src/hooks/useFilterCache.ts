@@ -38,6 +38,7 @@ export const useFilterCache = (
     } else {
       fetchFreshOptions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchFunction]);
   
   const fetchFreshOptions = () => {

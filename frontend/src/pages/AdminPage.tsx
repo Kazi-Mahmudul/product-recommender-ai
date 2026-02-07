@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Smartphone, BarChart3, TrendingUp, GitCompare, Activity, Eye, Calendar } from 'lucide-react';
+import { Users, Smartphone, TrendingUp, GitCompare, Activity, Eye, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const StatCard = ({ title, value, icon: Icon, color, loading }: any) => (

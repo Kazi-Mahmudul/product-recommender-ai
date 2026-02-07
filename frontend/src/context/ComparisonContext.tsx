@@ -93,7 +93,8 @@ export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Just fetch items - session will be handled by SessionManager
     fetchComparisonItems();
-  }, []); // Remove fetchComparisonItems from dependencies to prevent re-initialization
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-clear error after 5 seconds
   useEffect(() => {

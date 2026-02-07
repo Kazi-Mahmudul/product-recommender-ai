@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Calendar, Mail, Shield, Clock, Globe, Edit2, Save, X, Camera, Upload } from 'lucide-react';
+import { Calendar, Mail, Shield, Clock, Globe, Edit2, Save, X, Camera } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { EnhancedUser } from '../../types/auth';
 import { authAlerts } from '../../utils/authAlerts';

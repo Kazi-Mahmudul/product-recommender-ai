@@ -35,10 +35,6 @@ const ComparePage: React.FC = () => {
   const [phoneToReplace, setPhoneToReplace] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  // Data retention notice state
-  const [isRetentionNoticeVisible, setIsRetentionNoticeVisible] =
-    useState(false);
-
   // Ref to track if we've processed the initial URL
   const hasProcessedInitialUrl = useRef(false);
 
@@ -154,18 +150,6 @@ const ComparePage: React.FC = () => {
       aiVerdictActions.clearVerdict();
     }
   }, [comparisonState.phones, aiVerdictActions, aiVerdictState.isLoading]);
-
-  // Manage retention notice visibility without creating new sessions
-  useEffect(() => {
-    // Only show retention notice if we have phones in comparison
-    if (comparisonState.selectedPhoneSlugs.length > 0) {
-      // For now, we'll skip the retention notice to avoid creating new sessions
-      // The session management is handled by SessionManager and ComparisonContext
-      setIsRetentionNoticeVisible(false);
-    } else {
-      setIsRetentionNoticeVisible(false);
-    }
-  }, [comparisonState.selectedPhoneSlugs.length]); // Only trigger when phone count changes
 
   return (
     <ComparisonErrorBoundary>

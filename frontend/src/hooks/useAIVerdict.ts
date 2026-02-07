@@ -2,7 +2,7 @@
  * Custom hook for generating AI-powered comparison verdicts
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { fetchGeminiSummary } from '../api/gemini';
 import { Phone } from '../api/phones'
@@ -31,8 +31,6 @@ export function useAIVerdict(): [AIVerdictState, AIVerdictActions] {
   const [characterCount, setCharacterCount] = useState<number>(0);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [lastPrompt, setLastPrompt] = useState<string>('');
-  const [lastPhones, setLastPhones] = useState<Phone[]>([]);
-  const [lastUserContext, setLastUserContext] = useState<string | undefined>();
 
   /**
    * Build a structured prompt for phone comparison
@@ -107,8 +105,6 @@ IMPORTANT: Keep it CONCISE. Do NOT include detailed strengths/weaknesses lists f
     setError(null);
     setVerdict(null);
     setRetryCount(0);
-    setLastPhones(phones);
-    setLastUserContext(userContext);
 
     const attemptGeneration = async (attempt: number = 0): Promise<void> => {
       try {

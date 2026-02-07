@@ -1,6 +1,6 @@
 ﻿import { forwardRef } from 'react';
 import { Phone } from '../../api/phones';
-import { selectPrimaryBadge, Badge } from '../../utils/badgeSelector';
+import { selectPrimaryBadge } from '../../utils/badgeSelector';
 
 // Define the props interface for the RecommendationCard component
 interface RecommendationCardProps {

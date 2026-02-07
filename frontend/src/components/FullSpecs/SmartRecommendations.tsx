@@ -36,8 +36,6 @@ const SmartRecommendations: React.FC<SmartRecommendationsProps> = ({
     loading,
     error,
     isNetworkError,
-    isRetrying,
-    retryCount,
     refetch,
     retry,
     resetError,

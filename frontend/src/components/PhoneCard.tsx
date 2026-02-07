@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Phone } from '../api/phones';
 import { Plus, Check } from "lucide-react";
 import { useComparison } from "../context/ComparisonContext";
-import { generatePhoneDetailUrl } from "../utils/slugUtils";
 
 interface PhoneCardProps {
   phone: Phone;
@@ -12,7 +11,6 @@ interface PhoneCardProps {
 
 const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
   const [showTooltip, setShowTooltip] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   
   // Use comparison context
   const { addPhone, removePhone, isPhoneSelected } = useComparison();
@@ -35,8 +33,6 @@ const PhoneCard: React.FC<PhoneCardProps> = ({ phone, onFullSpecs }) => {
     // Make entire card clickable on mobile, but keep normal behavior on larger screens
     <div 
       className="rounded-2xl md:rounded-3xl bg-white dark:bg-card overflow-hidden transition-all duration-300 hover:shadow-soft-lg group cursor-pointer md:cursor-default"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={(e) => {
         // Only trigger on mobile devices (when details button is hidden)
         const isMobile = window.innerWidth < 768;

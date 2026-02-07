@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { format, isToday, isYesterday, subDays } from 'date-fns';
+import { isToday, isYesterday, subDays } from 'date-fns';
 import { ChatSession, chatAPIService } from '../api/chat';
 import { useAuth } from '../context/AuthContext';
 import { InlineSpinner } from './LoadingIndicator';
@@ -53,6 +53,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
         if (token) {
             fetchHistory();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, variant, token, refreshTrigger]);
 
     const fetchHistory = async () => {

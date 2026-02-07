@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Phone } from "../../api/phones";
-import { FaMicrochip, FaMemory, FaCamera, FaMobileAlt, FaBatteryFull, FaBolt, FaHdd, FaCalendarAlt, FaUser, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { FaMicrochip, FaMemory, FaCamera, FaMobileAlt, FaBatteryFull, FaHdd, FaCalendarAlt, FaUser } from "react-icons/fa";
 import { useComparison } from "../../context/ComparisonContext";
 
 interface HeroSectionProps {

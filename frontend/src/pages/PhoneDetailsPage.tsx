@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { BarChart3, EyeOff } from "lucide-react";
 import { fetchPhoneBySlug, Phone } from "../api/phones";
 import { useComparison } from "../context/ComparisonContext";
 import HeroSection from "../components/FullSpecs/HeroSection";
-import DeviceScoresChart from "../components/FullSpecs/DeviceScoresChart";
 import FullSpecsAccordion from "../components/FullSpecs/FullSpecsAccordion";
 import ProsCons from "../components/FullSpecs/ProsCons";
 import SmartRecommendations from "../components/FullSpecs/SmartRecommendations";
@@ -24,7 +22,6 @@ const PhoneDetailsPage: React.FC = () => {
   const [cons, setCons] = useState<string[]>([]);
   const [loadingProsCons, setLoadingProsCons] = useState(false);
   const [prosConsError, setProsConsError] = useState<string | null>(null);
-  const [showChart, setShowChart] = useState(false);
 
   // Use comparison context
   const { addPhone, removePhone, isPhoneSelected } = useComparison();

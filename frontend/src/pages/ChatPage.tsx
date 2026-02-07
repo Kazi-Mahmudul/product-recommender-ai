@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useLocation, useNavigate } from "react-router-dom";
 import IntelligentResponseHandler from "../components/IntelligentResponseHandler";
 import ChatErrorBoundary from "../components/ChatErrorBoundary";
-import { TypingIndicator, InlineSpinner } from "../components/LoadingIndicator";
+import { InlineSpinner } from "../components/LoadingIndicator";
 import { smartChatService, ChatState } from "../services/smartChatService";
 import { FormattedResponse } from "../services/directGeminiService";
 import { useMobileResponsive } from "../hooks/useMobileResponsive";
@@ -206,6 +206,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
       // Clear the location state to prevent re-sending on re-render
       navigate(location.pathname, { replace: true, state: {} });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.initialMessage, navigate, location.pathname]);
 
   const handleSelectSession = async (selectedSessionId: string) => {
@@ -644,7 +645,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ darkMode }) => {
     }, 100); // Small delay to ensure proper initialization order
 
     return () => clearTimeout(timer);
-  }, [location.state?.initialMessage, location.state?.navigationId, hasProcessedInitialMessage, navigate, location.pathname]); // Remove handleSendMessage from dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.initialMessage, location.state?.navigationId, hasProcessedInitialMessage, navigate, location.pathname]);
 
   const handleSuggestionClick = (query: string) => {
     setShowWelcome(false);

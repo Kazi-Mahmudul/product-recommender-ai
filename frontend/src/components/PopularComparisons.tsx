@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GitCompare, MessageSquare, TrendingUp, Zap } from 'lucide-react';
+import { GitCompare, TrendingUp, Zap } from 'lucide-react';
 import Slider from 'react-slick';
 
 interface Phone {

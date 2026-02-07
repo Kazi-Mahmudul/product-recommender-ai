@@ -23,6 +23,7 @@ const PhonesPage: React.FC = () => {
 
     useEffect(() => {
         fetchPhones();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     const fetchPhones = async () => {

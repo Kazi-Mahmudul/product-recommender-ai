@@ -3,7 +3,6 @@ import { ConversationContext } from '../services/intelligentContextManager';
 import ChatPhoneCard from './ChatPhoneCard';
 import ChartVisualization from './ChartVisualization';
 import { Phone } from '../api/phones';
-import { useAIVerdict } from '../hooks/useAIVerdict';
 
 interface IntelligentResponse {
   response_type: string;

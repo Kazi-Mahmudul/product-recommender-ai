@@ -175,6 +175,7 @@ const PhoneEditorPage: React.FC = () => {
         if (isEditMode) {
             fetchPhone();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [phoneId]);
 
     const fetchPhone = async () => {
