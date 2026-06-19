@@ -549,7 +549,7 @@ def engineer_features(df, processor_df):
             .str.replace('à§³', '', regex=False)  # Remove encoded Taka symbol
             .str.replace('?', '', regex=False)    # Remove question marks
             .str.replace(',', '', regex=False)    # Remove commas
-            .str.replace(r'^\\.', '', regex=True)  # Remove leading dots (the main issue!)
+            .str.replace(r'^\.', '', regex=True)  # Remove leading dots
             .str.strip()
         )
         
@@ -557,7 +557,7 @@ def engineer_features(df, processor_df):
         processed_df["price_original"] = (
             processed_df["price_cleaned"]
             .astype(str)
-            .str.extract(r'(\\d+(?:\\.\\d+)?)')[0]  # Extract first number found
+            .str.extract(r'(\d+(?:\.\d+)?)')[0]  # Extract first number found
             .astype(float)
         )
         
@@ -565,7 +565,7 @@ def engineer_features(df, processor_df):
         processed_df["price_text"] = (
             processed_df["price_cleaned"]
             .astype(str)
-            .str.replace(r'\\d+', '', regex=True)  # Remove digits
+            .str.replace(r'\d+', '', regex=True)  # Remove digits
             .str.strip()
             .str.strip('()')  # Remove parentheses
             .str.strip()
@@ -581,8 +581,9 @@ def engineer_features(df, processor_df):
             formatted_price = f"{price_num:,}"
             
             # Add text if exists
-            if row['price_text'] and row['price_text'].strip():
-                return f"{formatted_price} ({row['price_text']})"
+            cleaned_text = str(row['price_text']).strip() if row['price_text'] is not None else ''
+            if cleaned_text and re.search(r'[A-Za-z]', cleaned_text):
+                return f"{formatted_price} ({cleaned_text})"
             else:
                 return formatted_price
         

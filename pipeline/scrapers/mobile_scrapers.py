@@ -309,6 +309,40 @@ def sanitize_key(key, prefix=''):
     return key
 
 
+def extract_price(soup):
+    """
+    Extract phone price using current MobileDokan markup with fallbacks.
+    """
+    # Legacy selector (kept for backward compatibility)
+    legacy_price = soup.select_one('.price span.h3')
+    if legacy_price:
+        return legacy_price.get_text(strip=True)
+
+    # Current structured offer markup
+    meta_price = soup.select_one('.short-info [itemprop="offers"] meta[itemprop="price"]')
+    if meta_price:
+        meta_value = meta_price.get('content')
+        if meta_value:
+            return meta_value.strip()
+
+    # Current visible official price node
+    official_price = soup.select_one('.short-info [itemprop="offers"] span[itemprop="priceCurrency"]')
+    if official_price:
+        visible_value = official_price.get_text(strip=True)
+        if visible_value:
+            return visible_value
+
+    # Text fallback for future minor DOM changes
+    price_container = soup.select_one('.short-info .price-and-variant')
+    if price_container:
+        text = price_container.get_text(' ', strip=True)
+        match = re.search(r'([\d,]+(?:\.\d+)?)', text)
+        if match:
+            return match.group(1)
+
+    return None
+
+
 class RateLimiter:
     """Rate limiter (same as manual scraper)"""
     def __init__(self, requests_per_minute=30):
@@ -463,8 +497,7 @@ def get_product_specs(url, rate_limiter=None):
         name = name_tag.get_text(strip=True).replace('Full Specifications', '').strip() if name_tag else None
 
         # Get Price
-        price_tag = soup.select_one('.price span.h3')
-        price = price_tag.get_text(strip=True) if price_tag else None
+        price = extract_price(soup)
 
         # Get Main Image URL
         img_tag = soup.select_one('img[itemprop="image"].img-fluid')
