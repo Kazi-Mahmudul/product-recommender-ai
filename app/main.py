@@ -223,7 +223,8 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down application...")
-    scheduler.shutdown()
+    if scheduler.running:
+        scheduler.shutdown()
     logger.info("Application shutdown complete")
 
 # Add other middleware in correct order (last added = first executed)

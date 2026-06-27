@@ -76,6 +76,8 @@ def test_database_connection(engine, engine_name: str) -> bool:
 # Initialize database connection with fallback
 engine = None
 current_db_type = None
+DB_AVAILABLE = True
+DB_UNAVAILABLE_REASON = ""
 
 # Try primary database first
 if settings.DATABASE_URL:
@@ -101,20 +103,17 @@ if engine is None and hasattr(settings, 'LOCAL_DATABASE_URL') and settings.LOCAL
 
 # Final check
 if engine is None:
-    # In production, fail fast on serverless to avoid silently running against a dummy DB.
-    if os.getenv("ENVIRONMENT") == "production" and IS_VERCEL:
-        raise RuntimeError("❌ Could not establish connection to the database (Vercel serverless).")
+    DB_AVAILABLE = False
+    DB_UNAVAILABLE_REASON = "Could not establish connection to any configured database."
 
-    # Keep legacy behavior for non-serverless production environments.
-    if os.getenv("ENVIRONMENT") == "production":
-        logger.warning("⚠️  No database connection established, but continuing in production mode")
-        from sqlalchemy import create_engine
-        engine = create_engine("sqlite:///:memory:")  # In-memory SQLite as fallback
-        current_db_type = "dummy"
-    else:
-        raise RuntimeError(
-            "❌ Could not establish connection to any database. Please check your database configuration."
-        )
+    # Keep process bootable so health and non-DB endpoints can still respond.
+    logger.error("❌ %s", DB_UNAVAILABLE_REASON)
+    if os.getenv("ENVIRONMENT") == "production" and IS_VERCEL:
+        logger.error("Running on Vercel with temporary in-memory fallback until DATABASE_URL is fixed")
+
+    from sqlalchemy import create_engine
+    engine = create_engine("sqlite:///:memory:")  # Temporary fallback engine
+    current_db_type = "dummy"
 
 # Create SessionLocal class
 SessionLocal = sessionmaker(
@@ -128,6 +127,14 @@ Base = declarative_base()
 
 def get_db() -> Generator[Session, None, None]:
     """Database session dependency for FastAPI with enhanced error handling."""
+    global DB_AVAILABLE, DB_UNAVAILABLE_REASON
+
+    if not DB_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Database unavailable: {DB_UNAVAILABLE_REASON}"
+        )
+
     db = SessionLocal()
     try:
         # Test connection before yielding
@@ -146,6 +153,8 @@ def get_db() -> Generator[Session, None, None]:
                     engine = create_database_engine(settings.DATABASE_URL)
                     db = SessionLocal()
                     db.execute(text("SELECT 1"))
+                    DB_AVAILABLE = True
+                    DB_UNAVAILABLE_REASON = ""
                     yield db
                 else:
                     raise HTTPException(status_code=503, detail="Database connection failed")
@@ -176,9 +185,9 @@ def get_db() -> Generator[Session, None, None]:
 # Final connection test and table verification
 def verify_database_connection():
     """Verify database connection in a separate thread to avoid blocking startup"""
-    # Skip verification in production if we're using a dummy database
+    # Skip verification when running on fallback engine.
     if current_db_type == "dummy":
-        logger.info("Skipping database verification for dummy database in production")
+        logger.info("Skipping database verification for dummy fallback database")
         return
         
     try:
