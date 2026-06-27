@@ -31,59 +31,62 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Check if GOOGLE_API_KEY is available with enhanced validation
-if (!process.env.GOOGLE_API_KEY) {
-  console.error("❌ GOOGLE_API_KEY is missing. Please set it in your Cloud Run environment variables.");
-  console.error("This can be done in Google Cloud Console under Cloud Run service configuration.");
-  console.error("Environment Variables section: GOOGLE_API_KEY=your_api_key");
-  process.exit(1);
+function getValidatedApiKey() {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) return { ok: false, error: "GOOGLE_API_KEY is missing" };
+  if (apiKey.length < 20 || !apiKey.startsWith("AIza")) {
+    return { ok: false, error: "GOOGLE_API_KEY appears to be invalid" };
+  }
+  return { ok: true, apiKey };
 }
 
-// Validate API key format
-const apiKey = process.env.GOOGLE_API_KEY;
-if (apiKey.length < 20 || !apiKey.startsWith('AIza')) {
-  console.error("❌ GOOGLE_API_KEY appears to be invalid. Please check the API key format.");
-  console.error("Expected format: AIzaSy... (should start with 'AIza' and be at least 20 characters)");
-  process.exit(1);
+function createModel() {
+  const keyCheck = getValidatedApiKey();
+  if (!keyCheck.ok) {
+    throw new Error(keyCheck.error);
+  }
+
+  const genAI = new GoogleGenerativeAI(keyCheck.apiKey);
+  const modelVersion = process.env.GEMINI_MODEL_VERSION || "gemini-3-flash-preview";
+
+  const model = genAI.getGenerativeModel({
+    model: modelVersion,
+    generationConfig: {
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 4096,
+    },
+    safetySettings: [
+      {
+        category: "HARM_CATEGORY_HARASSMENT",
+        threshold: "BLOCK_MEDIUM_AND_ABOVE",
+      },
+      {
+        category: "HARM_CATEGORY_HATE_SPEECH",
+        threshold: "BLOCK_MEDIUM_AND_ABOVE",
+      },
+      {
+        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        threshold: "BLOCK_MEDIUM_AND_ABOVE",
+      },
+      {
+        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+        threshold: "BLOCK_MEDIUM_AND_ABOVE",
+      },
+    ],
+  });
+
+  console.log(`[${new Date().toISOString()}] Initialized Gemini model: ${modelVersion}`);
+  return { modelVersion, model };
 }
 
-console.log(`✅ Google API Key validated: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
-console.log(`🔹 API Key length: ${apiKey.length} characters`);
-
-// Initialize Google Generative AI with enhanced configuration
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-
-// Use the configured model version with fallback to latest
-const modelVersion = process.env.GEMINI_MODEL_VERSION || "gemini-3-flash-preview";
-const model = genAI.getGenerativeModel({ 
-  model: modelVersion,
-  generationConfig: {
-    temperature: 0.7,
-    topK: 40,
-    topP: 0.95,
-    maxOutputTokens: 4096,
-  },
-  safetySettings: [
-    {
-      category: "HARM_CATEGORY_HARASSMENT",
-      threshold: "BLOCK_MEDIUM_AND_ABOVE",
-    },
-    {
-      category: "HARM_CATEGORY_HATE_SPEECH", 
-      threshold: "BLOCK_MEDIUM_AND_ABOVE",
-    },
-    {
-      category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-      threshold: "BLOCK_MEDIUM_AND_ABOVE",
-    },
-    {
-      category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-      threshold: "BLOCK_MEDIUM_AND_ABOVE",
-    },
-  ],
-});
-
-console.log(`[${new Date().toISOString()}] 🔹 Initialized Gemini model: ${modelVersion} with enhanced configuration`);
+let cachedModel = null;
+function getModel() {
+  if (cachedModel) return cachedModel;
+  cachedModel = createModel();
+  return cachedModel;
+}
 
 // Enhanced health check endpoints for Cloud Run
 app.get("/", (req, res) => {
@@ -478,6 +481,7 @@ Your main goal is to be genuinely helpful like a knowledgeable friend, not rigid
 
 User query: ${query}`;
 
+    const { model } = getModel();
     const result = await model.generateContent(prompt);
     const response = result.response;
     const rawText = response.text();
@@ -626,6 +630,7 @@ app.post("/", async (req, res) => {
     console.log(`[${new Date().toISOString()}] 🔹 [${requestId}] Prompt preview: "${prompt.substring(0, 200)}..."`);
     
     const startTime = Date.now();
+    const { model } = getModel();
     const result = await model.generateContent(prompt);
     const response = result.response;
     const summary = response.text();
@@ -699,9 +704,14 @@ app.post("/parse-query", async (req, res) => {
       `[${new Date().toISOString()}] ❌ Failed to process query:`,
       error
     );
-    res
-      .status(500)
-      .json({ error: "Internal server error", details: error.message });
+    if (error && error.message && (error.message.includes("API_KEY") || error.message.includes("authentication"))) {
+      return res.status(503).json({
+        error: "AI service is not configured or authentication failed.",
+        details: error.message,
+        type: "authentication_error",
+      });
+    }
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 
@@ -716,10 +726,16 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Start the server - Cloud Run sets PORT environment variable
-const PORT = process.env.PORT || 8080;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Peyechi Gemini AI API running on http://0.0.0.0:${PORT}`);
-  console.log(`[${new Date().toISOString()}] 🔹 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`[${new Date().toISOString()}] 🔹 Google API Key: ${process.env.GOOGLE_API_KEY ? 'Configured' : 'Missing'}`);
-});
+// Start the server only when run directly (Cloud Run / local). On Vercel we export the app.
+if (require.main === module) {
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Peyechi Gemini AI API running on http://0.0.0.0:${PORT}`);
+    console.log(`[${new Date().toISOString()}] 🔹 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(
+      `[${new Date().toISOString()}] 🔹 Google API Key: ${process.env.GOOGLE_API_KEY ? "Configured" : "Missing"}`
+    );
+  });
+}
+
+module.exports = app;

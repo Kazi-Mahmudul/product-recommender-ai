@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
+IS_VERCEL = os.getenv("VERCEL") == "1"
+
 def create_database_engine(database_url: str, is_fallback: bool = False):
     """Create database engine with appropriate configuration"""
     # Handle postgres:// to postgresql:// URL scheme issue for SQLAlchemy
@@ -44,11 +46,15 @@ def create_database_engine(database_url: str, is_fallback: bool = False):
     engine_name = "fallback" if is_fallback else "primary"
     logger.info(f"Creating {engine_name} database engine for: {sqlalchemy_url.split('@')[0]}@***")
     
+    # Serverless runtimes should keep pools small to avoid exhausting DB connections.
+    pool_size = 5 if IS_VERCEL else 40
+    max_overflow = 0 if IS_VERCEL else 30
+
     return create_engine(
         sqlalchemy_url,
         echo=settings.DEBUG,  # Only enable SQL logging in debug mode
-        pool_size=40,  # Increased for high concurrency (approx 40 connections per container)
-        max_overflow=30,  # Allow burst of 30 extra connections
+        pool_size=pool_size,
+        max_overflow=max_overflow,
         pool_recycle=1800,  # Recycle connections every 30 mins to prevent stale connection errors
         pool_pre_ping=True,  # Enable connection health checks
         pool_timeout=60,  # Increased timeout to wait for a connection
@@ -95,15 +101,20 @@ if engine is None and hasattr(settings, 'LOCAL_DATABASE_URL') and settings.LOCAL
 
 # Final check
 if engine is None:
-    # In production environments, we might want to continue even without database
+    # In production, fail fast on serverless to avoid silently running against a dummy DB.
+    if os.getenv("ENVIRONMENT") == "production" and IS_VERCEL:
+        raise RuntimeError("❌ Could not establish connection to the database (Vercel serverless).")
+
+    # Keep legacy behavior for non-serverless production environments.
     if os.getenv("ENVIRONMENT") == "production":
         logger.warning("⚠️  No database connection established, but continuing in production mode")
-        # Create a dummy engine for now
         from sqlalchemy import create_engine
         engine = create_engine("sqlite:///:memory:")  # In-memory SQLite as fallback
         current_db_type = "dummy"
     else:
-        raise RuntimeError("❌ Could not establish connection to any database. Please check your database configuration.")
+        raise RuntimeError(
+            "❌ Could not establish connection to any database. Please check your database configuration."
+        )
 
 # Create SessionLocal class
 SessionLocal = sessionmaker(
@@ -205,7 +216,10 @@ def verify_database_connection():
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
 
-# Start database verification in a separate thread to avoid blocking startup
-import threading
-verification_thread = threading.Thread(target=verify_database_connection, daemon=True)
-verification_thread.start()
+# Start database verification in a separate thread to avoid blocking startup.
+# Skip on serverless runtimes (Vercel) where background threads are not reliable/useful.
+if not IS_VERCEL:
+    import threading
+
+    verification_thread = threading.Thread(target=verify_database_connection, daemon=True)
+    verification_thread.start()

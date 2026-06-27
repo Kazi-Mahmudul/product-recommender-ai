@@ -80,10 +80,6 @@ def validate_configuration():
     if not settings.SECRET_KEY or settings.SECRET_KEY == "your-secret-key-change-in-production":
         issues.append("SECRET_KEY is not properly configured for production")
     
-    # Check Google API key
-    if not os.getenv("GOOGLE_API_KEY"):
-        issues.append("GOOGLE_API_KEY is not set")
-    
     if issues:
         logger.error("Configuration validation failed:")
         for issue in issues:
@@ -125,10 +121,13 @@ async def startup_event():
     
     # Initialize scheduler immediately (lightweight)
     try:
-        # Try to start the scheduler
-        scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
-        scheduler.start()
-        logger.info("✅ Scheduler started successfully")
+        # Avoid long-running background schedulers on serverless platforms like Vercel.
+        if os.getenv("VERCEL") == "1":
+            logger.info("Skipping scheduler startup on Vercel serverless runtime")
+        else:
+            scheduler.add_job(cleanup_expired_sessions, "interval", hours=1)  # Run every hour
+            scheduler.start()
+            logger.info("✅ Scheduler started successfully")
     except Exception as e:
         logger.error(f"Failed to start scheduler: {e}")
 
