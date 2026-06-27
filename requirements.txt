@@ -1,6 +1,6 @@
 # Core Dependencies (install first to avoid conflicts)
-numpy==1.24.3
-pandas==2.0.3
+numpy==1.26.4
+pandas==2.2.2
 
 # Web Framework and API
 fastapi>=0.68.0
@@ -19,7 +19,7 @@ sentry-sdk[fastapi]>=1.38.0
 
 # Data Processing
 rapidfuzz>=3.0.0
-scipy>=1.10.0,<1.12.0
+scipy>=1.11.4,<1.14.0
 
 # Web Scraping
 requests==2.31.0
