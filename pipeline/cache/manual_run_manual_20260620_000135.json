@@ -1,0 +1,123 @@
+{
+  "pipeline_run_id": "manual_20260620_000135",
+  "started_at": "2026-06-20T00:01:35.830517",
+  "max_pages": 10,
+  "test_mode": false,
+  "mobile_scraping": {
+    "status": "success",
+    "pipeline_run_id": "manual_20260620_000135",
+    "execution_time_seconds": 22.64,
+    "timestamp": "2026-06-20T00:01:58.469201",
+    "test_mode": false,
+    "max_pages": 10,
+    "scraping_details": {
+      "status": "success",
+      "pipeline_run_id": "manual_20260620_000135",
+      "pages_checked": 10,
+      "pages_scraped": 10,
+      "pages_with_products": 10,
+      "detection_method": "max_pages",
+      "avg_products_per_page": 100.0,
+      "total_links_found": 1000,
+      "new_links_processed": 0,
+      "existing_links_checked": 0,
+      "phones_skipped": 1000,
+      "efficiency_percentage": 100.0,
+      "products_processed": 0,
+      "products_inserted": 0,
+      "products_updated": 0,
+      "errors": [],
+      "error_count": 0,
+      "batch_size": 50,
+      "total_batches": 0
+    },
+    "products_processed": 0,
+    "products_inserted": 0,
+    "products_updated": 0,
+    "pages_scraped": 10
+  },
+  "processor_scraping": {
+    "status": "success",
+    "pipeline_run_id": "manual_20260620_000135",
+    "source": "cached",
+    "processors_count": 200,
+    "execution_time_seconds": 1.44,
+    "timestamp": "2026-06-20T00:01:59.916611",
+    "test_mode": false,
+    "cache_age_days": 0.3,
+    "cache_valid": true,
+    "fallback_used": false,
+    "next_refresh_due": "2026-07-09T16:39:44.343456"
+  },
+  "processing": {
+    "status": "success",
+    "processing_method": "integrated",
+    "records_processed": 1000,
+    "records_rejected": 0,
+    "quality_score": 89.08,
+    "quality_passed": true,
+    "cleaning_issues_count": 0,
+    "features_generated": 118,
+    "execution_time_seconds": 1.69,
+    "completeness": 0.891,
+    "records_inserted": 0,
+    "records_updated": 999,
+    "database_operations": {
+      "transaction_id": "80a51f4d-c4c8-4621-adc5-b2457e0522a5",
+      "batch_operations": 20,
+      "rollback_occurred": false
+    },
+    "database_loading_time": 230.64,
+    "pipeline_run_id": "manual_20260620_000135",
+    "timestamp": "2026-06-20T00:05:54.340299"
+  },
+  "loading": {
+    "status": "success",
+    "method": "validation_only",
+    "pipeline_run_id": "manual_20260620_000135",
+    "timestamp": "2026-06-20T00:05:54.341299",
+    "validation": {
+      "status": "success",
+      "validation_type": "processing_and_loading",
+      "records_processed": 1000,
+      "records_inserted": 0,
+      "records_updated": 999,
+      "total_loaded": 999
+    },
+    "records_processed": 1000,
+    "records_inserted": 0,
+    "records_updated": 999,
+    "total_loaded": 999,
+    "consistency_validation": {
+      "status": "success",
+      "health_score": 90,
+      "checks": {
+        "total_records": 5749,
+        "recent_updates": 1000,
+        "duplicate_names": 1,
+        "completeness": {
+          "name": 100.0,
+          "price": 100.0,
+          "brand": 100.0
+        }
+      },
+      "issues": [
+        "1 duplicate names found"
+      ],
+      "is_healthy": true
+    }
+  },
+  "top_searched": {
+    "status": "success",
+    "method": "google_trends",
+    "phones_updated": 10,
+    "execution_time_seconds": 53.29,
+    "message": "Successfully updated top 10 searched phones",
+    "pipeline_run_id": "manual_20260620_000135",
+    "timestamp": "2026-06-20T00:06:49.066436",
+    "test_mode": false
+  },
+  "finished_at": "2026-06-20T00:06:49.067449",
+  "execution_time_seconds": 313.24,
+  "overall_status": "success"
+}

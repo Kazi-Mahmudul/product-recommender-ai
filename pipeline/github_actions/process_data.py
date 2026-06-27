@@ -69,12 +69,11 @@ def get_scraped_data_from_database(pipeline_run_id: str) -> Optional[object]:
         # Connect to database
         conn = psycopg2.connect(config.database_url)
         
-        # Query for recently scraped data
-        query = """
+        # First try to get rows for this exact pipeline run
+        pipeline_query = """
         SELECT * FROM phones 
-        WHERE updated_at >= NOW() - INTERVAL '1 day'
-        OR created_at >= NOW() - INTERVAL '1 day'
-        ORDER BY updated_at DESC, created_at DESC
+        WHERE pipeline_run_id = %s
+        ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
         """
         
         # Debug: Check total records and recent records
@@ -101,18 +100,24 @@ def get_scraped_data_from_database(pipeline_run_id: str) -> Optional[object]:
             logger.info(f"   Timestamp range - Updated: {timestamp_info[2]} to {timestamp_info[0]}")
             logger.info(f"   Timestamp range - Created: {timestamp_info[3]} to {timestamp_info[1]}")
         
-        df = pd.read_sql_query(query, conn)
-        
-        # If no recent records found, try fallback query by pipeline_run_id
+        df = pd.read_sql_query(pipeline_query, conn, params=[pipeline_run_id])
+        logger.info(f"📊 Pipeline run query retrieved {len(df)} records for pipeline_run_id: {pipeline_run_id}")
+
+        # Fallback to recently scraped data only if run-specific query is empty
         if len(df) == 0:
-            logger.warning("⚠️ No records found with recent timestamps, trying fallback query by pipeline_run_id...")
+            logger.warning("⚠️ No records found for pipeline_run_id, trying fallback query by recent timestamps...")
             fallback_query = """
             SELECT * FROM phones 
-            WHERE pipeline_run_id = %s
-            ORDER BY scraped_at DESC
+            WHERE updated_at >= NOW() - INTERVAL '1 day'
+            OR created_at >= NOW() - INTERVAL '1 day'
+            ORDER BY updated_at DESC, created_at DESC
             """
-            df = pd.read_sql_query(fallback_query, conn, params=[pipeline_run_id])
-            logger.info(f"📊 Fallback query retrieved {len(df)} records for pipeline_run_id: {pipeline_run_id}")
+            df = pd.read_sql_query(fallback_query, conn)
+            logger.info(f"📊 Fallback recent query retrieved {len(df)} records")
+        
+        if len(df) > 0 and 'price' in df.columns:
+            missing_price_count = int(df['price'].isna().sum())
+            logger.info(f"📊 Retrieved data price health: {len(df) - missing_price_count}/{len(df)} have price values")
         
         conn.close()
         
@@ -122,6 +127,68 @@ def get_scraped_data_from_database(pipeline_run_id: str) -> Optional[object]:
     except Exception as e:
         logger.error(f"❌ Failed to retrieve data from database: {str(e)}")
         return None
+
+
+def backfill_missing_prices(df: pd.DataFrame, timeout: int = 20, max_backfill_rows: int = 200) -> pd.DataFrame:
+    """
+    Backfill missing prices from product URLs to prevent full-run rejection.
+    """
+    logger = setup_logging()
+    
+    if 'price' not in df.columns or 'url' not in df.columns:
+        return df
+    
+    working_df = df.copy()
+    missing_mask = working_df['price'].isna() | (
+        working_df['price']
+        .astype(str)
+        .str.lower()
+        .str.strip()
+        .isin(['unknown', 'none', 'null', 'n/a', ''])
+    )
+    
+    missing_count = int(missing_mask.sum())
+    if missing_count == 0:
+        return working_df
+
+    if missing_count > max_backfill_rows:
+        logger.warning(
+            f"Skipping price backfill for {missing_count} rows (limit: {max_backfill_rows})"
+        )
+        return working_df
+    
+    logger.warning(f"⚠️ Found {missing_count} rows with missing price. Attempting URL-based price backfill...")
+    
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        from pipeline.scrapers.mobile_scrapers import extract_price, headers
+    except Exception as e:
+        logger.error(f"❌ Could not load scraper dependencies for price backfill: {str(e)}")
+        return working_df
+    
+    session = requests.Session()
+    updated = 0
+    
+    for idx in working_df[missing_mask].index:
+        url = working_df.at[idx, 'url']
+        if pd.isna(url) or not str(url).strip():
+            continue
+        
+        try:
+            res = session.get(str(url).strip(), headers=headers, verify=False, timeout=timeout)
+            res.raise_for_status()
+            soup = BeautifulSoup(res.text, 'html.parser')
+            extracted_price = extract_price(soup)
+            
+            if extracted_price and str(extracted_price).strip().lower() not in ['unknown', 'none', 'null', 'n/a', '']:
+                working_df.at[idx, 'price'] = str(extracted_price).strip()
+                updated += 1
+        except Exception:
+            continue
+    
+    logger.info(f"✅ Price backfill updated {updated}/{missing_count} rows")
+    return working_df
 
 # Feature engineering functions (embedded from clean_transform_pipeline.py)
 def convert_to_gb(value):
@@ -765,6 +832,9 @@ def process_data_with_pipeline(df: object, processor_df: Optional[object] = None
         start_time = time.time()
         
         logger.info("🔧 Starting integrated data processing...")
+        
+        # Recover missing prices before validation to avoid full-run rejection.
+        df = backfill_missing_prices(df)
         
         # Validate data first - reject phones with missing critical fields
         logger.info("🔍 Validating phone data...")
